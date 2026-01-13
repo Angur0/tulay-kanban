@@ -102,9 +102,15 @@ const elements = {
     newBoardName: document.getElementById('newBoardName'),
     cancelCreateBoardBtn: document.getElementById('cancelCreateBoardBtn'),
     confirmCreateBoardBtn: document.getElementById('confirmCreateBoardBtn'),
+    // Create List Modal
+    createListModal: document.getElementById('createListModal'),
+    newListTitle: document.getElementById('newListTitle'),
+    cancelCreateListBtn: document.getElementById('cancelCreateListBtn'),
+    confirmCreateListBtn: document.getElementById('confirmCreateListBtn'),
     // Delete Board Modal
     deleteBoardModal: document.getElementById('deleteBoardModal'),
     deleteBoardName: document.getElementById('deleteBoardName'),
+    deleteBoardConfirmInput: document.getElementById('deleteBoardConfirmInput'),
     cancelDeleteBoardBtn: document.getElementById('cancelDeleteBoardBtn'),
     confirmDeleteBoardBtn: document.getElementById('confirmDeleteBoardBtn'),
     // Delete List Modal
@@ -297,8 +303,8 @@ function renderBoard() {
     }
 
     boardEl.innerHTML = columns.map((col, index) => `
-        <div class="column flex flex-col w-80 flex-shrink-0 h-full rounded-xl transition-colors" data-column-id="${col.id}" draggable="true">
-            <div class="flex items-center justify-between mb-3 px-1">
+        <div class="column flex flex-col w-80 flex-shrink-0 h-full rounded-xl transition-colors" data-column-id="${col.id}">
+            <div class="column-drag-handle flex items-center justify-between mb-3 px-1" draggable="true">
                 <div class="flex items-center gap-2 cursor-grab active:cursor-grabbing">
                     <span class="material-symbols-outlined text-[#8a98a8] text-[18px]">drag_indicator</span>
                     <span class="flex items-center justify-center size-5 rounded bg-${col.color || 'gray-100'} dark:bg-gray-800 text-[10px] font-bold text-gray-600 dark:text-gray-300" 
@@ -312,6 +318,11 @@ function renderBoard() {
                         <span class="material-symbols-outlined text-[18px]">more_horiz</span>
                     </button>
                     <div class="column-menu hidden absolute right-0 top-8 bg-white dark:bg-[#151e29] rounded-lg shadow-xl border border-[#e5e7eb] dark:border-[#1e2936] py-1 w-48 z-10" data-column-id="${col.id}">
+                        <button onclick="createCardFromMenu('${col.id}')" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-[#111418] dark:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] transition-colors text-left">
+                            <span class="material-symbols-outlined text-[18px]">add</span>
+                            Create card
+                        </button>
+                        <div class="border-t border-[#e5e7eb] dark:border-[#1e2936] my-1"></div>
                         <button onclick="moveColumnLeft('${col.id}')" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-[#111418] dark:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] transition-colors text-left" ${index === 0 ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
                             <span class="material-symbols-outlined text-[18px]">arrow_back</span>
                             Move left
@@ -350,12 +361,15 @@ function renderBoard() {
     const addListBtn = document.createElement('div');
     addListBtn.className = 'flex flex-col w-80 flex-shrink-0 h-full';
     addListBtn.innerHTML = `
-        <button onclick="createColumn()" class="flex items-center gap-2 px-4 py-3 bg-[#f1f3f5] dark:bg-[#1a232e] hover:bg-[#e6e8eb] dark:hover:bg-[#253040] rounded-xl text-[#5c6b7f] dark:text-gray-400 font-medium transition-colors w-full text-left">
+        <button id="addListBtn" class="flex items-center gap-2 px-4 py-3 bg-[#f1f3f5] dark:bg-[#1a232e] hover:bg-[#e6e8eb] dark:hover:bg-[#253040] rounded-xl text-[#5c6b7f] dark:text-gray-400 font-medium transition-colors w-full text-left">
             <span class="material-symbols-outlined">add</span>
             Add another list
         </button>
     `;
     boardEl.appendChild(addListBtn);
+    
+    // Add event listener for the add list button
+    document.getElementById('addListBtn').addEventListener('click', showCreateListModal);
 
     // Re-attach event listeners for the new DOM elements
     attachBoardEventListeners();
@@ -607,9 +621,22 @@ async function loadColumns() {
     }
 }
 
+function showCreateListModal() {
+    elements.createListModal.classList.remove('hidden');
+    elements.newListTitle.value = '';
+    elements.newListTitle.focus();
+}
+
+function hideCreateListModal() {
+    elements.createListModal.classList.add('hidden');
+    elements.newListTitle.value = '';
+}
+
 async function createColumn() {
-    const title = prompt("Enter list title:");
+    const title = elements.newListTitle.value.trim();
     if (!title) return;
+
+    hideCreateListModal();
 
     try {
         const response = await authFetch(`${API_URL}/api/boards/${activeBoardId}/columns`, {
@@ -757,6 +784,11 @@ function editColumnTitle(columnId) {
             titleEl.blur();
         }
     }, { once: true });
+}
+
+function createCardFromMenu(columnId) {
+    closeAllColumnMenus();
+    showInlineAddForm(columnId);
 }
 
 function closeAllColumnMenus() {
@@ -955,11 +987,21 @@ async function deleteBoard(boardId) {
 function showDeleteBoardModal(boardId, boardName) {
     boardToDeleteId = boardId;
     elements.deleteBoardName.textContent = boardName;
+    elements.deleteBoardConfirmInput.value = '';
+    elements.confirmDeleteBoardBtn.disabled = true;
     elements.deleteBoardModal.classList.remove('hidden');
+    
+    // Store board name for validation
+    elements.deleteBoardConfirmInput.dataset.boardName = boardName;
+    
+    // Focus input
+    setTimeout(() => elements.deleteBoardConfirmInput.focus(), 100);
 }
 
 function hideDeleteBoardModal() {
     elements.deleteBoardModal.classList.add('hidden');
+    elements.deleteBoardConfirmInput.value = '';
+    elements.confirmDeleteBoardBtn.disabled = true;
     boardToDeleteId = null;
 }
 
@@ -1704,13 +1746,14 @@ function handleDrop(e) {
 let draggedColumn = null;
 
 function handleColumnDragStart(e) {
-    // Only allow dragging from the header area (not from task cards)
-    if (!e.target.closest('.column-header') && !e.target.classList.contains('column')) {
+    // Find the column from the dragged header
+    const header = e.target.closest('.column-drag-handle');
+    if (!header) {
         e.preventDefault();
         return;
     }
     
-    draggedColumn = e.target.closest('.column');
+    draggedColumn = header.closest('.column');
     if (!draggedColumn) {
         e.preventDefault();
         return;
@@ -1877,8 +1920,23 @@ function initEventListeners() {
         }
     });
 
+    // List Creation
+    elements.cancelCreateListBtn.addEventListener('click', hideCreateListModal);
+    elements.confirmCreateListBtn.addEventListener('click', createColumn);
+    
+    // Allow Enter key to create list
+    elements.newListTitle.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            createColumn();
+        }
+    });
+
     // Board Deletion
     elements.cancelDeleteBoardBtn.addEventListener('click', hideDeleteBoardModal);
+    elements.deleteBoardConfirmInput.addEventListener('input', () => {
+        const boardName = elements.deleteBoardConfirmInput.dataset.boardName;
+        elements.confirmDeleteBoardBtn.disabled = elements.deleteBoardConfirmInput.value !== boardName;
+    });
     elements.confirmDeleteBoardBtn.addEventListener('click', async () => {
         if (boardToDeleteId) {
             await deleteBoard(boardToDeleteId);
@@ -1892,6 +1950,13 @@ function initEventListeners() {
     elements.createBoardModal.addEventListener('click', (e) => {
         if (e.target === elements.createBoardModal || e.target.classList.contains('bg-gray-900/50')) {
             hideCreateBoardModal();
+        }
+    });
+
+    // Close create list modal on outside click
+    elements.createListModal.addEventListener('click', (e) => {
+        if (e.target === elements.createListModal || e.target.classList.contains('bg-gray-900/50')) {
+            hideCreateListModal();
         }
     });
 
@@ -1914,6 +1979,8 @@ function initEventListeners() {
         }
     });
 
+
+
     // Escape key
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
@@ -1923,6 +1990,12 @@ function initEventListeners() {
                 hideDeleteModal();
             } else if (!elements.deleteBoardModal.classList.contains('hidden')) {
                 hideDeleteBoardModal();
+            } else if (!elements.deleteListModal.classList.contains('hidden')) {
+                hideDeleteListModal();
+            } else if (!elements.createListModal.classList.contains('hidden')) {
+                hideCreateListModal();
+            } else if (!elements.createBoardModal.classList.contains('hidden')) {
+                hideCreateBoardModal();
             } else if (!elements.createBoardModal.classList.contains('hidden')) {
                 hideCreateBoardModal();
             } else {
@@ -1988,18 +2061,22 @@ function attachBoardEventListeners() {
         });
     });
 
-    // Drag and drop on columns
+    // Drag and drop on columns (for tasks)
     document.querySelectorAll('.column').forEach(column => {
         column.addEventListener('dragover', handleDragOver);
         column.addEventListener('dragenter', handleDragEnter);
         column.addEventListener('dragleave', handleDragLeave);
         column.addEventListener('drop', handleDrop);
         
-        // Column drag and drop for reordering
-        column.addEventListener('dragstart', handleColumnDragStart);
-        column.addEventListener('dragend', handleColumnDragEnd);
+        // Column reordering drag indicators
         column.addEventListener('dragover', handleColumnDragOver);
         column.addEventListener('drop', handleColumnDrop);
+    });
+    
+    // Column drag and drop for reordering (only from header)
+    document.querySelectorAll('.column-drag-handle').forEach(handle => {
+        handle.addEventListener('dragstart', handleColumnDragStart);
+        handle.addEventListener('dragend', handleColumnDragEnd);
     });
 }
 // ===== End of Event Listeners =====

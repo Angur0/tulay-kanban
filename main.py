@@ -366,6 +366,17 @@ def create_board(board_in: BoardCreate, current_user: models.User = Depends(get_
     
     return new_board
 
+@app.delete("/api/boards/{board_id}")
+def delete_board(board_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    board = db.query(models.Board).filter(models.Board.id == board_id).first()
+    if not board:
+        raise HTTPException(status_code=404, detail="Board not found")
+    
+    # Cascade delete is configured in the model, so just delete the board
+    db.delete(board)
+    db.commit()
+    return {"message": "Board deleted successfully"}
+
 # ===== Column Routes =====
 @app.get("/api/boards/{board_id}/columns")
 def get_board_columns(board_id: str, db: Session = Depends(get_db)):

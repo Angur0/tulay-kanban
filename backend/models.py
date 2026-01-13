@@ -52,6 +52,7 @@ class Board(Base):
     workspace = relationship("Workspace", back_populates="boards")
     tasks = relationship("Task", back_populates="board", cascade="all, delete-orphan")
     columns = relationship("BoardColumn", back_populates="board", cascade="all, delete-orphan")
+    activities = relationship("Activity", back_populates="board")
 
 class BoardColumn(Base):
     __tablename__ = "board_columns"
@@ -91,7 +92,7 @@ class Activity(Base):
     __tablename__ = "activities"
 
     id = Column(String, primary_key=True, default=generate_uuid)
-    board_id = Column(String, ForeignKey("boards.id"))
+    board_id = Column(String, ForeignKey("boards.id", ondelete="SET NULL"), nullable=True)
     user_id = Column(String, ForeignKey("users.id"), nullable=True)
     event_type = Column(String, nullable=False)  # TASK_CREATED, TASK_UPDATED, etc.
     task_id = Column(String, nullable=True)
@@ -99,5 +100,5 @@ class Activity(Base):
     data = Column(JSON, default={})
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
 
-    board = relationship("Board")
+    board = relationship("Board", back_populates="activities")
     user = relationship("User")
