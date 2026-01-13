@@ -19,3 +19,17 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
 
+  db:
+    image: postgres:15
+    container_name: postgres
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: kanban
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

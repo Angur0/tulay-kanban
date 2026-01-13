@@ -139,19 +139,22 @@
 
             <!-- Navigation -->
             <nav class="flex flex-col gap-1">
-                <a class="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#eff1f3] dark:bg-[#1e2936] text-[#111418] dark:text-white group transition-colors"
+                <a id="navBoard"
+                    class="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#eff1f3] dark:bg-[#1e2936] text-[#111418] dark:text-white group transition-colors"
                     href="#">
                     <span
                         class="material-symbols-outlined text-[#5c6b7f] dark:text-gray-400 group-hover:text-primary transition-colors">dashboard</span>
                     <span class="text-sm font-medium">Board</span>
                 </a>
-                <a class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors group"
+                <a id="navMyTasks"
+                    class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors group"
                     href="#">
                     <span
                         class="material-symbols-outlined group-hover:text-primary transition-colors">check_circle</span>
                     <span class="text-sm font-medium">My Tasks</span>
                 </a>
-                <a class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors group"
+                <a id="navActivity"
+                    class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors group"
                     href="#">
                     <span class="material-symbols-outlined group-hover:text-primary transition-colors">history</span>
                     <span class="text-sm font-medium">Activity</span>
@@ -183,12 +186,17 @@
             </div>
         </div>
 
-        <!-- Theme Toggle & Info -->
-        <div class="p-4 border-t border-[#e5e7eb] dark:border-[#1e2936]">
+        <!-- Theme Toggle, Logout & Info -->
+        <div class="p-4 border-t border-[#e5e7eb] dark:border-[#1e2936] flex flex-col gap-1">
             <button id="themeToggle"
                 class="flex items-center gap-3 px-3 py-2 w-full rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors">
                 <span class="material-symbols-outlined" id="themeIcon">dark_mode</span>
                 <span class="text-sm font-medium" id="themeText">Dark Mode</span>
+            </button>
+            <button id="logoutBtn"
+                class="flex items-center gap-3 px-3 py-2 w-full rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-[#5c6b7f] dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors">
+                <span class="material-symbols-outlined">logout</span>
+                <span class="text-sm font-medium">Logout</span>
             </button>
         </div>
     </aside>
@@ -244,7 +252,8 @@
         </header>
 
         <!-- Kanban Board Area -->
-        <div class="flex-1 overflow-x-auto overflow-y-hidden bg-[#fbfcfd] dark:bg-[#0d141c] p-8 custom-scrollbar">
+        <div id="boardView"
+            class="flex-1 overflow-x-auto overflow-y-hidden bg-[#fbfcfd] dark:bg-[#0d141c] p-8 custom-scrollbar">
             <div class="flex h-full gap-6 min-w-[900px]" id="board">
 
                 <!-- Column 1: To Do -->
@@ -328,6 +337,49 @@
                     </button>
                 </div>
 
+            </div>
+        </div>
+
+        <!-- Activity View Area -->
+        <div id="activityView" class="hidden flex-1 flex flex-col overflow-hidden bg-[#fbfcfd] dark:bg-[#0d141c]">
+            <div
+                class="flex-shrink-0 px-8 py-4 border-b border-[#e5e7eb] dark:border-[#1e2936] flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-[#111418] dark:text-white">Kafka Event Stream</h3>
+                <div class="flex items-center gap-2">
+                    <span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span
+                        class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Live
+                        Feed</span>
+                </div>
+            </div>
+            <div class="flex-1 overflow-y-auto custom-scrollbar p-8">
+                <div id="activityLog" class="max-w-4xl mx-auto flex flex-col gap-4">
+                    <div class="flex flex-col items-center justify-center py-20 text-[#8a98a8]">
+                        <span class="material-symbols-outlined text-4xl mb-4 opacity-30">history</span>
+                        <p class="text-sm">No activity recorded yet</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- My Tasks View Area -->
+        <div id="myTasksView" class="hidden flex-1 flex flex-col overflow-hidden bg-[#fbfcfd] dark:bg-[#0d141c]">
+            <div
+                class="flex-shrink-0 px-8 py-4 border-b border-[#e5e7eb] dark:border-[#1e2936] flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-[#111418] dark:text-white">My Assigned Tasks</h3>
+                <div class="flex items-center gap-2">
+                    <span class="size-2 rounded-full bg-primary"></span>
+                    <span class="text-[10px] font-bold text-primary uppercase tracking-wider" id="myTasksCount">0
+                        tasks</span>
+                </div>
+            </div>
+            <div class="flex-1 overflow-y-auto custom-scrollbar p-8">
+                <div id="myTasksList" class="max-w-4xl mx-auto flex flex-col gap-4">
+                    <div class="flex flex-col items-center justify-center py-20 text-[#8a98a8]">
+                        <span class="material-symbols-outlined text-4xl mb-4 opacity-30">check_circle</span>
+                        <p class="text-sm">No tasks assigned to you</p>
+                    </div>
+                </div>
             </div>
         </div>
     </main>
@@ -415,6 +467,15 @@
                                 class="text-[#8a98a8] hover:text-red-500 transition-colors hidden" title="Clear date">
                                 <span class="material-symbols-outlined text-[16px]">close</span>
                             </button>
+                        </div>
+
+                        <!-- Assignee -->
+                        <div class="text-sm text-[#5c6b7f] dark:text-gray-400 py-1">Assignee</div>
+                        <div class="flex items-center">
+                            <select id="panelAssigneeSelect"
+                                class="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="">Unassigned</option>
+                            </select>
                         </div>
                     </div>
 

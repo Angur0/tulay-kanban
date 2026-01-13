@@ -5,10 +5,41 @@
 
 // ===== State Management =====
 const STORAGE_KEY = 'kafka-kanban-tasks';
+const API_URL = window.location.origin;
+const WS_URL = `ws://${window.location.host}/ws`;
+const getWsUrl = (boardId) => `ws://${window.location.host}/ws/${boardId}`;
 
 let tasks = [];
+let globalEvents = [];
+let currentUser = null;
+let activeBoardId = null;
 let currentEditingTask = null;
 let activeInlineForm = null;
+let websocket = null;
+let kafkaConnected = false;
+
+// Authenticated Fetch Wrapper
+async function authFetch(url, options = {}) {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+        window.location.href = '/login';
+        return null;
+    }
+
+    const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        ...options.headers
+    };
+
+    const response = await fetch(url, { ...options, headers });
+    if (response.status === 401) {
+        localStorage.removeItem('access_token');
+        window.location.href = '/login';
+        return null;
+    }
+    return response;
+}
 
 // ===== DOM Elements =====
 const elements = {
@@ -29,11 +60,23 @@ const elements = {
     panelPrioritySelect: document.getElementById('panelPrioritySelect'),
     panelLabelSelect: document.getElementById('panelLabelSelect'),
     panelDueDate: document.getElementById('panelDueDate'),
+    panelAssigneeSelect: document.getElementById('panelAssigneeSelect'),
     panelEventLog: document.getElementById('panelEventLog'),
     closePanelBtn: document.getElementById('closePanelBtn'),
     cancelPanelBtn: document.getElementById('cancelPanelBtn'),
     savePanelBtn: document.getElementById('savePanelBtn'),
     deleteTaskBtn: document.getElementById('deleteTaskBtn'),
+    // Views
+    boardView: document.getElementById('boardView'),
+    activityView: document.getElementById('activityView'),
+    activityLog: document.getElementById('activityLog'),
+    myTasksView: document.getElementById('myTasksView'),
+    myTasksList: document.getElementById('myTasksList'),
+    myTasksCount: document.getElementById('myTasksCount'),
+    // Navigation
+    navBoard: document.getElementById('navBoard'),
+    navActivity: document.getElementById('navActivity'),
+    navMyTasks: document.getElementById('navMyTasks'),
     // Lists
     lists: {
         todo: document.getElementById('todo-list'),
@@ -51,6 +94,9 @@ const elements = {
         done: document.getElementById('headerDoneCount')
     }
 };
+
+let workspaceMembers = [];
+let activeWorkspaceId = null;
 
 // ===== Label Colors =====
 const labelColors = {
@@ -104,13 +150,16 @@ class Task {
 }
 
 // ===== Storage Functions =====
-function loadTasks() {
+async function loadTasks() {
+    if (!activeBoardId) return;
     try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        tasks = stored ? JSON.parse(stored) : getDefaultTasks();
+        const response = await authFetch(`${API_URL}/api/boards/${activeBoardId}/tasks`);
+        if (!response) return; // authFetch handles redirect
+
+        tasks = await response.json();
+        renderBoard();
     } catch (e) {
         console.error('Error loading tasks:', e);
-        tasks = getDefaultTasks();
     }
 }
 
@@ -236,6 +285,161 @@ function renderEmptyState() {
     `;
 }
 
+// ===== View Switching =====
+function switchView(viewName) {
+    // Hide all views first
+    elements.boardView.classList.add('hidden');
+    elements.activityView.classList.add('hidden');
+    elements.myTasksView.classList.add('hidden');
+
+    // Reset all nav styles
+    [elements.navBoard, elements.navActivity, elements.navMyTasks].forEach(nav => {
+        nav.classList.remove('bg-[#eff1f3]', 'dark:bg-[#1e2936]', 'text-[#111418]', 'dark:text-white');
+        nav.classList.add('hover:bg-[#eff1f3]', 'dark:hover:bg-[#1e2936]', 'text-[#5c6b7f]', 'dark:text-gray-400');
+    });
+
+    if (viewName === 'board') {
+        elements.boardView.classList.remove('hidden');
+        elements.navBoard.classList.add('bg-[#eff1f3]', 'dark:bg-[#1e2936]', 'text-[#111418]', 'dark:text-white');
+        elements.navBoard.classList.remove('hover:bg-[#eff1f3]', 'dark:hover:bg-[#1e2936]', 'text-[#5c6b7f]', 'dark:text-gray-400');
+        renderBoard();
+    } else if (viewName === 'activity') {
+        elements.activityView.classList.remove('hidden');
+        elements.navActivity.classList.add('bg-[#eff1f3]', 'dark:bg-[#1e2936]', 'text-[#111418]', 'dark:text-white');
+        elements.navActivity.classList.remove('hover:bg-[#eff1f3]', 'dark:hover:bg-[#1e2936]', 'text-[#5c6b7f]', 'dark:text-gray-400');
+        renderActivityLog();
+    } else if (viewName === 'my-tasks') {
+        elements.myTasksView.classList.remove('hidden');
+        elements.navMyTasks.classList.add('bg-[#eff1f3]', 'dark:bg-[#1e2936]', 'text-[#111418]', 'dark:text-white');
+        elements.navMyTasks.classList.remove('hover:bg-[#eff1f3]', 'dark:hover:bg-[#1e2936]', 'text-[#5c6b7f]', 'dark:text-gray-400');
+        loadMyTasks();
+    }
+}
+
+function renderActivityLog() {
+    if (globalEvents.length === 0) {
+        elements.activityLog.innerHTML = `
+            <div class="flex flex-col items-center justify-center py-20 text-[#8a98a8]">
+                <span class="material-symbols-outlined text-4xl mb-4 opacity-30">history</span>
+                <p class="text-sm">No activity recorded yet</p>
+            </div>
+        `;
+        return;
+    }
+
+    elements.activityLog.innerHTML = globalEvents.map(event => {
+        const typeColors = {
+            'TASK_CREATED': 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20',
+            'TASK_UPDATED': 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20',
+            'TASK_MOVED': 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20',
+            'TASK_DELETED': 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20',
+            'TASK_REORDERED': 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20',
+            'RECEIVED': 'text-primary bg-primary/10'
+        };
+
+        const colorClass = typeColors[event.type] || 'text-gray-600 bg-gray-50';
+
+        return `
+            <div class="flex items-start gap-4 p-4 bg-white dark:bg-[#151e29] rounded-xl border border-[#e5e7eb] dark:border-[#1e2936] shadow-sm hover:border-primary/30 transition-colors">
+                <div class="p-2 rounded-lg ${colorClass} shrink-0">
+                    <span class="material-symbols-outlined text-[20px]">${event.type === 'TASK_DELETED' ? 'delete' : event.type === 'TASK_CREATED' ? 'add_circle' : 'bolt'}</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                        <h4 class="text-sm font-semibold text-[#111418] dark:text-white truncate">
+                            ${event.taskTitle ? escapeHtml(event.taskTitle) : (event.taskId || 'System')}
+                        </h4>
+                        <span class="text-[10px] font-medium text-[#8a98a8] whitespace-nowrap">${event.time}</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${colorClass} uppercase tracking-wider">${event.type.replace('TASK_', '')}</span>
+                        <p class="text-xs text-[#5c6b7f] dark:text-gray-400 truncate">${event.data}</p>
+                    </div>
+                </div>
+                <div class="text-[10px] font-mono text-[#8a98a8] bg-[#f8fafc] dark:bg-[#0d141c] px-2 py-1 rounded border border-[#e5e7eb] dark:border-[#1e2936]">
+                    ${event.taskId || 'SYS'}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+async function loadMyTasks() {
+    try {
+        const response = await authFetch(`${API_URL}/api/tasks/my`);
+        if (!response) return;
+
+        const myTasks = await response.json();
+        elements.myTasksCount.textContent = `${myTasks.length} task${myTasks.length !== 1 ? 's' : ''}`;
+
+        if (myTasks.length === 0) {
+            elements.myTasksList.innerHTML = `
+                <div class="flex flex-col items-center justify-center py-20 text-[#8a98a8]">
+                    <span class="material-symbols-outlined text-4xl mb-4 opacity-30">check_circle</span>
+                    <p class="text-sm">No tasks assigned to you</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Group by status
+        const grouped = { todo: [], inprogress: [], done: [] };
+        myTasks.forEach(task => {
+            if (grouped[task.status]) grouped[task.status].push(task);
+        });
+
+        elements.myTasksList.innerHTML = ['todo', 'inprogress', 'done'].map(status => {
+            const statusNames = { todo: 'To Do', inprogress: 'In Progress', done: 'Done' };
+            const statusColors = { todo: 'bg-amber-500', inprogress: 'bg-primary', done: 'bg-green-500' };
+            const statusTasks = grouped[status];
+            if (statusTasks.length === 0) return '';
+
+            return `
+                <div class="mb-6">
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="size-2 rounded-full ${statusColors[status]}"></span>
+                        <span class="text-xs font-semibold text-[#5c6b7f] dark:text-gray-400 uppercase">${statusNames[status]} (${statusTasks.length})</span>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                    ${statusTasks.map(task => `
+                        <div class="task-card-my p-4 bg-white dark:bg-[#151e29] rounded-lg border border-[#e5e7eb] dark:border-[#1e2936] hover:border-primary/50 cursor-pointer transition-all" data-task-id="${task.id}">
+                            <div class="flex justify-between items-start mb-1">
+                                <span class="text-[10px] font-medium text-[#8a98a8]">${task.id}</span>
+                                ${task.due_date ? `<span class="text-[10px] font-medium text-[#5c6b7f]">${formatDate(task.due_date)}</span>` : ''}
+                            </div>
+                            <p class="text-sm font-medium text-[#111418] dark:text-gray-200">${escapeHtml(task.title)}</p>
+                            ${task.description ? `<p class="text-xs text-[#5c6b7f] dark:text-gray-400 mt-1">${escapeHtml(task.description)}</p>` : ''}
+                        </div>
+                    `).join('')}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // Add click handlers
+        document.querySelectorAll('.task-card-my').forEach(card => {
+            card.addEventListener('click', () => {
+                const taskId = card.dataset.taskId;
+                const task = myTasks.find(t => t.id === taskId);
+                if (task) openTaskPanel(task);
+            });
+        });
+    } catch (e) {
+        console.error('Error loading my tasks:', e);
+    }
+}
+
+async function loadWorkspaceMembers() {
+    if (!activeWorkspaceId) return;
+    try {
+        const response = await authFetch(`${API_URL}/api/workspaces/${activeWorkspaceId}/members`);
+        if (!response) return;
+        workspaceMembers = await response.json();
+    } catch (e) {
+        console.error('Error loading workspace members:', e);
+    }
+}
+
 function createTaskCard(task) {
     const card = document.createElement('div');
     const isDone = task.status === 'done';
@@ -252,10 +456,12 @@ function createTaskCard(task) {
         high: 'text-red-600 dark:text-red-400'
     };
 
+    const dueDate = task.dueDate || task.due_date;
+
     card.innerHTML = `
         <div class="flex justify-between items-start">
             <span class="text-[10px] font-medium text-[#8a98a8] ${isDone ? 'line-through' : ''}">${task.id}</span>
-            ${task.dueDate ? `<span class="text-[10px] font-medium text-[#5c6b7f] dark:text-gray-400">${formatDate(task.dueDate)}</span>` : ''}
+            ${dueDate ? `<span class="text-[10px] font-medium text-[#5c6b7f] dark:text-gray-400">${formatDate(dueDate)}</span>` : ''}
         </div>
         <span class="text-sm font-medium text-[#111418] dark:text-gray-200 leading-snug ${isDone ? 'line-through decoration-gray-400' : ''}">${escapeHtml(task.title)}</span>
         ${task.description ? `<p class="text-xs text-[#5c6b7f] dark:text-gray-400 line-clamp-2">${escapeHtml(task.description)}</p>` : ''}
@@ -372,7 +578,17 @@ function openTaskPanel(task) {
     elements.panelStatusSelect.value = task.status;
     elements.panelPrioritySelect.value = task.priority;
     elements.panelLabelSelect.value = task.label;
-    elements.panelDueDate.value = task.dueDate || '';
+    elements.panelDueDate.value = task.dueDate || task.due_date || '';
+
+    // Populate assignee dropdown
+    elements.panelAssigneeSelect.innerHTML = '<option value="">Unassigned</option>';
+    workspaceMembers.forEach(member => {
+        const option = document.createElement('option');
+        option.value = member.id;
+        option.textContent = member.full_name || member.email;
+        elements.panelAssigneeSelect.appendChild(option);
+    });
+    elements.panelAssigneeSelect.value = task.assignee_id || '';
 
     // Render event log
     renderEventLog(task);
@@ -401,7 +617,8 @@ function saveTaskFromPanel() {
         status: elements.panelStatusSelect.value,
         priority: elements.panelPrioritySelect.value,
         label: elements.panelLabelSelect.value,
-        dueDate: elements.panelDueDate.value
+        dueDate: elements.panelDueDate.value,
+        assignee_id: elements.panelAssigneeSelect.value || null
     };
 
     if (!updates.title) {
@@ -435,70 +652,82 @@ function renderEventLog(task) {
 }
 
 // ===== Task CRUD Operations =====
-function addTask(title, description, priority, status, label) {
-    const task = new Task(title, description, priority, status, label);
+async function addTask(title, description, priority, status, label) {
+    if (!activeBoardId) return;
 
-    // Add Kafka event
-    task.events.push({
-        time: new Date().toLocaleTimeString(),
-        type: 'TASK_CREATED',
-        data: `topic: "task-events", key: "${task.id}"`
-    });
+    const taskData = {
+        title,
+        description,
+        priority,
+        status,
+        label,
+        board_id: activeBoardId
+    };
 
-    tasks.push(task);
-    saveTasks();
-    renderBoard();
-    showKafkaEvent('Task created: ' + task.id);
+    try {
+        const response = await authFetch(`${API_URL}/api/tasks`, {
+            method: 'POST',
+            body: JSON.stringify(taskData)
+        });
 
-    console.log('Kafka Event → task-created:', task);
-}
+        if (!response.ok) throw new Error('Failed to create task');
 
-function updateTask(id, updates) {
-    const index = tasks.findIndex(t => t.id === id);
-    if (index !== -1) {
-        const oldStatus = tasks[index].status;
-
-        tasks[index] = {
-            ...tasks[index],
-            ...updates,
-            updatedAt: new Date().toISOString()
-        };
-
-        // Add Kafka event
-        if (!tasks[index].events) tasks[index].events = [];
-
-        if (oldStatus !== updates.status) {
-            tasks[index].events.push({
-                time: new Date().toLocaleTimeString(),
-                type: 'TASK_MOVED',
-                data: `from: "${statusLabels[oldStatus]}", to: "${statusLabels[updates.status]}"`
-            });
-        } else {
-            tasks[index].events.push({
-                time: new Date().toLocaleTimeString(),
-                type: 'TASK_UPDATED',
-                data: `fields: title, description, priority, label`
-            });
-        }
-
-        saveTasks();
+        const newTask = await response.json();
+        tasks.push(newTask);
         renderBoard();
-        showKafkaEvent('Task updated: ' + id);
+        showKafkaEvent('Task created: ' + newTask.id);
 
-        console.log('Kafka Event → task-updated:', tasks[index]);
+        // Notification is handled by WebSocket now, but for immediate UI feedback:
+        if (!elements.activityView.classList.contains('hidden')) renderActivityLog();
+    } catch (e) {
+        console.error('Error adding task:', e);
     }
 }
 
-function deleteTask(id) {
-    const task = tasks.find(t => t.id === id);
-    if (task && confirm(`Delete task "${task.title}"?`)) {
-        tasks = tasks.filter(t => t.id !== id);
-        saveTasks();
+async function updateTask(id, updates) {
+    try {
+        const response = await authFetch(`${API_URL}/api/tasks/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(updates)
+        });
+
+        if (!response.ok) throw new Error('Failed to update task');
+
+        const updatedTask = await response.json();
+
+        const index = tasks.findIndex(t => t.id === id);
+        if (index !== -1) {
+            tasks[index] = updatedTask;
+        }
+
         renderBoard();
+        if (!elements.activityView.classList.contains('hidden')) renderActivityLog();
+        showKafkaEvent('Task updated: ' + id);
+    } catch (e) {
+        console.error('Error updating task:', e);
+    }
+}
+
+async function deleteTask(id) {
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+
+    if (!confirm(`Delete task "${task.title}"?`)) return;
+
+    try {
+        const response = await authFetch(`${API_URL}/api/tasks/${id}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) throw new Error('Failed to delete task');
+
+        tasks = tasks.filter(t => t.id !== id);
+        renderBoard();
+        if (!elements.activityView.classList.contains('hidden')) renderActivityLog();
         closeTaskPanel();
         showKafkaEvent('Task deleted: ' + id);
-
-        console.log('Kafka Event → task-deleted:', id);
+    } catch (e) {
+        console.error('Error deleting task:', e);
     }
 }
 
@@ -511,17 +740,131 @@ function moveTask(taskId, newStatus) {
 
         // Add Kafka event
         if (!task.events) task.events = [];
-        task.events.push({
+        const event = {
             time: new Date().toLocaleTimeString(),
             type: 'TASK_MOVED',
-            data: `from: "${statusLabels[oldStatus]}", to: "${statusLabels[newStatus]}"`
+            data: `from: "${statusLabels[oldStatus]}", to: "${statusLabels[newStatus]}"`,
+            timestamp: new Date().toISOString()
+        };
+        task.events.push(event);
+        globalEvents.unshift({
+            ...event,
+            taskId: taskId,
+            taskTitle: task.title
         });
 
         saveTasks();
         renderBoard();
+        if (!elements.activityView.classList.contains('hidden')) renderActivityLog();
         showKafkaEvent(`Task moved: ${taskId} (${statusLabels[oldStatus]} → ${statusLabels[newStatus]})`);
+        sendKafkaEvent('TASK_MOVED', taskId, { from: oldStatus, to: newStatus });
 
         console.log('Kafka Event → task-moved:', { taskId, from: oldStatus, to: newStatus });
+    }
+}
+
+// ===== Kafka API Integration =====
+async function sendKafkaEvent(eventType, taskId, data = {}) {
+    const event = {
+        type: eventType,
+        taskId: taskId,
+        data: data,
+        timestamp: new Date().toISOString()
+    };
+
+    try {
+        const response = await fetch(`${API_URL}/api/events`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(event)
+        });
+        const result = await response.json();
+        console.log('Kafka API response:', result);
+
+        if (result.status === 'sent') {
+            kafkaConnected = true;
+            updateKafkaStatusUI();
+        }
+    } catch (error) {
+        console.error('Failed to send Kafka event:', error);
+        kafkaConnected = false;
+        updateKafkaStatusUI();
+    }
+}
+
+// ===== WebSocket Connection =====
+function connectWebSocket() {
+    if (!activeBoardId) return;
+
+    try {
+        const wsUrl = getWsUrl(activeBoardId);
+        websocket = new WebSocket(wsUrl);
+
+        websocket.onopen = () => {
+            console.log('WebSocket connected to board:', activeBoardId);
+            kafkaConnected = true;
+            updateKafkaStatusUI();
+        };
+
+        websocket.onmessage = (event) => {
+            console.log('WebSocket message:', event.data);
+            try {
+                const kafkaEvent = JSON.parse(event.data);
+                handleIncomingKafkaEvent(kafkaEvent);
+            } catch (e) {
+                console.error('Failed to parse WebSocket message:', e);
+            }
+        };
+
+        websocket.onclose = () => {
+            console.log('WebSocket disconnected, reconnecting in 3s...');
+            kafkaConnected = false;
+            updateKafkaStatusUI();
+            setTimeout(connectWebSocket, 3000);
+        };
+
+        websocket.onerror = (error) => {
+            console.error('WebSocket error:', error);
+            kafkaConnected = false;
+            updateKafkaStatusUI();
+        };
+    } catch (error) {
+        console.error('Failed to connect WebSocket:', error);
+        setTimeout(connectWebSocket, 3000);
+    }
+}
+
+function handleIncomingKafkaEvent(kafkaEvent) {
+    // Show notification for incoming events
+    showKafkaEvent(`Received: ${kafkaEvent.type} - ${kafkaEvent.taskId}`);
+
+    // Add to global events (Activity log)
+    globalEvents.unshift({
+        time: new Date().toLocaleTimeString(),
+        type: 'RECEIVED',
+        data: `Remote event: ${kafkaEvent.type}`,
+        taskId: kafkaEvent.taskId,
+        taskTitle: kafkaEvent.data?.title || 'Task Update',
+        timestamp: new Date().toISOString()
+    });
+
+    if (!elements.activityView.classList.contains('hidden')) renderActivityLog();
+
+    // Sync tasks on relevant events (non-blocking)
+    if (['TASK_CREATED', 'TASK_UPDATED', 'TASK_MOVED', 'TASK_DELETED'].includes(kafkaEvent.type)) {
+        loadTasks(); // Fire and forget - don't block
+    }
+}
+
+function updateKafkaStatusUI() {
+    if (kafkaConnected) {
+        elements.kafkaStatus.textContent = 'Kafka Stream Active — Connected';
+        elements.kafkaStatus.classList.remove('text-red-400');
+        elements.kafkaStatus.classList.add('text-green-400');
+    } else {
+        elements.kafkaStatus.textContent = 'Kafka Stream — Disconnected (local mode)';
+        elements.kafkaStatus.classList.remove('text-green-400');
+        elements.kafkaStatus.classList.add('text-red-400');
     }
 }
 
@@ -529,7 +872,7 @@ function moveTask(taskId, newStatus) {
 function showKafkaEvent(message) {
     elements.kafkaStatus.textContent = message;
     setTimeout(() => {
-        elements.kafkaStatus.textContent = 'Kafka Stream Active — Syncing events...';
+        updateKafkaStatusUI();
     }, 2000);
 }
 
@@ -678,26 +1021,15 @@ function handleDrop(e) {
         }
     }
 
-    // Add Kafka event
-    if (!task.events) task.events = [];
+    // Update status if changed
     if (oldStatus !== newStatus) {
-        task.events.push({
-            time: new Date().toLocaleTimeString(),
-            type: 'TASK_MOVED',
-            data: `from: "${statusLabels[oldStatus]}", to: "${statusLabels[newStatus]}"`
-        });
-        showKafkaEvent(`Task moved: ${taskId} (${statusLabels[oldStatus]} → ${statusLabels[newStatus]})`);
+        updateTask(taskId, { status: newStatus });
     } else {
-        task.events.push({
-            time: new Date().toLocaleTimeString(),
-            type: 'TASK_REORDERED',
-            data: `column: "${statusLabels[newStatus]}"`
-        });
+        // Just reordering in same column - for now we just re-render
+        // Real reordering would need a 'position' field in the DB
+        renderBoard();
         showKafkaEvent(`Task reordered: ${taskId}`);
     }
-
-    saveTasks();
-    renderBoard();
 
     console.log('Kafka Event → task-reordered:', { taskId, status: newStatus });
 }
@@ -765,8 +1097,30 @@ function initEventListeners() {
         column.addEventListener('drop', handleDrop);
     });
 
+    // Navigation
+    elements.navBoard.addEventListener('click', (e) => {
+        e.preventDefault();
+        switchView('board');
+    });
+
+    elements.navActivity.addEventListener('click', (e) => {
+        e.preventDefault();
+        switchView('activity');
+    });
+
+    elements.navMyTasks.addEventListener('click', (e) => {
+        e.preventDefault();
+        switchView('my-tasks');
+    });
+
     // Theme toggle
     elements.themeToggle.addEventListener('click', toggleTheme);
+
+    // Logout
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+        localStorage.removeItem('access_token');
+        window.location.href = '/login';
+    });
 
     // Click outside to hide inline form
     document.addEventListener('click', (e) => {
@@ -791,12 +1145,49 @@ function formatDate(dateString) {
 }
 
 // ===== Initialize Application =====
-function init() {
+async function init() {
     initTheme();
-    loadTasks();
-    renderBoard();
-    initEventListeners();
-    console.log('Kafka Kanban Board initialized');
+
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+        window.location.href = '/login';
+        return;
+    }
+
+    try {
+        // Fetch User Info
+        const userRes = await authFetch(`${API_URL}/api/auth/me`);
+        if (!userRes) return;
+        currentUser = await userRes.json();
+        console.log('Logged in as:', currentUser.full_name);
+
+        // Fetch Workspaces and Boards
+        const wsRes = await authFetch(`${API_URL}/api/workspaces`);
+        const workspaces = await wsRes.json();
+
+        if (workspaces.length > 0) {
+            activeWorkspaceId = workspaces[0].id;
+            const boardsRes = await authFetch(`${API_URL}/api/workspaces/${workspaces[0].id}/boards`);
+            const boards = await boardsRes.json();
+            if (boards.length > 0) {
+                activeBoardId = boards[0].id;
+                console.log('Active board:', boards[0].name);
+            }
+        }
+
+        if (!activeBoardId) {
+            console.error('No boards found for user');
+            return;
+        }
+
+        await loadWorkspaceMembers();
+        await loadTasks();
+        initEventListeners();
+        connectWebSocket();
+        console.log('Kafka Kanban Board initialized');
+    } catch (error) {
+        console.error('Initialization error:', error);
+    }
 }
 
 // Start the application
