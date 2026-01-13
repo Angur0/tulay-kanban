@@ -1,6 +1,6 @@
 # Tulay Kanban
 
-A modern, real-time Kanban board built with vanilla JavaScript and Tailwind CSS. Features a sleek Superthread-inspired design with drag-and-drop functionality.
+A modern, real-time Kanban board built with vanilla JavaScript and Tailwind CSS. Features a sleek design with drag-and-drop functionality.
 
 ![Tulay Kanban Board](https://img.shields.io/badge/Status-Active-green)
 
