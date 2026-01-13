@@ -92,7 +92,8 @@ const elements = {
         todo: document.getElementById('headerTodoCount'),
         inprogress: document.getElementById('headerProgressCount'),
         done: document.getElementById('headerDoneCount')
-    }
+    },
+    toastContainer: document.getElementById('toastContainer')
 };
 
 let workspaceMembers = [];
@@ -307,12 +308,35 @@ function switchView(viewName) {
         elements.activityView.classList.remove('hidden');
         elements.navActivity.classList.add('bg-[#eff1f3]', 'dark:bg-[#1e2936]', 'text-[#111418]', 'dark:text-white');
         elements.navActivity.classList.remove('hover:bg-[#eff1f3]', 'dark:hover:bg-[#1e2936]', 'text-[#5c6b7f]', 'dark:text-gray-400');
-        renderActivityLog();
+        loadActivities();
     } else if (viewName === 'my-tasks') {
         elements.myTasksView.classList.remove('hidden');
         elements.navMyTasks.classList.add('bg-[#eff1f3]', 'dark:bg-[#1e2936]', 'text-[#111418]', 'dark:text-white');
         elements.navMyTasks.classList.remove('hover:bg-[#eff1f3]', 'dark:hover:bg-[#1e2936]', 'text-[#5c6b7f]', 'dark:text-gray-400');
         loadMyTasks();
+    }
+}
+
+async function loadActivities() {
+    if (!activeBoardId) return;
+    try {
+        const response = await authFetch(`${API_URL}/api/boards/${activeBoardId}/activities`);
+        if (!response) return;
+
+        const activities = await response.json();
+
+        globalEvents = activities.map(a => ({
+            type: a.event_type,
+            taskId: a.task_title || a.task_id,
+            originalTaskId: a.task_id,
+            data: a.data,
+            time: new Date(a.timestamp).toLocaleTimeString(),
+            timestamp: a.timestamp
+        }));
+
+        renderActivityLog();
+    } catch (e) {
+        console.error('Error loading activities:', e);
     }
 }
 
@@ -353,7 +377,7 @@ function renderActivityLog() {
                     </div>
                     <div class="flex items-center gap-2">
                         <span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${colorClass} uppercase tracking-wider">${event.type.replace('TASK_', '')}</span>
-                        <p class="text-xs text-[#5c6b7f] dark:text-gray-400 truncate">${event.data}</p>
+                        <p class="text-xs text-[#5c6b7f] dark:text-gray-400 truncate">${event.type === 'TASK_CREATED' ? 'Task created' : formatEventData(event.data)}</p>
                     </div>
                 </div>
                 <div class="text-[10px] font-mono text-[#8a98a8] bg-[#f8fafc] dark:bg-[#0d141c] px-2 py-1 rounded border border-[#e5e7eb] dark:border-[#1e2936]">
@@ -630,22 +654,27 @@ function saveTaskFromPanel() {
     closeTaskPanel();
 }
 
+// Filter events for this task from globalEvents
 function renderEventLog(task) {
-    if (!task.events || task.events.length === 0) {
+    const taskEvents = globalEvents.filter(e => e.originalTaskId === task.id || e.taskId === task.id);
+
+    if (taskEvents.length === 0) {
         elements.panelEventLog.innerHTML = `
             <div class="px-4 py-3 text-center text-gray-400 text-xs">No Kafka events recorded for this task</div>
         `;
         return;
     }
 
-    elements.panelEventLog.innerHTML = task.events.slice(-5).map(event => `
+    elements.panelEventLog.innerHTML = taskEvents.slice(0, 5).map(event => `
         <div class="group px-4 py-3 border-b border-[#e5e7eb] dark:border-[#1e2936] hover:bg-white dark:hover:bg-[#151e29] transition-colors flex gap-4 cursor-default">
             <span class="text-[#94a3b8] shrink-0 select-none w-20">${event.time}</span>
             <div class="flex-1 overflow-hidden">
                 <div class="flex items-center gap-2 mb-1">
-                    <span class="text-blue-600 dark:text-blue-400 font-bold">${event.type}</span>
+                    <span class="text-blue-600 dark:text-blue-400 font-bold">${escapeHtml(event.type)}</span>
                 </div>
-                <span class="text-[#334155] dark:text-gray-400 block truncate">${event.data}</span>
+                <span class="text-[#334155] dark:text-gray-400 block truncate">
+                    ${event.type === 'TASK_CREATED' ? 'Task created' : formatEventData(event.data)}
+                </span>
             </div>
         </div>
     `).join('');
@@ -675,12 +704,13 @@ async function addTask(title, description, priority, status, label) {
         const newTask = await response.json();
         tasks.push(newTask);
         renderBoard();
-        showKafkaEvent('Task created: ' + newTask.id);
+        showKafkaEvent('Task created: ' + newTask.id, 'success');
 
         // Notification is handled by WebSocket now, but for immediate UI feedback:
         if (!elements.activityView.classList.contains('hidden')) renderActivityLog();
     } catch (e) {
         console.error('Error adding task:', e);
+        showToast('Failed to create task', 'error');
     }
 }
 
@@ -702,9 +732,10 @@ async function updateTask(id, updates) {
 
         renderBoard();
         if (!elements.activityView.classList.contains('hidden')) renderActivityLog();
-        showKafkaEvent('Task updated: ' + id);
+        showKafkaEvent('Task updated: ' + id, 'success');
     } catch (e) {
         console.error('Error updating task:', e);
+        showToast('Failed to update task', 'error');
     }
 }
 
@@ -725,9 +756,10 @@ async function deleteTask(id) {
         renderBoard();
         if (!elements.activityView.classList.contains('hidden')) renderActivityLog();
         closeTaskPanel();
-        showKafkaEvent('Task deleted: ' + id);
+        showKafkaEvent('Task deleted: ' + id, 'success');
     } catch (e) {
         console.error('Error deleting task:', e);
+        showToast('Failed to delete task', 'error');
     }
 }
 
@@ -835,16 +867,13 @@ function connectWebSocket() {
 }
 
 function handleIncomingKafkaEvent(kafkaEvent) {
-    // Show notification for incoming events
-    showKafkaEvent(`Received: ${kafkaEvent.type} - ${kafkaEvent.taskId}`);
-
     // Add to global events (Activity log)
     globalEvents.unshift({
-        time: new Date().toLocaleTimeString(),
-        type: 'RECEIVED',
-        data: `Remote event: ${kafkaEvent.type}`,
+        type: kafkaEvent.type,
         taskId: kafkaEvent.taskId,
-        taskTitle: kafkaEvent.data?.title || 'Task Update',
+        originalTaskId: kafkaEvent.taskId,
+        data: kafkaEvent.data || {},
+        time: new Date().toLocaleTimeString(),
         timestamp: new Date().toISOString()
     });
 
@@ -868,12 +897,58 @@ function updateKafkaStatusUI() {
     }
 }
 
-// ===== Kafka Status Display =====
-function showKafkaEvent(message) {
-    elements.kafkaStatus.textContent = message;
+// ===== Toast Notifications =====
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+
+    const colors = {
+        info: 'bg-[#111418] dark:bg-[#1e2936] border-[#e5e7eb] dark:border-[#2a3645] text-white',
+        success: 'bg-emerald-600 border-emerald-500 text-white',
+        error: 'bg-red-600 border-red-500 text-white'
+    };
+
+    const icons = {
+        info: 'info',
+        success: 'check_circle',
+        error: 'error'
+    };
+
+    toast.className = `${colors[type]} px-4 py-3 rounded-lg shadow-lg border flex items-center gap-3 transform transition-all duration-300 translate-y-8 opacity-0 pointer-events-auto min-w-[300px] max-w-[400px]`;
+
+    toast.innerHTML = `
+        <span class="material-symbols-outlined text-[20px]">${icons[type]}</span>
+        <span class="text-sm font-medium flex-1">${escapeHtml(message)}</span>
+        <button class="text-white/70 hover:text-white transition-colors" onclick="this.parentElement.remove()">
+            <span class="material-symbols-outlined text-[16px]">close</span>
+        </button>
+    `;
+
+    elements.toastContainer.appendChild(toast);
+
+    // Animate in
+    requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-8', 'opacity-0');
+    });
+
+    // Auto dismiss
     setTimeout(() => {
-        updateKafkaStatusUI();
-    }, 2000);
+        toast.classList.add('translate-y-8', 'opacity-0');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+// ===== Kafka Status Display =====
+function showKafkaEvent(message, type = 'info') {
+    // Only update status text if it's a connectivity message
+    if (message.includes('Connected') || message.includes('Disconnected')) {
+        elements.kafkaStatus.textContent = message;
+        setTimeout(() => {
+            updateKafkaStatusUI();
+        }, 2000);
+    }
+
+    // Show toast for event
+    showToast(message, type);
 }
 
 // ===== Drag and Drop with Reordering =====
@@ -1135,6 +1210,27 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+function formatEventData(data) {
+    if (!data) return '';
+    if (typeof data === 'string') return escapeHtml(data);
+
+    // Handle specific fields to make them more readable
+    const parts = [];
+    if (data.title) parts.push(`Title: "${data.title}"`);
+    if (data.status) parts.push(`Status: ${statusLabels[data.status] || data.status}`);
+    if (data.priority) parts.push(`Priority: ${data.priority}`);
+    if (data.from && data.to) parts.push(`Moved from ${statusLabels[data.from] || data.from} to ${statusLabels[data.to] || data.to}`);
+    if (data.description) parts.push(`Description updated`);
+    if (data.assignee_id) parts.push(`Assignee updated`);
+
+    // Fallback if generic object
+    if (parts.length === 0 && Object.keys(data).length > 0) {
+        return escapeHtml(JSON.stringify(data).substring(0, 100) + (JSON.stringify(data).length > 100 ? '...' : ''));
+    }
+
+    return escapeHtml(parts.join(', '));
 }
 
 function formatDate(dateString) {
