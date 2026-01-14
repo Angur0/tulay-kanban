@@ -80,6 +80,15 @@
             background-color: rgba(43, 140, 238, 0.1);
         }
 
+        /* Column drag indicators */
+        .column.column-drag-over-left {
+            border-left: 3px solid #6366f1;
+        }
+
+        .column.column-drag-over-right {
+            border-right: 3px solid #6366f1;
+        }
+
         /* Disable text selection in main panel */
         main {
             user-select: none;
@@ -137,58 +146,59 @@
                 <h1 class="text-base font-semibold tracking-tight text-[#111418] dark:text-white">Tulay Kanban</h1>
             </div>
 
+            <!-- Boards Section -->
+            <div class="flex flex-col gap-2 px-3">
+                <div class="flex items-center justify-between">
+                    <p class="text-xs font-semibold text-[#8a98a8] uppercase tracking-wider">Boards</p>
+                    <button id="createBoardBtn"
+                        class="text-[#5c6b7f] dark:text-gray-400 hover:text-primary transition-colors"
+                        title="Create Board">
+                        <span class="material-symbols-outlined text-[18px]">add</span>
+                    </button>
+                </div>
+                <div id="boardList" class="flex flex-col gap-1">
+                    <!-- Boards will be populated here -->
+                </div>
+            </div>
+
             <!-- Navigation -->
-            <nav class="flex flex-col gap-1">
-                <a class="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#eff1f3] dark:bg-[#1e2936] text-[#111418] dark:text-white group transition-colors"
+            <nav class="flex flex-col gap-1 mt-4">
+                <a id="navBoard"
+                    class="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#eff1f3] dark:bg-[#1e2936] text-[#111418] dark:text-white group transition-colors"
                     href="#">
                     <span
                         class="material-symbols-outlined text-[#5c6b7f] dark:text-gray-400 group-hover:text-primary transition-colors">dashboard</span>
                     <span class="text-sm font-medium">Board</span>
                 </a>
-                <a class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors group"
+                <a id="navMyTasks"
+                    class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors group"
                     href="#">
                     <span
                         class="material-symbols-outlined group-hover:text-primary transition-colors">check_circle</span>
                     <span class="text-sm font-medium">My Tasks</span>
                 </a>
-                <a class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors group"
+                <a id="navActivity"
+                    class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors group"
                     href="#">
                     <span class="material-symbols-outlined group-hover:text-primary transition-colors">history</span>
                     <span class="text-sm font-medium">Activity</span>
                 </a>
             </nav>
 
-            <!-- Kafka Topics -->
-            <div class="flex flex-col gap-2 mt-2">
-                <div class="flex items-center justify-between px-3">
-                    <p class="text-xs font-semibold text-[#8a98a8] uppercase tracking-wider">Kafka Topics</p>
-                </div>
-                <div class="flex flex-col gap-1">
-                    <a class="flex items-center gap-3 px-3 py-1.5 rounded-lg text-[#111418] dark:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936]"
-                        href="#">
-                        <span class="size-2 rounded-full bg-green-500 animate-pulse"></span>
-                        <span class="text-sm font-medium truncate">task-events</span>
-                    </a>
-                    <a class="flex items-center gap-3 px-3 py-1.5 rounded-lg text-[#5c6b7f] dark:text-gray-400 hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] hover:text-[#111418] dark:hover:text-white"
-                        href="#">
-                        <span class="size-2 rounded-full bg-primary"></span>
-                        <span class="text-sm font-medium truncate">task-updates</span>
-                    </a>
-                    <a class="flex items-center gap-3 px-3 py-1.5 rounded-lg text-[#5c6b7f] dark:text-gray-400 hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] hover:text-[#111418] dark:hover:text-white"
-                        href="#">
-                        <span class="size-2 rounded-full bg-purple-500"></span>
-                        <span class="text-sm font-medium truncate">task-completed</span>
-                    </a>
-                </div>
-            </div>
+
         </div>
 
-        <!-- Theme Toggle & Info -->
-        <div class="p-4 border-t border-[#e5e7eb] dark:border-[#1e2936]">
+        <!-- Theme Toggle, Logout & Info -->
+        <div class="p-4 border-t border-[#e5e7eb] dark:border-[#1e2936] flex flex-col gap-1">
             <button id="themeToggle"
                 class="flex items-center gap-3 px-3 py-2 w-full rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors">
                 <span class="material-symbols-outlined" id="themeIcon">dark_mode</span>
                 <span class="text-sm font-medium" id="themeText">Dark Mode</span>
+            </button>
+            <button id="logoutBtn"
+                class="flex items-center gap-3 px-3 py-2 w-full rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-[#5c6b7f] dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors">
+                <span class="material-symbols-outlined">logout</span>
+                <span class="text-sm font-medium">Logout</span>
             </button>
         </div>
     </aside>
@@ -214,120 +224,66 @@
                 <div class="flex flex-col gap-1">
                     <div
                         class="flex items-center gap-2 text-[#5c6b7f] dark:text-gray-400 text-xs font-medium uppercase tracking-wider mb-1">
-                        <span class="material-symbols-outlined text-sm">lan</span>
-                        <span>Apache Kafka Demo</span>
+                        <span class="material-symbols-outlined text-sm">dashboard</span>
+                        <span>Task Board</span>
                     </div>
-                    <h2 class="text-[#111418] dark:text-white text-3xl font-bold tracking-tight leading-tight">Task
-                        Board</h2>
+                    <h2 id="boardTitle" class="text-[#111418] dark:text-white text-3xl font-bold tracking-tight leading-tight">Board</h2>
                 </div>
                 <div class="flex items-center gap-3">
-                    <!-- Task Stats -->
-                    <div class="hidden sm:flex items-center gap-4 mr-4 text-sm">
-                        <div class="flex items-center gap-1.5">
-                            <span class="size-2 rounded-full bg-amber-500"></span>
-                            <span class="text-[#5c6b7f] dark:text-gray-400">To Do: <span id="headerTodoCount"
-                                    class="font-semibold text-[#111418] dark:text-white">0</span></span>
-                        </div>
-                        <div class="flex items-center gap-1.5">
-                            <span class="size-2 rounded-full bg-primary"></span>
-                            <span class="text-[#5c6b7f] dark:text-gray-400">Progress: <span id="headerProgressCount"
-                                    class="font-semibold text-[#111418] dark:text-white">0</span></span>
-                        </div>
-                        <div class="flex items-center gap-1.5">
-                            <span class="size-2 rounded-full bg-green-500"></span>
-                            <span class="text-[#5c6b7f] dark:text-gray-400">Done: <span id="headerDoneCount"
-                                    class="font-semibold text-[#111418] dark:text-white">0</span></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                    <!-- Task Stats (dynamically populated) -->
+                    <div id="headerStats" class="hidden sm:flex items-center gap-4 mr-4 text-sm overflow-x-auto">
         </header>
 
         <!-- Kanban Board Area -->
-        <div class="flex-1 overflow-x-auto overflow-y-hidden bg-[#fbfcfd] dark:bg-[#0d141c] p-8 custom-scrollbar">
+        <div id="boardView"
+            class="flex-1 overflow-x-auto overflow-y-hidden bg-[#fbfcfd] dark:bg-[#0d141c] p-8 custom-scrollbar">
             <div class="flex h-full gap-6 min-w-[900px]" id="board">
 
-                <!-- Column 1: To Do -->
-                <div class="column flex flex-col w-80 flex-shrink-0 h-full rounded-xl transition-colors"
-                    data-status="todo">
-                    <div class="flex items-center justify-between mb-3 px-1">
-                        <div class="flex items-center gap-2">
-                            <span
-                                class="flex items-center justify-center size-5 rounded bg-amber-100 dark:bg-amber-900/30 text-[10px] font-bold text-amber-600 dark:text-amber-400"
-                                id="todo-count">0</span>
-                            <h3 class="text-sm font-semibold text-[#111418] dark:text-white">To Do</h3>
-                        </div>
-                        <button class="text-[#8a98a8] hover:text-[#111418] dark:hover:text-white">
-                            <span class="material-symbols-outlined text-[18px]">more_horiz</span>
-                        </button>
-                    </div>
-                    <!-- Cards Container -->
-                    <div class="task-list flex-1 flex flex-col gap-3 overflow-y-auto custom-scrollbar pb-4 pr-1"
-                        id="todo-list" data-status="todo"></div>
-                    <!-- Inline Add Card Form (hidden by default) -->
-                    <div class="inline-add-form hidden" data-status="todo"></div>
-                    <button
-                        class="add-card-btn flex items-center gap-2 px-2 py-2 mt-2 text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] rounded-lg transition-colors text-sm font-medium"
-                        data-status="todo">
-                        <span class="material-symbols-outlined text-[18px]">add</span>
-                        Add Card
-                    </button>
-                </div>
+                <!-- Columns will be dynamically generated by app.js -->
 
-                <!-- Column 2: In Progress -->
-                <div class="column flex flex-col w-80 flex-shrink-0 h-full rounded-xl transition-colors"
-                    data-status="inprogress">
-                    <div class="flex items-center justify-between mb-3 px-1">
-                        <div class="flex items-center gap-2">
-                            <span
-                                class="flex items-center justify-center size-5 rounded bg-primary/10 text-[10px] font-bold text-primary"
-                                id="inprogress-count">0</span>
-                            <h3 class="text-sm font-semibold text-[#111418] dark:text-white">In Progress</h3>
-                        </div>
-                        <button class="text-[#8a98a8] hover:text-[#111418] dark:hover:text-white">
-                            <span class="material-symbols-outlined text-[18px]">more_horiz</span>
-                        </button>
-                    </div>
-                    <!-- Cards Container -->
-                    <div class="task-list flex-1 flex flex-col gap-3 overflow-y-auto custom-scrollbar pb-4 pr-1"
-                        id="inprogress-list" data-status="inprogress"></div>
-                    <!-- Inline Add Card Form (hidden by default) -->
-                    <div class="inline-add-form hidden" data-status="inprogress"></div>
-                    <button
-                        class="add-card-btn flex items-center gap-2 px-2 py-2 mt-2 text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] rounded-lg transition-colors text-sm font-medium"
-                        data-status="inprogress">
-                        <span class="material-symbols-outlined text-[18px]">add</span>
-                        Add Card
-                    </button>
-                </div>
+            </div>
+        </div>
 
-                <!-- Column 3: Done -->
-                <div class="column flex flex-col w-80 flex-shrink-0 h-full rounded-xl transition-colors"
-                    data-status="done">
-                    <div class="flex items-center justify-between mb-3 px-1">
-                        <div class="flex items-center gap-2">
-                            <span
-                                class="flex items-center justify-center size-5 rounded bg-green-100 dark:bg-green-900/30 text-[10px] font-bold text-green-600 dark:text-green-400"
-                                id="done-count">0</span>
-                            <h3 class="text-sm font-semibold text-[#111418] dark:text-white">Done</h3>
-                        </div>
-                        <button class="text-[#8a98a8] hover:text-[#111418] dark:hover:text-white">
-                            <span class="material-symbols-outlined text-[18px]">more_horiz</span>
-                        </button>
-                    </div>
-                    <!-- Cards Container -->
-                    <div class="task-list flex-1 flex flex-col gap-3 overflow-y-auto custom-scrollbar pb-4 pr-1"
-                        id="done-list" data-status="done"></div>
-                    <!-- Inline Add Card Form (hidden by default) -->
-                    <div class="inline-add-form hidden" data-status="done"></div>
-                    <button
-                        class="add-card-btn flex items-center gap-2 px-2 py-2 mt-2 text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] rounded-lg transition-colors text-sm font-medium"
-                        data-status="done">
-                        <span class="material-symbols-outlined text-[18px]">add</span>
-                        Add Card
-                    </button>
+        <!-- Activity View Area -->
+        <div id="activityView" class="hidden flex-1 flex flex-col overflow-hidden bg-[#fbfcfd] dark:bg-[#0d141c]">
+            <div
+                class="flex-shrink-0 px-8 py-4 border-b border-[#e5e7eb] dark:border-[#1e2936] flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-[#111418] dark:text-white">Kafka Event Stream</h3>
+                <div class="flex items-center gap-2">
+                    <span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span
+                        class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Live
+                        Feed</span>
                 </div>
+            </div>
+            <div class="flex-1 overflow-y-auto custom-scrollbar p-8">
+                <div id="activityLog" class="max-w-4xl mx-auto flex flex-col gap-4">
+                    <div class="flex flex-col items-center justify-center py-20 text-[#8a98a8]">
+                        <span class="material-symbols-outlined text-4xl mb-4 opacity-30">history</span>
+                        <p class="text-sm">No activity recorded yet</p>
+                    </div>
+                </div>
+            </div>
+        </div>
 
+        <!-- My Tasks View Area -->
+        <div id="myTasksView" class="hidden flex-1 flex flex-col overflow-hidden bg-[#fbfcfd] dark:bg-[#0d141c]">
+            <div
+                class="flex-shrink-0 px-8 py-4 border-b border-[#e5e7eb] dark:border-[#1e2936] flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-[#111418] dark:text-white">My Assigned Tasks</h3>
+                <div class="flex items-center gap-2">
+                    <span class="size-2 rounded-full bg-primary"></span>
+                    <span class="text-[10px] font-bold text-primary uppercase tracking-wider" id="myTasksCount">0
+                        tasks</span>
+                </div>
+            </div>
+            <div class="flex-1 overflow-y-auto custom-scrollbar p-8">
+                <div id="myTasksList" class="max-w-4xl mx-auto flex flex-col gap-4">
+                    <div class="flex flex-col items-center justify-center py-20 text-[#8a98a8]">
+                        <span class="material-symbols-outlined text-4xl mb-4 opacity-30">check_circle</span>
+                        <p class="text-sm">No tasks assigned to you</p>
+                    </div>
+                </div>
             </div>
         </div>
     </main>
@@ -416,6 +372,15 @@
                                 <span class="material-symbols-outlined text-[16px]">close</span>
                             </button>
                         </div>
+
+                        <!-- Assignee -->
+                        <div class="text-sm text-[#5c6b7f] dark:text-gray-400 py-1">Assignee</div>
+                        <div class="flex items-center">
+                            <select id="panelAssigneeSelect"
+                                class="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="">Unassigned</option>
+                            </select>
+                        </div>
                     </div>
 
                     <!-- Description -->
@@ -471,6 +436,195 @@
             </div>
         </div>
     </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="fixed inset-0 z-[70] hidden" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm transition-opacity"></div>
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div
+                class="bg-white dark:bg-[#151e29] rounded-xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all border border-[#e5e7eb] dark:border-[#1e2936]">
+                <div class="p-6">
+                    <div class="flex items-center gap-3 mb-4 text-red-600 dark:text-red-400">
+                        <div class="p-2 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                            <span class="material-symbols-outlined text-2xl">warning</span>
+                        </div>
+                        <h3 class="text-lg font-bold text-[#111418] dark:text-white">Delete Task?</h3>
+                    </div>
+                    <p class="text-sm text-[#5c6b7f] dark:text-gray-400 mb-6 leading-relaxed">
+                        Are you sure you want to delete <span id="deleteTaskTitle"
+                            class="font-medium text-[#111418] dark:text-gray-200">this task</span>? This action cannot
+                        be undone.
+                    </p>
+                    <div class="flex justify-end gap-3">
+                        <button id="cancelDeleteBtn"
+                            class="px-4 py-2 text-sm font-medium text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936]">
+                            Cancel
+                        </button>
+                        <button id="confirmDeleteBtn"
+                            class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors rounded-lg shadow-sm">
+                            <span class="material-symbols-outlined text-[18px]">delete</span>
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Board Modal -->
+    <div id="createBoardModal" class="fixed inset-0 z-[70] hidden" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm transition-opacity"></div>
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div
+                class="bg-white dark:bg-[#151e29] rounded-xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all border border-[#e5e7eb] dark:border-[#1e2936]">
+                <div class="p-6">
+                    <div class="flex items-center gap-3 mb-4 text-primary">
+                        <div class="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                            <span class="material-symbols-outlined text-2xl">dashboard_customize</span>
+                        </div>
+                        <h3 class="text-lg font-bold text-[#111418] dark:text-white">Create New Board</h3>
+                    </div>
+                    <div class="mb-6">
+                        <label for="newBoardName"
+                            class="block text-sm font-medium text-[#5c6b7f] dark:text-gray-400 mb-2">Board Name</label>
+                        <input type="text" id="newBoardName"
+                            class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-[#111418] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            placeholder="e.g., Marketing Project">
+                    </div>
+                    <div class="flex justify-end gap-3">
+                        <button id="cancelCreateBoardBtn"
+                            class="px-4 py-2 text-sm font-medium text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936]">
+                            Cancel
+                        </button>
+                        <button id="confirmCreateBoardBtn"
+                            class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-blue-600 transition-colors rounded-lg shadow-sm">
+                            Create Board
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create List Modal -->
+    <div id="createListModal" class="fixed inset-0 z-[70] hidden" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm transition-opacity"></div>
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div
+                class="bg-white dark:bg-[#151e29] rounded-xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all border border-[#e5e7eb] dark:border-[#1e2936]">
+                <div class="p-6">
+                    <div class="flex items-center gap-3 mb-4 text-primary">
+                        <div class="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                            <span class="material-symbols-outlined text-2xl">view_week</span>
+                        </div>
+                        <h3 class="text-lg font-bold text-[#111418] dark:text-white">Create New List</h3>
+                    </div>
+                    <div class="mb-6">
+                        <label for="newListTitle"
+                            class="block text-sm font-medium text-[#5c6b7f] dark:text-gray-400 mb-2">List Title</label>
+                        <input type="text" id="newListTitle"
+                            class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-[#111418] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            placeholder="e.g., To Do">
+                    </div>
+                    <div class="flex justify-end gap-3">
+                        <button id="cancelCreateListBtn"
+                            class="px-4 py-2 text-sm font-medium text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936]">
+                            Cancel
+                        </button>
+                        <button id="confirmCreateListBtn"
+                            class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-blue-600 transition-colors rounded-lg shadow-sm">
+                            Create List
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Board Modal -->
+    <!-- Delete List Modal -->
+    <div id="deleteListModal" class="fixed inset-0 z-[70] hidden" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm transition-opacity"></div>
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div
+                class="bg-white dark:bg-[#151e29] rounded-xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all border border-[#e5e7eb] dark:border-[#1e2936]">
+                <div class="p-6">
+                    <div class="flex items-center gap-3 mb-4 text-red-600 dark:text-red-400">
+                        <div class="p-2 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                            <span class="material-symbols-outlined text-2xl">warning</span>
+                        </div>
+                        <h3 class="text-lg font-bold text-[#111418] dark:text-white">Delete List?</h3>
+                    </div>
+                    <p class="text-sm text-[#5c6b7f] dark:text-gray-400 mb-4 leading-relaxed">
+                        Are you sure you want to delete <span id="deleteListName"
+                            class="font-medium text-[#111418] dark:text-gray-200">this list</span>? All tasks in this list will be permanently deleted. This action cannot be undone.
+                    </p>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-[#5c6b7f] dark:text-gray-400 mb-2">
+                            Type the list name to confirm:
+                        </label>
+                        <input type="text" id="deleteListConfirmInput" 
+                            class="w-full px-4 py-2 bg-[#fbfcfd] dark:bg-[#0d141c] border border-[#e5e7eb] dark:border-[#1e2936] rounded-lg text-[#111418] dark:text-white placeholder-[#8a98a8] focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
+                            placeholder="List name">
+                    </div>
+                    <div class="flex justify-end gap-3">
+                        <button id="cancelDeleteListBtn"
+                            class="px-4 py-2 text-sm font-medium text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936]">
+                            Cancel
+                        </button>
+                        <button id="confirmDeleteListBtn" disabled
+                            class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-red-600">
+                            <span class="material-symbols-outlined text-[18px]">delete</span>
+                            Delete List
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="deleteBoardModal" class="fixed inset-0 z-[70] hidden" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm transition-opacity"></div>
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div
+                class="bg-white dark:bg-[#151e29] rounded-xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all border border-[#e5e7eb] dark:border-[#1e2936]">
+                <div class="p-6">
+                    <div class="flex items-center gap-3 mb-4 text-red-600 dark:text-red-400">
+                        <div class="p-2 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                            <span class="material-symbols-outlined text-2xl">warning</span>
+                        </div>
+                        <h3 class="text-lg font-bold text-[#111418] dark:text-white">Delete Board?</h3>
+                    </div>
+                    <p class="text-sm text-[#5c6b7f] dark:text-gray-400 mb-4 leading-relaxed">
+                        Are you sure you want to delete <span id="deleteBoardName"
+                            class="font-medium text-[#111418] dark:text-gray-200">this board</span>? All tasks and columns will be permanently deleted. This action cannot be undone.
+                    </p>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-[#5c6b7f] dark:text-gray-400 mb-2">
+                            Type the board name to confirm:
+                        </label>
+                        <input type="text" id="deleteBoardConfirmInput" 
+                            class="w-full px-4 py-2 bg-[#fbfcfd] dark:bg-[#0d141c] border border-[#e5e7eb] dark:border-[#1e2936] rounded-lg text-[#111418] dark:text-white placeholder-[#8a98a8] focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
+                            placeholder="Board name">
+                    </div>
+                    <div class="flex justify-end gap-3">
+                        <button id="cancelDeleteBoardBtn"
+                            class="px-4 py-2 text-sm font-medium text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936]">
+                            Cancel
+                        </button>
+                        <button id="confirmDeleteBoardBtn" disabled
+                            class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-red-600">
+                            <span class="material-symbols-outlined text-[18px]">delete</span>
+                            Delete Board
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="fixed bottom-6 left-6 z-[60] flex flex-col gap-3 pointer-events-none"></div>
 
     <script src="app.js"></script>
 </body>

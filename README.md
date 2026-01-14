@@ -1,76 +1,131 @@
 # Tulay Kanban
 
-A modern, real-time Kanban board built with vanilla JavaScript and Tailwind CSS. Features a sleek design with drag-and-drop functionality.
+A modern, full-featured Kanban board application with a sleek UI and powerful task management capabilities. Built with FastAPI and PostgreSQL for reliable data persistence.
 
 ![Tulay Kanban Board](https://img.shields.io/badge/Status-Active-green)
 
 ## Features
 
-- **Kanban Board** - Three columns: To Do, In Progress, Done
-- **Drag & Drop** - Reorder cards within columns or move between columns
-- **Inline Card Creation** - Quick add cards directly in each column
-- **Side Panel Editor** - Click any card to edit details in a slide-out panel
-- **Due Dates** - Set and track task deadlines
-- **Priority Levels** - Low, Medium, High with color indicators
-- **Labels** - Backend, Frontend, Design, DevOps categories
-- **Dark/Light Mode** - Toggle between themes
-- **Persistent Storage** - Tasks saved to localStorage
-- **Kafka Event Logging** - Simulated event stream for future integration
+### Board Management
+- **Multiple Boards** - Create and manage multiple project boards with easy navigation
+- **Board Search** - Quick filtering in the sidebar to find your boards
+- **Board Deletion** - Safe deletion with name confirmation to prevent accidents
+
+### List Management
+- **Flexible Lists** - Create custom lists (columns) for your workflow
+- **Drag & Drop Reordering** - Rearrange lists by dragging headers or using menu buttons
+- **List Actions** - Rename, move, or delete lists via the menu
+- **Inline List Creation** - Modal-based list creation with quick keyboard shortcuts
+
+### Task Management
+- **Drag & Drop** - Smooth task movement between lists with visual indicators
+- **Inline Card Creation** - Quick add cards directly in each list
+- **Side Panel Editor** - Comprehensive task details in a sleek slide-out panel
+- **Priority Levels** - Low, Medium, and High priority options
+- **Labels** - Categorize tasks with Backend, Frontend, Design, or DevOps labels
+- **Task Deletion** - Safe deletion with confirmation
+
+### User Experience
+- **Light/Dark Mode** - Full theme support with persistent preferences
+- **Header Stats** - Overview of all lists with task counts and horizontal scrolling
+- **Activity Tracking** - Persistent activity log for all board actions
+- **Smart Confirmations** - Type-to-confirm for destructive actions
+- **Keyboard Shortcuts** - Enter to create, Escape to cancel
 
 ## Tech Stack
 
-- **HTML5** - Semantic markup
-- **Tailwind CSS** - Utility-first styling via CDN
-- **Vanilla JavaScript** - No framework dependencies
-- **Material Symbols** - Google icon font
-- **Inter Font** - Clean typography
+- **Frontend**: Vanilla JavaScript, Tailwind CSS (via CDN), Material Symbols Icons
+- **Backend**: FastAPI (Python) with SQLAlchemy ORM
+- **Database**: PostgreSQL with proper foreign key relationships
+- **Authentication**: JWT-based authentication system
+- **Containerization**: Docker & Docker Compose for database services
 
 ## Getting Started
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/kafka-kanban.git
-   cd kafka-kanban
-   ```
+### 1. Prerequisites
+- Docker & Docker Compose
+- Python 3.9+
 
-2. Open `index.html` in your browser, or use a local server:
-   ```bash
-   # Using Python
-   python -m http.server 8080
-   
-   # Using Node.js
-   npx serve .
-   ```
+### 2. Setup Services
+Start the PostgreSQL database using Docker:
+```bash
+docker compose up -d
+```
 
-3. Visit `http://localhost:8080`
+### 3. Setup Python Backend
+Install dependencies and run the FastAPI server:
+```bash
+pip install -r requirements.txt
+python main.py
+```
+
+### 4. Open Application
+Visit `http://localhost:8000` to start using Tulay Kanban.
 
 ## Project Structure
 
 ```
-kafka-kanban/
-├── index.html      # Main HTML with Tailwind config
-├── app.js          # Application logic
-├── docker-compose.yml  # Kafka broker setup (optional)
+tulay-kanban/
+├── main.py                 # FastAPI backend with API endpoints
+├── backend/
+│   ├── auth.py            # JWT authentication
+│   ├── database.py        # Database configuration
+│   └── models.py          # SQLAlchemy models (Board, BoardColumn, Task, Activity)
+├── app.js                 # Frontend logic (State, UI rendering, drag & drop)
+├── index.html             # Single-page application UI
+├── login.html             # Authentication page
+├── docker-compose.yml     # PostgreSQL configuration
+├── requirements.txt       # Python dependencies
 └── README.md
 ```
 
 ## Usage
 
-- **Add Card** - Click "Add Card" button in any column
-- **Edit Card** - Click on any card to open the side panel
-- **Move Card** - Drag and drop between columns
-- **Reorder** - Drag cards within the same column
-- **Delete Card** - Open card panel and click delete icon
-- **Toggle Theme** - Click theme button in sidebar
+### Getting Started
+1. **Create an Account** - Register on the login page
+2. **Create a Board** - Click the "+" button next to "Boards" in the sidebar
+3. **Add Lists** - Click "Add another list" to create your workflow columns
+4. **Add Tasks** - Use the "Add card" button at the bottom of lists or from the list menu
+
+### Working with Tasks
+- **Create Cards** - Click "Add card" button, enter title, select priority and label
+- **Move Tasks** - Drag and drop cards between lists
+- **Edit Tasks** - Click any card to open the details panel
+- **Delete Tasks** - Click the delete button in the task panel
+
+### Organizing Your Board
+- **Reorder Lists** - Drag list headers or use Move left/right in the menu
+- **Rename Lists** - Use "Rename list" option in the list menu
+- **Delete Lists** - Type the list name to confirm deletion
+- **Toggle Theme** - Use the theme toggle in the sidebar
+
+### Board Management
+- **Switch Boards** - Click any board in the sidebar
+- **Delete Boards** - Click the delete icon and type the board name to confirm
+- **View Activity** - Click "Activity" in the sidebar to see your action history
+
+## Database Models
+
+- **Board** - Project boards with name and owner
+- **BoardColumn** - Lists/columns with title, position, and color
+- **Task** - Individual cards with title, description, priority, label, and position
+- **Activity** - Audit log of all actions (preserved when boards are deleted)
 
 ## Future Roadmap
 
-- [ ] Kafka producer/consumer integration
-- [ ] Real-time sync across clients
-- [ ] User authentication
-- [ ] Board/project management
+- [x] Multiple boards and workspace management
+- [x] Drag & drop for tasks and lists
+- [x] User authentication
+- [x] Activity logging
+- [x] List reordering
+- [x] Confirmation modals for destructive actions
 - [ ] Task comments and attachments
+- [ ] Advanced filtering and search
+- [ ] Team collaboration features
+- [ ] Task due dates and reminders
+- [ ] Custom labels and priorities
 
 ## License
 
 MIT License - Feel free to use and modify.
+
