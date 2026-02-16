@@ -66,6 +66,14 @@ const elements = {
     panelImageUpload: document.getElementById('panelImageUpload'),
     panelAddImageBtn: document.getElementById('panelAddImageBtn'),
     imageUploadStatus: document.getElementById('imageUploadStatus'),
+    // Comments
+    commentsContainer: document.getElementById('commentsContainer'),
+    commentInput: document.getElementById('commentInput'),
+    commentImagesContainer: document.getElementById('commentImagesContainer'),
+    commentImageUpload: document.getElementById('commentImageUpload'),
+    addCommentImageBtn: document.getElementById('addCommentImageBtn'),
+    submitCommentBtn: document.getElementById('submitCommentBtn'),
+    commentImageStatus: document.getElementById('commentImageStatus'),
     closePanelBtn: document.getElementById('closePanelBtn'),
     cancelPanelBtn: document.getElementById('cancelPanelBtn'),
     savePanelBtn: document.getElementById('savePanelBtn'),
@@ -1598,6 +1606,13 @@ function openTaskPanel(task) {
     // Render images
     renderTaskImages(task.images || []);
 
+    // Load and render comments
+    loadComments(task.id);
+    // Clear comment input
+    elements.commentInput.value = '';
+    currentCommentImages = [];
+    renderCommentImages();
+
     // Render event log
     renderEventLog(task);
 
@@ -1700,6 +1715,185 @@ function openImageModal(url) {
     });
     
     document.body.appendChild(modal);
+}
+
+// ===== Comment Handling =====
+let currentCommentImages = [];
+
+async function loadComments(taskId) {
+    try {
+        const response = await authFetch(`${API_URL}/api/tasks/${taskId}/comments`);
+        if (!response) return;
+        
+        const comments = await response.json();
+        renderComments(comments);
+    } catch (error) {
+        console.error('Error loading comments:', error);
+        showToast('Failed to load comments', 'error');
+    }
+}
+
+function renderComments(comments) {
+    if (!comments || comments.length === 0) {
+        elements.commentsContainer.innerHTML = '<div class="text-xs text-[#8a98a8] text-center py-4">No comments yet. Be the first to comment!</div>';
+        return;
+    }
+
+    elements.commentsContainer.innerHTML = comments.map(comment => {
+        const commentDate = new Date(comment.created_at);
+        const formattedDate = commentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const formattedTime = commentDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        
+        const isOwner = currentUser && comment.user_id === currentUser.id;
+        
+        const imagesHtml = comment.images && comment.images.length > 0 ? `
+            <div class="grid grid-cols-3 gap-2 mt-2">
+                ${comment.images.map(url => `
+                    <div class="aspect-square rounded-lg overflow-hidden border border-[#e5e7eb] dark:border-[#1e2936] bg-gray-100 dark:bg-gray-800">
+                        <img src="${url}" alt="Comment image" 
+                            class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                            onclick="openImageModal('${url}')">
+                    </div>
+                `).join('')}
+            </div>
+        ` : '';
+
+        return `
+            <div class="bg-white dark:bg-[#151e29] rounded-lg p-4 border border-[#e5e7eb] dark:border-[#1e2936]">
+                <div class="flex items-start justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center text-white text-sm font-semibold">
+                            ${comment.user_id ? comment.user_id.substring(0, 2).toUpperCase() : 'U'}
+                        </div>
+                        <div>
+                            <div class="text-sm font-medium text-[#111418] dark:text-white">User</div>
+                            <div class="text-xs text-[#5c6b7f] dark:text-gray-400">${formattedDate} at ${formattedTime}</div>
+                        </div>
+                    </div>
+                    ${isOwner ? `
+                        <button onclick="deleteComment('${comment.id}')" 
+                            class="p-1 text-[#5c6b7f] hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors"
+                            title="Delete comment">
+                            <span class="material-symbols-outlined text-[18px]">delete</span>
+                        </button>
+                    ` : ''}
+                </div>
+                <div class="text-sm text-[#111418] dark:text-gray-200 whitespace-pre-wrap">${escapeHtml(comment.content)}</div>
+                ${imagesHtml}
+            </div>
+        `;
+    }).join('');
+}
+
+async function postComment() {
+    if (!currentEditingTask) return;
+
+    const content = elements.commentInput.value.trim();
+    if (!content && currentCommentImages.length === 0) {
+        showToast('Comment cannot be empty', 'error');
+        return;
+    }
+
+    const commentData = {
+        content: content,
+        images: currentCommentImages
+    };
+
+    try {
+        const response = await authFetch(`${API_URL}/api/tasks/${currentEditingTask.id}/comments`, {
+            method: 'POST',
+            body: JSON.stringify(commentData)
+        });
+
+        if (!response) return;
+
+        const newComment = await response.json();
+        
+        // Clear input and images
+        elements.commentInput.value = '';
+        currentCommentImages = [];
+        elements.commentImagesContainer.innerHTML = '';
+        elements.commentImagesContainer.classList.add('hidden');
+
+        // Reload comments
+        await loadComments(currentEditingTask.id);
+
+        showToast('Comment added', 'success');
+    } catch (error) {
+        console.error('Error posting comment:', error);
+        showToast('Failed to post comment', 'error');
+    }
+}
+
+async function deleteComment(commentId) {
+    if (!confirm('Delete this comment?')) return;
+
+    try {
+        const response = await authFetch(`${API_URL}/api/comments/${commentId}`, {
+            method: 'DELETE'
+        });
+
+        if (!response) return;
+
+        // Reload comments
+        await loadComments(currentEditingTask.id);
+
+        showToast('Comment deleted', 'success');
+    } catch (error) {
+        console.error('Error deleting comment:', error);
+        showToast('Failed to delete comment', 'error');
+    }
+}
+
+async function uploadCommentImage(file) {
+    elements.commentImageStatus.textContent = 'Uploading...';
+    elements.commentImageStatus.classList.remove('hidden');
+
+    try {
+        const url = await uploadTaskImage(file);
+        elements.commentImageStatus.classList.add('hidden');
+        return url;
+    } catch (error) {
+        console.error('Error uploading comment image:', error);
+        elements.commentImageStatus.textContent = 'Upload failed';
+        setTimeout(() => {
+            elements.commentImageStatus.classList.add('hidden');
+        }, 3000);
+        return null;
+    }
+}
+
+function renderCommentImages() {
+    if (currentCommentImages.length === 0) {
+        elements.commentImagesContainer.innerHTML = '';
+        elements.commentImagesContainer.classList.add('hidden');
+        return;
+    }
+
+    elements.commentImagesContainer.classList.remove('hidden');
+    elements.commentImagesContainer.innerHTML = currentCommentImages.map((url, index) => `
+        <div class="relative group aspect-square rounded-lg overflow-hidden border border-[#e5e7eb] dark:border-[#1e2936] bg-gray-100 dark:bg-gray-800">
+            <img src="${url}" alt="Comment image ${index + 1}" 
+                class="w-full h-full object-cover">
+            <button type="button" 
+                class="absolute top-1 right-1 p-1 bg-red-600 hover:bg-red-700 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+                onclick="removeCommentImage(${index})"
+                title="Remove image">
+                <span class="material-symbols-outlined text-[14px]">close</span>
+            </button>
+        </div>
+    `).join('');
+}
+
+function removeCommentImage(index) {
+    currentCommentImages.splice(index, 1);
+    renderCommentImages();
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 function saveTaskFromPanel() {
@@ -2030,6 +2224,14 @@ function handleIncomingKafkaEvent(kafkaEvent) {
     // Sync tasks on relevant events (non-blocking)
     if (['TASK_CREATED', 'TASK_UPDATED', 'TASK_MOVED', 'TASK_DELETED'].includes(kafkaEvent.type)) {
         loadColumns().then(loadTasks); // Fire and forget - don't block
+    }
+
+    // Handle comment events
+    if (['COMMENT_ADDED', 'COMMENT_UPDATED', 'COMMENT_DELETED'].includes(kafkaEvent.type)) {
+        // If the task panel is open for this task, reload comments
+        if (currentEditingTask && currentEditingTask.id === kafkaEvent.taskId) {
+            loadComments(kafkaEvent.taskId);
+        }
     }
 }
 
@@ -2441,6 +2643,46 @@ function initEventListeners() {
         }
 
         // Clear the input so the same file can be uploaded again
+        e.target.value = '';
+    });
+
+    // Comment functionality
+    elements.submitCommentBtn.addEventListener('click', postComment);
+
+    elements.commentInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && e.ctrlKey) {
+            postComment();
+        }
+    });
+
+    elements.addCommentImageBtn.addEventListener('click', () => {
+        elements.commentImageUpload.click();
+    });
+
+    elements.commentImageUpload.addEventListener('change', async (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+
+        // Validate file sizes (max 5MB each)
+        for (const file of files) {
+            if (file.size > 5 * 1024 * 1024) {
+                showToast('Each image must be smaller than 5MB', 'error');
+                e.target.value = '';
+                return;
+            }
+        }
+
+        // Upload all files
+        for (const file of files) {
+            const imageUrl = await uploadCommentImage(file);
+            if (imageUrl) {
+                currentCommentImages.push(imageUrl);
+            }
+        }
+
+        renderCommentImages();
+
+        // Clear the input so the same files can be uploaded again
         e.target.value = '';
     });
 

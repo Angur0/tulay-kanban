@@ -372,6 +372,21 @@ class TaskResponse(BaseModel):
     created_at: datetime.datetime
     updated_at: datetime.datetime
 
+class CommentCreate(BaseModel):
+    content: str
+    images: Optional[List[str]] = []
+
+class CommentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: str
+    task_id: str
+    user_id: str
+    content: str
+    images: Optional[List[str]] = []
+    created_at: datetime.datetime
+    updated_at: datetime.datetime
+
 # ===== Auth Dependency =====
 async def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
@@ -761,6 +776,153 @@ async def delete_task(task_id: str, current_user: models.User = Depends(get_curr
     else:
         await manager.broadcast(json.dumps(event))
 
+    return {"status": "deleted"}
+
+# ===== Comment Routes =====
+@app.get("/api/tasks/{task_id}/comments", response_model=List[CommentResponse])
+async def get_task_comments(
+    task_id: str, 
+    current_user: models.User = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
+    """Get all comments for a task"""
+    task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    # Verify access to board
+    board = db.query(models.Board).filter(models.Board.id == task.board_id).first()
+    ws = db.query(models.Workspace).filter(models.Workspace.id == board.workspace_id).first()
+    if ws.owner_id != current_user.id and not any(m.id == current_user.id for m in ws.members):
+        raise HTTPException(status_code=403, detail="Not authorized to view this task")
+    
+    comments = db.query(models.Comment).filter(models.Comment.task_id == task_id).order_by(models.Comment.created_at.desc()).all()
+    return comments
+
+@app.post("/api/tasks/{task_id}/comments", response_model=CommentResponse)
+async def create_comment(
+    task_id: str,
+    comment_in: CommentCreate,
+    current_user: models.User = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
+    """Create a new comment on a task"""
+    task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    # Verify access to board
+    board = db.query(models.Board).filter(models.Board.id == task.board_id).first()
+    ws = db.query(models.Workspace).filter(models.Workspace.id == board.workspace_id).first()
+    if ws.owner_id != current_user.id and not any(m.id == current_user.id for m in ws.members):
+        raise HTTPException(status_code=403, detail="Not authorized to comment on this task")
+    
+    new_comment = models.Comment(
+        task_id=task_id,
+        user_id=current_user.id,
+        content=comment_in.content,
+        images=comment_in.images or []
+    )
+    db.add(new_comment)
+    db.commit()
+    db.refresh(new_comment)
+    
+    # Broadcast comment event via WebSocket
+    event = {
+        "type": "COMMENT_ADDED",
+        "taskId": task_id,
+        "commentId": new_comment.id,
+        "data": {
+            "content": new_comment.content,
+            "user_id": current_user.id,
+            "user_email": current_user.email,
+            "images": new_comment.images
+        },
+        "timestamp": datetime.datetime.utcnow().isoformat(),
+        "board_id": task.board_id
+    }
+    if producer:
+        await producer.send_and_wait(KAFKA_TOPIC, event)
+    else:
+        await manager.broadcast(json.dumps(event))
+    
+    return new_comment
+
+@app.put("/api/comments/{comment_id}", response_model=CommentResponse)
+async def update_comment(
+    comment_id: str,
+    comment_in: CommentCreate,
+    current_user: models.User = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
+    """Update a comment (only by the comment author)"""
+    comment = db.query(models.Comment).filter(models.Comment.id == comment_id).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    
+    if comment.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to edit this comment")
+    
+    comment.content = comment_in.content
+    comment.images = comment_in.images or []
+    comment.updated_at = datetime.datetime.utcnow()
+    
+    db.commit()
+    db.refresh(comment)
+    
+    # Broadcast update event
+    task = db.query(models.Task).filter(models.Task.id == comment.task_id).first()
+    event = {
+        "type": "COMMENT_UPDATED",
+        "taskId": comment.task_id,
+        "commentId": comment.id,
+        "data": {
+            "content": comment.content,
+            "images": comment.images
+        },
+        "timestamp": datetime.datetime.utcnow().isoformat(),
+        "board_id": task.board_id if task else None
+    }
+    if producer:
+        await producer.send_and_wait(KAFKA_TOPIC, event)
+    else:
+        await manager.broadcast(json.dumps(event))
+    
+    return comment
+
+@app.delete("/api/comments/{comment_id}")
+async def delete_comment(
+    comment_id: str,
+    current_user: models.User = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
+    """Delete a comment (only by the comment author)"""
+    comment = db.query(models.Comment).filter(models.Comment.id == comment_id).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    
+    if comment.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this comment")
+    
+    task_id = comment.task_id
+    task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    
+    db.delete(comment)
+    db.commit()
+    
+    # Broadcast delete event
+    event = {
+        "type": "COMMENT_DELETED",
+        "taskId": task_id,
+        "commentId": comment_id,
+        "timestamp": datetime.datetime.utcnow().isoformat(),
+        "board_id": task.board_id if task else None
+    }
+    if producer:
+        await producer.send_and_wait(KAFKA_TOPIC, event)
+    else:
+        await manager.broadcast(json.dumps(event))
+    
     return {"status": "deleted"}
 
 @app.post("/api/upload-image")

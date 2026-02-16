@@ -128,3 +128,17 @@ class Activity(Base):
 
     board = relationship("Board", back_populates="activities")
     user = relationship("User")
+
+class Comment(Base):
+    __tablename__ = "comments"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    task_id = Column(String, ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    content = Column(Text, nullable=False)
+    images = Column(JSON, default=[])  # Array of image URLs
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+    task = relationship("Task", backref="comments")
+    user = relationship("User")
