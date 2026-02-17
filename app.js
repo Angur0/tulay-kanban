@@ -44,6 +44,8 @@ async function authFetch(url, options = {}) {
 // ===== DOM Elements =====
 const elements = {
     board: document.getElementById('board'),
+    sidebar: document.getElementById('sidebar'),
+    sidebarToggle: document.getElementById('sidebarToggle'),
     themeToggle: document.getElementById('themeToggle'),
     themeIcon: document.getElementById('themeIcon'),
     themeText: document.getElementById('themeText'),
@@ -416,24 +418,18 @@ function renderBoard() {
             <!-- Inline Add Card Form -->
             <div class="inline-add-form hidden" data-column-id="${col.id}"></div>
             <button
-                class="add-card-btn flex items-center gap-2 px-2 py-2 mt-2 text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] rounded-lg transition-colors text-sm font-medium"
-                data-column-id="${col.id}">
-                <span class="material-symbols-outlined text-[18px]">add</span>
-                Add Card
+                class="add-card-btn flex items-center justify-center px-2 py-2 mt-2 text-[#5c6b7f] dark:text-gray-400 hover:text-primary hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                data-column-id="${col.id}" title="Add Card">
+                <span class="material-symbols-outlined text-[20px]">add</span>
             </button>
         </div>
-    `).join('');
-
-    // Add "Add List" button at the end
-    const addListBtn = document.createElement('div');
-    addListBtn.className = 'flex flex-col w-80 flex-shrink-0 h-full';
-    addListBtn.innerHTML = `
-        <button id="addListBtn" class="flex items-center gap-2 px-4 py-3 bg-[#f1f3f5] dark:bg-[#1a232e] hover:bg-[#e6e8eb] dark:hover:bg-[#253040] rounded-xl text-[#5c6b7f] dark:text-gray-400 font-medium transition-colors w-full text-left">
-            <span class="material-symbols-outlined">add</span>
-            Add another list
-        </button>
+    `).join('') + `
+        <div class="flex-shrink-0 h-full flex items-stretch">
+            <button id="addListBtn" class="flex flex-col items-center justify-center px-4 w-16 bg-[#f1f3f5] dark:bg-[#1a232e] hover:bg-[#e6e8eb] dark:hover:bg-[#253040] rounded-xl text-[#5c6b7f] dark:text-gray-400 font-medium transition-all shadow-sm">
+                <span class="material-symbols-outlined text-2xl">add</span>
+            </button>
+        </div>
     `;
-    boardEl.appendChild(addListBtn);
 
     // Add event listener for the add list button
     document.getElementById('addListBtn').addEventListener('click', showCreateListModal);
@@ -1219,13 +1215,13 @@ function renderBoardList() {
         const isActive = board.id === activeBoardId;
         return `
             <div class="flex items-center gap-1 group/board">
-                <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg flex-1 ${isActive ? 'bg-[#eff1f3] dark:bg-[#1e2936] text-[#111418] dark:text-white' : 'text-[#5c6b7f] dark:text-gray-400 hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] hover:text-[#111418] dark:hover:text-white'} transition-colors group"
-                    onclick="switchBoard('${board.id}'); return false;">
-                    <span class="material-symbols-outlined text-[18px] group-hover:text-primary transition-colors ${isActive ? 'text-primary' : ''}">dashboard</span>
-                    <span class="text-sm font-medium truncate">${escapeHtml(board.name)}</span>
+                <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg flex-1 justify-start ${isActive ? 'bg-[#eff1f3] dark:bg-[#1e2936] text-[#111418] dark:text-white' : 'text-[#5c6b7f] dark:text-gray-400 hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] hover:text-[#111418] dark:hover:text-white'} transition-colors group"
+                    onclick="switchBoard('${board.id}'); return false;" title="${escapeHtml(board.name)}">
+                    <span class="material-symbols-outlined group-hover:text-primary transition-colors flex-shrink-0 ${isActive ? 'text-primary' : ''}">dashboard</span>
+                    <span class="text-sm font-medium truncate sidebar-text whitespace-nowrap">${escapeHtml(board.name)}</span>
                 </a>
                 <button onclick="showDeleteBoardModal('${board.id}', '${escapeHtml(board.name)}'); event.stopPropagation(); return false;" 
-                    class="opacity-0 group-hover/board:opacity-100 p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-[#8a98a8] hover:text-red-600 dark:hover:text-red-400 transition-all" 
+                    class="opacity-0 group-hover/board:opacity-100 p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-[#8a98a8] hover:text-red-600 dark:hover:text-red-400 transition-all sidebar-text" 
                     title="Delete board">
                     <span class="material-symbols-outlined text-[16px]">delete</span>
                 </button>
@@ -2726,6 +2722,19 @@ function updateThemeUI(isDark) {
     elements.themeText.textContent = isDark ? 'Light Mode' : 'Dark Mode';
 }
 
+// ===== Sidebar Toggle =====
+function toggleSidebar() {
+    const isCollapsed = elements.sidebar.classList.toggle('collapsed');
+    localStorage.setItem('kafka-kanban-sidebar', isCollapsed ? 'collapsed' : 'expanded');
+}
+
+function loadSidebarState() {
+    const sidebarState = localStorage.getItem('kafka-kanban-sidebar');
+    if (sidebarState === 'collapsed') {
+        elements.sidebar.classList.add('collapsed');
+    }
+}
+
 // ===== Event Listeners =====
 function initEventListeners() {
     // Panel close buttons
@@ -2945,6 +2954,9 @@ function initEventListeners() {
     // Theme
     elements.themeToggle.addEventListener('click', toggleTheme);
 
+    // Sidebar Toggle
+    elements.sidebarToggle.addEventListener('click', toggleSidebar);
+
     // Logout
     document.getElementById('logoutBtn').addEventListener('click', () => {
         localStorage.removeItem('access_token');
@@ -3050,7 +3062,7 @@ function initEventListeners() {
         });
     }
 
-    // Horizontal scroll with touchpad swiping only (not mouse wheel)
+    // Horizontal scroll with mouse wheel and touchpad
     elements.boardView.addEventListener('wheel', (e) => {
         const taskList = e.target.closest('.task-list');
 
@@ -3067,14 +3079,16 @@ function initEventListeners() {
             }
         }
 
-        // Only enable horizontal scrolling for touchpad swiping (has deltaX)
-        // Disable for mouse wheel (only has deltaY, no deltaX)
+        // Enable horizontal scrolling for touchpad swiping (has deltaX)
         if (Math.abs(e.deltaX) > 0) {
             // Touchpad horizontal swipe detected
             e.preventDefault();
             elements.boardView.scrollLeft += e.deltaX;
+        } else if (Math.abs(e.deltaY) > 0) {
+            // Mouse wheel - convert to horizontal scroll when over headers, buttons, or empty space
+            e.preventDefault();
+            elements.boardView.scrollLeft += e.deltaY;
         }
-        // If only deltaY exists (mouse wheel), do nothing - no horizontal scroll
     }, { passive: false });
 }
 
@@ -3161,6 +3175,7 @@ function formatDate(dateString) {
 // ===== Initialize Application =====
 async function init() {
     initTheme();
+    loadSidebarState();
 
     const token = localStorage.getItem('access_token');
     if (!token) {
