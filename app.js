@@ -986,7 +986,7 @@ function openLabelManager(scope = 'global') {
     const modal = document.getElementById('labelManagerModal');
     modal.classList.remove('hidden');
     modal.style.display = '';
-    
+
     // Set scope selector
     const scopeSelect = document.getElementById('labelScopeSelect');
     if (scopeSelect) {
@@ -1000,7 +1000,7 @@ function closeLabelManager() {
     const modal = document.getElementById('labelManagerModal');
     modal.classList.add('hidden');
     modal.style.display = 'none';
-    
+
     // Clear inputs
     document.getElementById('labelNameInput').value = '';
     document.getElementById('labelColorInput').value = '#93c5fd';
@@ -1168,7 +1168,7 @@ function populateTaskPanelLabels(task) {
 function getSelectedLabelIds() {
     const container = elements.panelLabelSelect;
     if (!container) return [];
-    
+
     const checkboxes = container.querySelectorAll('input[type="checkbox"]:checked');
     return Array.from(checkboxes).map(cb => cb.value);
 }
@@ -1438,7 +1438,7 @@ function showInlineAddForm(columnId) {
     const addBtn = column.querySelector('.add-card-btn');
 
     // Generate label checkboxes
-    const labelCheckboxes = labels.length === 0 
+    const labelCheckboxes = labels.length === 0
         ? '<p class="text-xs text-gray-400 py-2 text-center">No labels available</p>'
         : labels.map(label => `
             <label class="flex items-center gap-2 cursor-pointer hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] px-2 py-1.5 rounded transition-colors">
@@ -1690,7 +1690,7 @@ async function uploadTaskImage(file) {
 
 function removeTaskImage(index) {
     if (!currentEditingTask || !currentEditingTask.images) return;
-    
+
     currentEditingTask.images.splice(index, 1);
     renderTaskImages(currentEditingTask.images);
 }
@@ -1707,13 +1707,13 @@ function openImageModal(url) {
             </button>
         </div>
     `;
-    
+
     modal.addEventListener('click', (e) => {
         if (e.target === modal || e.target.closest('button')) {
             document.body.removeChild(modal);
         }
     });
-    
+
     document.body.appendChild(modal);
 }
 
@@ -1724,7 +1724,7 @@ async function loadComments(taskId) {
     try {
         const response = await authFetch(`${API_URL}/api/tasks/${taskId}/comments`);
         if (!response) return;
-        
+
         const comments = await response.json();
         renderComments(comments);
     } catch (error) {
@@ -1743,9 +1743,9 @@ function renderComments(comments) {
         const commentDate = new Date(comment.created_at);
         const formattedDate = commentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         const formattedTime = commentDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-        
+
         const isOwner = currentUser && comment.user_id === currentUser.id;
-        
+
         const imagesHtml = comment.images && comment.images.length > 0 ? `
             <div class="grid grid-cols-3 gap-2 mt-2">
                 ${comment.images.map(url => `
@@ -1808,7 +1808,7 @@ async function postComment() {
         if (!response) return;
 
         const newComment = await response.json();
-        
+
         // Clear input and images
         elements.commentInput.value = '';
         currentCommentImages = [];
@@ -2236,20 +2236,9 @@ function handleIncomingKafkaEvent(kafkaEvent) {
 }
 
 function updateKafkaStatusUI() {
-    if (kafkaConnected) {
-        elements.kafkaStatus.textContent = 'Kafka Stream Active — Connected';
-        elements.kafkaStatus.classList.remove('text-red-400', 'text-[#5c6b7f]');
-        elements.kafkaStatus.classList.add('text-green-400');
-    } else if (!activeBoardId) {
-        // No board selected - show neutral status
-        elements.kafkaStatus.textContent = 'Ready — Select or create a board';
-        elements.kafkaStatus.classList.remove('text-green-400', 'text-red-400');
-        elements.kafkaStatus.classList.add('text-[#5c6b7f]');
-    } else {
-        elements.kafkaStatus.textContent = 'Kafka Stream — Disconnected (local mode)';
-        elements.kafkaStatus.classList.remove('text-green-400', 'text-[#5c6b7f]');
-        elements.kafkaStatus.classList.add('text-red-400');
-    }
+    // The Kafka indicator is now a static visual element in the header
+    // No dynamic updates needed since it's always visible as a pulsing light
+    // The connection status is managed by the WebSocket connection itself
 }
 
 // ===== Toast Notifications =====
