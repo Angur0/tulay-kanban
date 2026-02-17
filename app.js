@@ -130,7 +130,15 @@ const elements = {
     deleteListName: document.getElementById('deleteListName'),
     deleteListConfirmInput: document.getElementById('deleteListConfirmInput'),
     cancelDeleteListBtn: document.getElementById('cancelDeleteListBtn'),
-    confirmDeleteListBtn: document.getElementById('confirmDeleteListBtn')
+    confirmDeleteListBtn: document.getElementById('confirmDeleteListBtn'),
+    // Context Menu
+    taskContextMenu: document.getElementById('taskContextMenu'),
+    contextOpenTask: document.getElementById('contextOpenTask'),
+    contextStatusOptions: document.getElementById('contextStatusOptions'),
+    contextPriorityLow: document.getElementById('contextPriorityLow'),
+    contextPriorityMedium: document.getElementById('contextPriorityMedium'),
+    contextPriorityHigh: document.getElementById('contextPriorityHigh'),
+    contextDeleteTask: document.getElementById('contextDeleteTask')
 };
 
 let workspaceMembers = [];
@@ -139,6 +147,7 @@ let columns = [];
 let labels = [];
 let activeWorkspaceId = null;
 let taskToDeleteId = null;
+let currentContextTask = null; // Track task for context menu
 
 // ===== Label Colors =====
 const labelColors = {
@@ -1395,7 +1404,15 @@ function createTaskCard(task) {
             </div>
         ` : ''}
         <div class="mt-1 flex items-center justify-between gap-2">
-            ${labelsHTML || '<span></span>'}
+            <div class="flex items-center gap-2">
+                <button class="task-comment-btn opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] rounded" title="Add comment">
+                    <span class="material-symbols-outlined text-[16px] text-[#5c6b7f] dark:text-gray-400 hover:text-primary dark:hover:text-primary">comment</span>
+                </button>
+                <button class="task-image-btn opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] rounded" title="Add image">
+                    <span class="material-symbols-outlined text-[16px] text-[#5c6b7f] dark:text-gray-400 hover:text-primary dark:hover:text-primary">add_photo_alternate</span>
+                </button>
+                ${labelsHTML || '<span></span>'}
+            </div>
             <div class="flex items-center gap-1.5 ${priorityColors[task.priority]}">
                 <span class="material-symbols-outlined text-[14px] icon-filled">flag</span>
                 <span class="text-[10px] font-medium capitalize">${task.priority}</span>
@@ -1413,10 +1430,41 @@ function createTaskCard(task) {
         });
     });
 
+    // Quick comment button
+    const commentBtn = card.querySelector('.task-comment-btn');
+    if (commentBtn) {
+        commentBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent opening task panel
+            openTaskPanel(task, true); // true = focus on comments
+        });
+    }
+
+    // Quick image button
+    const imageBtn = card.querySelector('.task-image-btn');
+    if (imageBtn) {
+        imageBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent opening task panel
+            openTaskPanel(task);
+            // Trigger image upload after panel opens
+            setTimeout(() => {
+                if (elements.panelImageUpload) {
+                    elements.panelImageUpload.click();
+                }
+            }, 300);
+        });
+    }
+
     // Click to open side panel
     card.addEventListener('click', (e) => {
         if (!card.classList.contains('dragging')) {
             openTaskPanel(task);
+        }
+    });
+
+    // Right-click to open context menu
+    card.addEventListener('contextmenu', (e) => {
+        if (!card.classList.contains('dragging')) {
+            showTaskContextMenu(e, task);
         }
     });
 
@@ -1554,7 +1602,7 @@ function hideInlineAddForm() {
 }
 
 // ===== Side Panel Functions =====
-function openTaskPanel(task) {
+function openTaskPanel(task, focusOnComments = false) {
     currentEditingTask = task;
 
     // Populate panel
@@ -1620,6 +1668,21 @@ function openTaskPanel(task) {
     elements.taskPanel.classList.remove('hidden');
     setTimeout(() => {
         elements.panelContent.classList.remove('translate-x-full');
+
+        // If focusOnComments is true, scroll to comments and focus input
+        if (focusOnComments) {
+            setTimeout(() => {
+                const panelBody = elements.panelContent.querySelector('.overflow-y-auto');
+                if (panelBody && elements.commentInput) {
+                    // Scroll to comments section
+                    elements.commentInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    // Focus the comment input
+                    setTimeout(() => {
+                        elements.commentInput.focus();
+                    }, 300);
+                }
+            }, 200);
+        }
     }, 10);
 }
 
@@ -2569,6 +2632,68 @@ function handleColumnDrop(e) {
     handleColumnDragEnd(e);
 }
 
+// ===== Task Context Menu =====
+function showTaskContextMenu(e, task) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    currentContextTask = task;
+
+    // Populate status options based on available columns
+    if (elements.contextStatusOptions) {
+        elements.contextStatusOptions.innerHTML = columns.map(col => `
+            <button class="context-status-option w-full flex items-center gap-3 px-4 py-2 text-sm text-[#111418] dark:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] transition-colors text-left ${task.column_id === col.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''}" data-column-id="${col.id}">
+                <span class="material-symbols-outlined text-[18px]">${task.column_id === col.id ? 'check' : 'arrow_forward'}</span>
+                ${escapeHtml(col.title)}
+            </button>
+        `).join('');
+
+        // Add event listeners to status options
+        document.querySelectorAll('.context-status-option').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const columnId = btn.dataset.columnId;
+                if (currentContextTask && currentContextTask.column_id !== columnId) {
+                    updateTask(currentContextTask.id, { column_id: columnId });
+                }
+                hideTaskContextMenu();
+            });
+        });
+    }
+
+    // Position the menu at cursor
+    const menu = elements.taskContextMenu;
+    menu.style.display = 'block';
+    menu.classList.remove('hidden');
+
+    // Calculate position to keep menu on screen
+    const menuWidth = 224; // w-56 = 14rem = 224px
+    const menuHeight = menu.offsetHeight || 400;
+
+    let x = e.pageX;
+    let y = e.pageY;
+
+    // Adjust if menu would go off right edge
+    if (x + menuWidth > window.innerWidth + window.scrollX) {
+        x = window.innerWidth + window.scrollX - menuWidth - 10;
+    }
+
+    // Adjust if menu would go off bottom edge
+    if (y + menuHeight > window.innerHeight + window.scrollY) {
+        y = window.innerHeight + window.scrollY - menuHeight - 10;
+    }
+
+    menu.style.left = `${x}px`;
+    menu.style.top = `${y}px`;
+}
+
+function hideTaskContextMenu() {
+    if (elements.taskContextMenu) {
+        elements.taskContextMenu.style.display = 'none';
+        elements.taskContextMenu.classList.add('hidden');
+    }
+    currentContextTask = null;
+}
+
 // ===== Theme Toggle =====
 function initTheme() {
     const savedTheme = localStorage.getItem('kafka-kanban-theme');
@@ -2767,7 +2892,9 @@ function initEventListeners() {
     // Escape key
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            if (!elements.taskPanel.classList.contains('hidden')) {
+            if (elements.taskContextMenu && !elements.taskContextMenu.classList.contains('hidden')) {
+                hideTaskContextMenu();
+            } else if (!elements.taskPanel.classList.contains('hidden')) {
                 closeTaskPanel();
             } else if (!elements.deleteModal.classList.contains('hidden')) {
                 hideDeleteModal();
@@ -2858,9 +2985,60 @@ function initEventListeners() {
         if (!e.target.closest('.column-menu') && !e.target.closest('.column-menu-btn')) {
             closeAllColumnMenus();
         }
+
+        // Close context menu when clicking outside
+        if (!e.target.closest('#taskContextMenu') && !e.target.closest('.task-card')) {
+            hideTaskContextMenu();
+        }
     });
 
-    // Horizontal scroll with mouse wheel in board area
+    // Context Menu Event Listeners
+    if (elements.contextOpenTask) {
+        elements.contextOpenTask.addEventListener('click', () => {
+            if (currentContextTask) {
+                openTaskPanel(currentContextTask);
+                hideTaskContextMenu();
+            }
+        });
+    }
+
+    if (elements.contextPriorityLow) {
+        elements.contextPriorityLow.addEventListener('click', () => {
+            if (currentContextTask) {
+                updateTask(currentContextTask.id, { priority: 'low' });
+                hideTaskContextMenu();
+            }
+        });
+    }
+
+    if (elements.contextPriorityMedium) {
+        elements.contextPriorityMedium.addEventListener('click', () => {
+            if (currentContextTask) {
+                updateTask(currentContextTask.id, { priority: 'medium' });
+                hideTaskContextMenu();
+            }
+        });
+    }
+
+    if (elements.contextPriorityHigh) {
+        elements.contextPriorityHigh.addEventListener('click', () => {
+            if (currentContextTask) {
+                updateTask(currentContextTask.id, { priority: 'high' });
+                hideTaskContextMenu();
+            }
+        });
+    }
+
+    if (elements.contextDeleteTask) {
+        elements.contextDeleteTask.addEventListener('click', () => {
+            if (currentContextTask) {
+                showDeleteModal(currentContextTask);
+                hideTaskContextMenu();
+            }
+        });
+    }
+
+    // Horizontal scroll with touchpad swiping only (not mouse wheel)
     elements.boardView.addEventListener('wheel', (e) => {
         const taskList = e.target.closest('.task-list');
 
@@ -2877,9 +3055,14 @@ function initEventListeners() {
             }
         }
 
-        // Otherwise, scroll horizontally
-        e.preventDefault();
-        elements.boardView.scrollLeft += e.deltaY;
+        // Only enable horizontal scrolling for touchpad swiping (has deltaX)
+        // Disable for mouse wheel (only has deltaY, no deltaX)
+        if (Math.abs(e.deltaX) > 0) {
+            // Touchpad horizontal swipe detected
+            e.preventDefault();
+            elements.boardView.scrollLeft += e.deltaX;
+        }
+        // If only deltaY exists (mouse wheel), do nothing - no horizontal scroll
     }, { passive: false });
 }
 
