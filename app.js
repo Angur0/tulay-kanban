@@ -1371,6 +1371,16 @@ function createTaskCard(task) {
         high: 'text-red-600 dark:text-red-400'
     };
 
+    const priorityBorderColors = {
+        low: '#22c55e',    // green-500
+        medium: '#f97316', // orange-500
+        high: '#ef4444'    // red-500
+    };
+
+    // Add priority border color to card
+    card.style.borderLeftWidth = '4px';
+    card.style.borderLeftColor = priorityBorderColors[task.priority] || priorityBorderColors.medium;
+
     const dueDate = task.due_date;
 
     // Render labels (if task has new label system)
@@ -1389,13 +1399,13 @@ function createTaskCard(task) {
     }
 
     card.innerHTML = `
-        <div class="flex justify-end items-start">
-            ${dueDate ? `<span class="text-[10px] font-medium text-[#5c6b7f] dark:text-gray-400">${formatDate(dueDate)}</span>` : ''}
+        <div class="flex justify-between items-start gap-2">
+            <span class="text-sm font-medium text-[#111418] dark:text-gray-200 leading-snug ${isDone ? 'line-through decoration-gray-400' : ''}">${escapeHtml(task.title)}</span>
+            ${dueDate ? `<span class="text-[10px] font-medium text-[#5c6b7f] dark:text-gray-400 flex-shrink-0">${formatDate(dueDate)}</span>` : ''}
         </div>
-        <span class="text-sm font-medium text-[#111418] dark:text-gray-200 leading-snug ${isDone ? 'line-through decoration-gray-400' : ''}">${escapeHtml(task.title)}</span>
-        ${task.description ? `<p class="text-xs text-[#5c6b7f] dark:text-gray-400 line-clamp-2">${escapeHtml(task.description)}</p>` : ''}
+        ${task.description ? `<p class="text-xs text-[#5c6b7f] dark:text-gray-400 line-clamp-2 mt-1">${escapeHtml(task.description)}</p>` : ''}
         ${task.images && task.images.length > 0 ? `
-            <div class="flex gap-1 overflow-x-auto custom-scrollbar">
+            <div class="flex gap-1 overflow-x-auto custom-scrollbar mt-2">
                 ${task.images.slice(0, 3).map((url, idx) => `
                     <img src="${url}" alt="Task preview" data-image-url="${url}" 
                          class="task-preview-image w-12 h-12 object-cover rounded border border-[#e5e7eb] dark:border-[#1e2936] hover:opacity-80 transition-opacity cursor-pointer">
@@ -1404,18 +1414,20 @@ function createTaskCard(task) {
             </div>
         ` : ''}
         <div class="mt-1 flex items-center justify-between gap-2">
-            <div class="flex items-center gap-2">
-                <button class="task-comment-btn opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] rounded" title="Add comment">
-                    <span class="material-symbols-outlined text-[16px] text-[#5c6b7f] dark:text-gray-400 hover:text-primary dark:hover:text-primary">comment</span>
-                </button>
-                <button class="task-image-btn opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] rounded" title="Add image">
-                    <span class="material-symbols-outlined text-[16px] text-[#5c6b7f] dark:text-gray-400 hover:text-primary dark:hover:text-primary">add_photo_alternate</span>
-                </button>
-                ${labelsHTML || '<span></span>'}
-            </div>
-            <div class="flex items-center gap-1.5 ${priorityColors[task.priority]}">
-                <span class="material-symbols-outlined text-[14px] icon-filled">flag</span>
-                <span class="text-[10px] font-medium capitalize">${task.priority}</span>
+            <div class="relative flex items-center min-h-[24px] flex-1 overflow-hidden">
+                <!-- Action buttons (hidden by default, shown on hover) -->
+                <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button class="task-comment-btn p-1 hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] rounded" title="Add comment">
+                        <span class="material-symbols-outlined text-[16px] text-[#5c6b7f] dark:text-gray-400 hover:text-primary dark:hover:text-primary">comment</span>
+                    </button>
+                    <button class="task-image-btn p-1 hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] rounded" title="Add image">
+                        <span class="material-symbols-outlined text-[16px] text-[#5c6b7f] dark:text-gray-400 hover:text-primary dark:hover:text-primary">add_photo_alternate</span>
+                    </button>
+                </div>
+                <!-- Labels (flush to corner, slide away on hover) -->
+                <div class="absolute left-0 max-w-full transition-all duration-200 group-hover:translate-x-16 group-hover:opacity-0">
+                    ${labelsHTML || ''}
+                </div>
             </div>
         </div>
     `;
