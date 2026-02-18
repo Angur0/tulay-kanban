@@ -148,8 +148,21 @@
             margin: 0;
         }
 
-        #sidebar.collapsed #sidebarToggle span {
-            transform: rotate(180deg);
+        #sidebar.collapsed .sidebar-header {
+            justify-content: center;
+            padding-left: 0;
+            padding-right: 0;
+            gap: 0;
+        }
+
+        #sidebar.collapsed .sidebar-header .sidebar-text {
+            display: none;
+        }
+
+        #sidebar.collapsed .sidebar-item,
+        #sidebar.collapsed #boardList a {
+            justify-content: center;
+            gap: 0;
         }
 
         #sidebar .sidebar-text {
@@ -160,9 +173,6 @@
             transition: opacity 0.3s, height 0.3s, padding 0.3s, margin 0.3s;
         }
 
-        #sidebar #sidebarToggle span {
-            transition: transform 0.3s;
-        }
     </style>
 </head>
 
@@ -174,14 +184,11 @@
         class="w-[210px] flex-shrink-0 bg-[#fbfcfd] dark:bg-[#151e29] border-r border-[#e5e7eb] dark:border-[#1e2936] flex flex-col justify-between h-full z-20 transition-all duration-300 ease-in-out">
         <div class="flex flex-col p-4 gap-6">
             <!-- App Header -->
-            <div class="flex items-center gap-3 px-2 relative">
-                <div class="flex items-center justify-center size-8 rounded-lg bg-primary text-white shadow-sm flex-shrink-0">
+            <div class="flex items-center gap-3 px-2 sidebar-header">
+                <button id="sidebarToggle" class="flex items-center justify-center size-8 rounded-lg bg-primary text-white shadow-sm flex-shrink-0 hover:bg-blue-600 transition-colors" title="Toggle Sidebar">
                     <span class="material-symbols-outlined text-xl">developer_board</span>
-                </div>
-                <h1 class="text-base font-semibold tracking-tight text-[#111418] dark:text-white whitespace-nowrap sidebar-text">Tulay Kanban</h1>
-                <button id="sidebarToggle" class="absolute -right-3 top-1/2 -translate-y-1/2 size-6 rounded-full bg-primary text-white hover:bg-blue-600 transition-colors flex items-center justify-center shadow-md" title="Toggle Sidebar">
-                    <span class="material-symbols-outlined text-[16px]">chevron_left</span>
                 </button>
+                <h1 class="text-base font-semibold tracking-tight text-[#111418] dark:text-white whitespace-nowrap sidebar-text">Tulay Kanban</h1>
             </div>
 
             <!-- Boards Section -->
@@ -202,27 +209,27 @@
             <!-- Navigation -->
             <nav class="flex flex-col gap-1 mt-4">
                 <a id="navBoard"
-                    class="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#eff1f3] dark:bg-[#1e2936] text-[#111418] dark:text-white group transition-colors justify-start"
+                    class="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#eff1f3] dark:bg-[#1e2936] text-[#111418] dark:text-white group transition-colors justify-start sidebar-item"
                     href="#" title="Board">
                     <span
                         class="material-symbols-outlined text-[#5c6b7f] dark:text-gray-400 group-hover:text-primary transition-colors flex-shrink-0">dashboard</span>
                     <span class="text-sm font-medium sidebar-text whitespace-nowrap">Board</span>
                 </a>
                 <a id="navMyTasks"
-                    class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors group justify-start"
+                    class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors group justify-start sidebar-item"
                     href="#" title="My Tasks">
                     <span
                         class="material-symbols-outlined group-hover:text-primary transition-colors flex-shrink-0">check_circle</span>
                     <span class="text-sm font-medium sidebar-text whitespace-nowrap">My Tasks</span>
                 </a>
                 <a id="navActivity"
-                    class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors group justify-start"
+                    class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors group justify-start sidebar-item"
                     href="#" title="Activity">
                     <span class="material-symbols-outlined group-hover:text-primary transition-colors flex-shrink-0">history</span>
                     <span class="text-sm font-medium sidebar-text whitespace-nowrap">Activity</span>
                 </a>
                 <a id="labelManagerBtn"
-                    class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors group justify-start"
+                    class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors group justify-start sidebar-item"
                     href="#" onclick="openLabelManager('global'); return false;" title="Labels">
                     <span class="material-symbols-outlined group-hover:text-primary transition-colors flex-shrink-0">label</span>
                     <span class="text-sm font-medium sidebar-text whitespace-nowrap">Labels</span>
@@ -235,13 +242,13 @@
         <!-- Theme Toggle, Logout & Info -->
         <div class="p-4 border-t border-[#e5e7eb] dark:border-[#1e2936] flex flex-col gap-1">
             <button id="themeToggle"
-                class="flex items-center gap-3 px-3 py-2 w-full rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors justify-start"
+                class="flex items-center gap-3 px-3 py-2 w-full rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors justify-start sidebar-item"
                 title="Toggle Theme">
                 <span class="material-symbols-outlined flex-shrink-0" id="themeIcon">dark_mode</span>
                 <span class="text-sm font-medium sidebar-text whitespace-nowrap" id="themeText">Dark Mode</span>
             </button>
             <button id="logoutBtn"
-                class="flex items-center gap-3 px-3 py-2 w-full rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-[#5c6b7f] dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors justify-start"
+                class="flex items-center gap-3 px-3 py-2 w-full rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-[#5c6b7f] dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors justify-start sidebar-item"
                 title="Logout">
                 <span class="material-symbols-outlined flex-shrink-0">logout</span>
                 <span class="text-sm font-medium sidebar-text whitespace-nowrap">Logout</span>
@@ -258,7 +265,7 @@
             <div class="flex items-center gap-3">
                 <div
                     class="flex items-center gap-2 text-[#5c6b7f] dark:text-gray-400 text-xs font-medium uppercase tracking-wider">
-                    <span class="material-symbols-outlined text-sm">dashboard</span>
+                    <span class="material-symbols-outlined text-sm" id="boardHeaderIcon">dashboard</span>
                     <span>Task Board</span>
                 </div>
                 <h2 id="boardTitle" class="text-[#111418] dark:text-white text-sm font-bold tracking-tight">Board
@@ -605,6 +612,23 @@
                         <input type="text" id="newBoardName"
                             class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-[#111418] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
                             placeholder="e.g., Marketing Project">
+                    </div>
+                    <div class="mb-6">
+                        <label for="newBoardIcon"
+                            class="block text-sm font-medium text-[#5c6b7f] dark:text-gray-400 mb-2">Board Icon</label>
+                        <select id="newBoardIcon"
+                            class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-[#111418] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="dashboard">Dashboard</option>
+                            <option value="folder">Folder</option>
+                            <option value="campaign">Campaign</option>
+                            <option value="code">Code</option>
+                            <option value="shopping_bag">Shopping</option>
+                            <option value="rocket_launch">Launch</option>
+                            <option value="design_services">Design</option>
+                            <option value="event">Events</option>
+                            <option value="school">Learning</option>
+                            <option value="inventory_2">Inventory</option>
+                        </select>
                     </div>
                     <div class="flex justify-end gap-3">
                         <button id="cancelCreateBoardBtn"

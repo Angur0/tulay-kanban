@@ -18,6 +18,23 @@ let activeInlineForm = null;
 let websocket = null;
 let kafkaConnected = false;
 
+const BOARD_ICONS = new Set([
+    'dashboard',
+    'folder',
+    'campaign',
+    'code',
+    'shopping_bag',
+    'rocket_launch',
+    'design_services',
+    'event',
+    'school',
+    'inventory_2'
+]);
+
+function normalizeBoardIcon(icon) {
+    return BOARD_ICONS.has(icon) ? icon : 'dashboard';
+}
+
 // Authenticated Fetch Wrapper
 async function authFetch(url, options = {}) {
     const token = localStorage.getItem('access_token');
@@ -49,6 +66,7 @@ const elements = {
     themeToggle: document.getElementById('themeToggle'),
     themeIcon: document.getElementById('themeIcon'),
     themeText: document.getElementById('themeText'),
+    boardHeaderIcon: document.getElementById('boardHeaderIcon'),
     kafkaStatus: document.getElementById('kafkaStatus'),
     // Side Panel
     taskPanel: document.getElementById('taskPanel'),
@@ -114,6 +132,7 @@ const elements = {
     createBoardBtn: document.getElementById('createBoardBtn'),
     createBoardModal: document.getElementById('createBoardModal'),
     newBoardName: document.getElementById('newBoardName'),
+    newBoardIcon: document.getElementById('newBoardIcon'),
     cancelCreateBoardBtn: document.getElementById('cancelCreateBoardBtn'),
     confirmCreateBoardBtn: document.getElementById('confirmCreateBoardBtn'),
     // Create List Modal
@@ -318,11 +337,16 @@ function renderBoard() {
     if (boardTitleEl) {
         if (boards.length === 0) {
             boardTitleEl.textContent = 'No Boards';
+            if (elements.boardHeaderIcon) elements.boardHeaderIcon.textContent = 'dashboard';
         } else if (!activeBoardId) {
             boardTitleEl.textContent = 'Select a Board';
+            if (elements.boardHeaderIcon) elements.boardHeaderIcon.textContent = 'dashboard';
         } else {
             const activeBoard = boards.find(b => b.id === activeBoardId);
             boardTitleEl.textContent = activeBoard ? activeBoard.name : 'Board';
+            if (elements.boardHeaderIcon) {
+                elements.boardHeaderIcon.textContent = normalizeBoardIcon(activeBoard?.icon);
+            }
         }
     }
 
@@ -1215,9 +1239,9 @@ function renderBoardList() {
         const isActive = board.id === activeBoardId;
         return `
             <div class="flex items-center gap-1 group/board">
-                <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg flex-1 justify-start ${isActive ? 'bg-[#eff1f3] dark:bg-[#1e2936] text-[#111418] dark:text-white' : 'text-[#5c6b7f] dark:text-gray-400 hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] hover:text-[#111418] dark:hover:text-white'} transition-colors group"
+                <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg flex-1 justify-start sidebar-item ${isActive ? 'bg-[#eff1f3] dark:bg-[#1e2936] text-[#111418] dark:text-white' : 'text-[#5c6b7f] dark:text-gray-400 hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] hover:text-[#111418] dark:hover:text-white'} transition-colors group"
                     onclick="switchBoard('${board.id}'); return false;" title="${escapeHtml(board.name)}">
-                    <span class="material-symbols-outlined group-hover:text-primary transition-colors flex-shrink-0 ${isActive ? 'text-primary' : ''}">dashboard</span>
+                    <span class="material-symbols-outlined group-hover:text-primary transition-colors flex-shrink-0 ${isActive ? 'text-primary' : ''}">${escapeHtml(normalizeBoardIcon(board.icon))}</span>
                     <span class="text-sm font-medium truncate sidebar-text whitespace-nowrap">${escapeHtml(board.name)}</span>
                 </a>
                 <button onclick="showDeleteBoardModal('${board.id}', '${escapeHtml(board.name)}'); event.stopPropagation(); return false;" 
@@ -1230,12 +1254,16 @@ function renderBoardList() {
     }).join('');
 }
 
-async function createBoard(name) {
+async function createBoard(name, icon = 'dashboard') {
     if (!activeWorkspaceId) return;
     try {
         const response = await authFetch(`${API_URL}/api/boards`, {
             method: 'POST',
-            body: JSON.stringify({ name, workspace_id: activeWorkspaceId })
+            body: JSON.stringify({
+                name,
+                icon: normalizeBoardIcon(icon),
+                workspace_id: activeWorkspaceId
+            })
         });
 
         if (!response) return;
@@ -1333,6 +1361,9 @@ function switchBoard(boardId) {
 // ===== Create Board Modal =====
 function showCreateBoardModal() {
     elements.newBoardName.value = '';
+    if (elements.newBoardIcon) {
+        elements.newBoardIcon.value = 'dashboard';
+    }
     elements.createBoardModal.classList.remove('hidden');
     setTimeout(() => elements.newBoardName.focus(), 50);
 }
@@ -2845,7 +2876,7 @@ function initEventListeners() {
     elements.confirmCreateBoardBtn.addEventListener('click', () => {
         const name = elements.newBoardName.value.trim();
         if (name) {
-            createBoard(name);
+            createBoard(name, elements.newBoardIcon?.value || 'dashboard');
         }
     });
 
@@ -2901,7 +2932,7 @@ function initEventListeners() {
         if (e.key === 'Enter') {
             const name = elements.newBoardName.value.trim();
             if (name) {
-                createBoard(name);
+                createBoard(name, elements.newBoardIcon?.value || 'dashboard');
             }
         } else if (e.key === 'Escape') {
             hideCreateBoardModal();

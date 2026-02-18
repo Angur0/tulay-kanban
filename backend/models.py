@@ -47,6 +47,7 @@ class Board(Base):
 
     id = Column(String, primary_key=True, default=generate_uuid)
     name = Column(String, nullable=False)
+    icon = Column(String, nullable=False, default="dashboard")
     workspace_id = Column(String, ForeignKey("workspaces.id"))
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 

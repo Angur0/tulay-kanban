@@ -20,6 +20,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr, ConfigDict
 from aiokafka import AIOKafkaProducer, AIOKafkaConsumer
 from sqlalchemy.orm import Session
+from sqlalchemy import inspect, text
 from jose import JWTError, jwt
 
 from backend import models, auth
@@ -74,6 +75,7 @@ def seed_db():
 
 # Create all tables (this won't recreate existing ones)
 models.Base.metadata.create_all(bind=engine)
+ensure_board_icon_column()
 
 # Seed database with test data
 seed_db()
@@ -87,6 +89,37 @@ KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
 KAFKA_TOPIC = "kanban-events"
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
+
+ALLOWED_BOARD_ICONS = {
+    "dashboard",
+    "folder",
+    "campaign",
+    "code",
+    "shopping_bag",
+    "rocket_launch",
+    "design_services",
+    "event",
+    "school",
+    "inventory_2",
+}
+
+
+def normalize_board_icon(icon: Optional[str]) -> str:
+    if not icon:
+        return "dashboard"
+    normalized = icon.strip()
+    return normalized if normalized in ALLOWED_BOARD_ICONS else "dashboard"
+
+
+def ensure_board_icon_column():
+    inspector = inspect(engine)
+    board_columns = {col["name"] for col in inspector.get_columns("boards")}
+    if "icon" in board_columns:
+        return
+
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE boards ADD COLUMN icon VARCHAR DEFAULT 'dashboard'"))
+        conn.execute(text("UPDATE boards SET icon = 'dashboard' WHERE icon IS NULL OR icon = ''"))
 
 # ===== Connection Manager for WebSockets =====
 class ConnectionManager:
@@ -208,6 +241,7 @@ class WorkspaceCreate(BaseModel):
 class BoardCreate(BaseModel):
     name: str
     workspace_id: str
+    icon: Optional[str] = "dashboard"
 
 class BoardColumnCreate(BaseModel):
     title: str
@@ -351,7 +385,11 @@ def get_boards(ws_id: str, current_user: models.User = Depends(get_current_user)
 
 @app.post("/api/boards")
 def create_board(board_in: BoardCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    new_board = models.Board(name=board_in.name, workspace_id=board_in.workspace_id)
+    new_board = models.Board(
+        name=board_in.name,
+        icon=normalize_board_icon(board_in.icon),
+        workspace_id=board_in.workspace_id
+    )
     db.add(new_board)
     db.commit()
     db.refresh(new_board)
