@@ -140,12 +140,38 @@
             overflow: hidden;
         }
 
+        /* Style for active color selection */
+        .color-option.active {
+            border-color: #3b82f6 !important;
+            border-width: 3px;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+
         #sidebar.collapsed .sidebar-section {
             opacity: 0;
             height: 0;
             overflow: hidden;
             padding: 0;
             margin: 0;
+        }
+
+        /* Keep board list visible when collapsed */
+        #sidebar.collapsed .boards-section {
+            opacity: 1;
+            height: auto;
+            overflow: visible;
+            padding: 1rem 0;
+            margin: 0;
+        }
+
+        /* Hide the boards section header when collapsed */
+        #sidebar.collapsed .boards-section > div:first-child {
+            display: none;
+        }
+
+        /* Style board list when collapsed */
+        #sidebar.collapsed #boardList {
+            gap: 0.5rem;
         }
 
         #sidebar.collapsed .sidebar-header {
@@ -163,6 +189,21 @@
         #sidebar.collapsed #boardList a {
             justify-content: center;
             gap: 0;
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
+        }
+
+        #sidebar.collapsed #boardList .group\/board {
+            justify-content: center;
+        }
+
+        #sidebar.collapsed #boardList .material-symbols-outlined {
+            margin: 0;
+        }
+
+        /* Hide delete button when collapsed */
+        #sidebar.collapsed #boardList button[title="Delete board"] {
+            display: none;
         }
 
         #sidebar .sidebar-text {
@@ -171,6 +212,61 @@
 
         #sidebar .sidebar-section {
             transition: opacity 0.3s, height 0.3s, padding 0.3s, margin 0.3s;
+        }
+
+        /* Custom tooltip for collapsed sidebar items */
+        #sidebar.collapsed [data-sidebar-tooltip] {
+            position: relative;
+        }
+
+        #sidebar.collapsed [data-sidebar-tooltip]::after {
+            content: attr(data-sidebar-tooltip);
+            position: absolute;
+            left: calc(100% + 12px);
+            top: 50%;
+            transform: translateY(-50%);
+            background: #1e293b;
+            color: #f1f5f9;
+            font-size: 12px;
+            font-weight: 500;
+            white-space: nowrap;
+            padding: 5px 10px;
+            border-radius: 6px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+            z-index: 9999;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+        }
+
+        .dark #sidebar.collapsed [data-sidebar-tooltip]::after {
+            background: #0f172a;
+            color: #e2e8f0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+
+        /* Arrow pointing left from tooltip */
+        #sidebar.collapsed [data-sidebar-tooltip]::before {
+            content: '';
+            position: absolute;
+            left: calc(100% + 6px);
+            top: 50%;
+            transform: translateY(-50%);
+            border: 5px solid transparent;
+            border-right-color: #1e293b;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+            z-index: 9999;
+        }
+
+        .dark #sidebar.collapsed [data-sidebar-tooltip]::before {
+            border-right-color: #0f172a;
+        }
+
+        #sidebar.collapsed [data-sidebar-tooltip]:hover::after,
+        #sidebar.collapsed [data-sidebar-tooltip]:hover::before {
+            opacity: 1;
         }
 
     </style>
@@ -185,14 +281,14 @@
         <div class="flex flex-col p-4 gap-6">
             <!-- App Header -->
             <div class="flex items-center gap-3 px-2 sidebar-header">
-                <button id="sidebarToggle" class="flex items-center justify-center size-8 rounded-lg bg-primary text-white shadow-sm flex-shrink-0 hover:bg-blue-600 transition-colors" title="Toggle Sidebar">
+                <button id="sidebarToggle" class="flex items-center justify-center size-8 rounded-lg bg-primary text-white shadow-sm flex-shrink-0 hover:bg-blue-600 transition-colors" data-sidebar-tooltip="Toggle Sidebar">
                     <span class="material-symbols-outlined text-xl">developer_board</span>
                 </button>
                 <h1 class="text-base font-semibold tracking-tight text-[#111418] dark:text-white whitespace-nowrap sidebar-text">Tulay Kanban</h1>
             </div>
 
             <!-- Boards Section -->
-            <div class="flex flex-col gap-2 sidebar-section">
+            <div class="flex flex-col gap-2 sidebar-section boards-section">
                 <div class="flex items-center justify-between px-3">
                     <p class="text-xs font-semibold text-[#8a98a8] uppercase tracking-wider sidebar-text">Boards</p>
                     <button id="createBoardBtn"
@@ -210,27 +306,27 @@
             <nav class="flex flex-col gap-1 mt-4">
                 <a id="navBoard"
                     class="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#eff1f3] dark:bg-[#1e2936] text-[#111418] dark:text-white group transition-colors justify-start sidebar-item"
-                    href="#" title="Board">
+                    href="#" data-sidebar-tooltip="Board">
                     <span
                         class="material-symbols-outlined text-[#5c6b7f] dark:text-gray-400 group-hover:text-primary transition-colors flex-shrink-0">dashboard</span>
                     <span class="text-sm font-medium sidebar-text whitespace-nowrap">Board</span>
                 </a>
                 <a id="navMyTasks"
                     class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors group justify-start sidebar-item"
-                    href="#" title="My Tasks">
+                    href="#" data-sidebar-tooltip="My Tasks">
                     <span
                         class="material-symbols-outlined group-hover:text-primary transition-colors flex-shrink-0">check_circle</span>
                     <span class="text-sm font-medium sidebar-text whitespace-nowrap">My Tasks</span>
                 </a>
                 <a id="navActivity"
                     class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors group justify-start sidebar-item"
-                    href="#" title="Activity">
+                    href="#" data-sidebar-tooltip="Activity">
                     <span class="material-symbols-outlined group-hover:text-primary transition-colors flex-shrink-0">history</span>
                     <span class="text-sm font-medium sidebar-text whitespace-nowrap">Activity</span>
                 </a>
                 <a id="labelManagerBtn"
                     class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors group justify-start sidebar-item"
-                    href="#" onclick="openLabelManager('global'); return false;" title="Labels">
+                    href="#" onclick="openLabelManager('global'); return false;" data-sidebar-tooltip="Labels">
                     <span class="material-symbols-outlined group-hover:text-primary transition-colors flex-shrink-0">label</span>
                     <span class="text-sm font-medium sidebar-text whitespace-nowrap">Labels</span>
                 </a>
@@ -243,13 +339,13 @@
         <div class="p-4 border-t border-[#e5e7eb] dark:border-[#1e2936] flex flex-col gap-1">
             <button id="themeToggle"
                 class="flex items-center gap-3 px-3 py-2 w-full rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors justify-start sidebar-item"
-                title="Toggle Theme">
+                data-sidebar-tooltip="Toggle Theme">
                 <span class="material-symbols-outlined flex-shrink-0" id="themeIcon">dark_mode</span>
                 <span class="text-sm font-medium sidebar-text whitespace-nowrap" id="themeText">Dark Mode</span>
             </button>
             <button id="logoutBtn"
                 class="flex items-center gap-3 px-3 py-2 w-full rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-[#5c6b7f] dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors justify-start sidebar-item"
-                title="Logout">
+                data-sidebar-tooltip="Logout">
                 <span class="material-symbols-outlined flex-shrink-0">logout</span>
                 <span class="text-sm font-medium sidebar-text whitespace-nowrap">Logout</span>
             </button>
@@ -607,28 +703,102 @@
                         <h3 class="text-lg font-bold text-[#111418] dark:text-white">Create New Board</h3>
                     </div>
                     <div class="mb-6">
-                        <label for="newBoardName"
-                            class="block text-sm font-medium text-[#5c6b7f] dark:text-gray-400 mb-2">Board Name</label>
-                        <input type="text" id="newBoardName"
-                            class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-[#111418] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
-                            placeholder="e.g., Marketing Project">
+                        <label class="block text-sm font-medium text-[#5c6b7f] dark:text-gray-400 mb-2">Board Name & Icon</label>
+                        <div class="relative">
+                            <div class="flex items-center gap-0 bg-transparent dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 focus-within:ring-2 focus-within:ring-primary/50">
+                                <button type="button" id="iconDropdownButton"
+                                    class="px-3 py-2.5 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-l-lg transition-colors">
+                                    <span class="material-symbols-outlined text-2xl" id="selectedIconPreview">dashboard</span>
+                                </button>
+                                <input type="text" id="newBoardName"
+                                    class="flex-1 px-3 py-2.5 bg-transparent text-[#111418] dark:text-white focus:outline-none border-none"
+                                    placeholder="e.g., Marketing Project">
+                            </div>
+                            <div id="iconDropdownMenu"
+                                class="hidden absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-2 max-h-[280px] overflow-visible">
+                                <div class="grid grid-cols-5 gap-1.5">
+                                    <button type="button" data-icon="dashboard" title="Dashboard"
+                                        class="icon-option p-2.5 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
+                                        <span class="material-symbols-outlined text-xl">dashboard</span>
+                                    </button>
+                                    <button type="button" data-icon="folder" title="Folder"
+                                        class="icon-option p-2.5 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
+                                        <span class="material-symbols-outlined text-xl">folder</span>
+                                    </button>
+                                    <button type="button" data-icon="campaign" title="Campaign"
+                                        class="icon-option p-2.5 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
+                                        <span class="material-symbols-outlined text-xl">campaign</span>
+                                    </button>
+                                    <button type="button" data-icon="code" title="Code"
+                                        class="icon-option p-2.5 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
+                                        <span class="material-symbols-outlined text-xl">code</span>
+                                    </button>
+                                    <button type="button" data-icon="shopping_bag" title="Shopping"
+                                        class="icon-option p-2.5 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
+                                        <span class="material-symbols-outlined text-xl">shopping_bag</span>
+                                    </button>
+                                    <button type="button" data-icon="rocket_launch" title="Launch"
+                                        class="icon-option p-2.5 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
+                                        <span class="material-symbols-outlined text-xl">rocket_launch</span>
+                                    </button>
+                                    <button type="button" data-icon="design_services" title="Design"
+                                        class="icon-option p-2.5 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
+                                        <span class="material-symbols-outlined text-xl">design_services</span>
+                                    </button>
+                                    <button type="button" data-icon="event" title="Events"
+                                        class="icon-option p-2.5 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
+                                        <span class="material-symbols-outlined text-xl">event</span>
+                                    </button>
+                                    <button type="button" data-icon="school" title="Learning"
+                                        class="icon-option p-2.5 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
+                                        <span class="material-symbols-outlined text-xl">school</span>
+                                    </button>
+                                    <button type="button" data-icon="inventory_2" title="Inventory"
+                                        class="icon-option p-2.5 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
+                                        <span class="material-symbols-outlined text-xl">inventory_2</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <input type="hidden" id="newBoardIcon" value="dashboard">
+                        </div>
                     </div>
                     <div class="mb-6">
-                        <label for="newBoardIcon"
-                            class="block text-sm font-medium text-[#5c6b7f] dark:text-gray-400 mb-2">Board Icon</label>
-                        <select id="newBoardIcon"
-                            class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-[#111418] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50">
-                            <option value="dashboard">Dashboard</option>
-                            <option value="folder">Folder</option>
-                            <option value="campaign">Campaign</option>
-                            <option value="code">Code</option>
-                            <option value="shopping_bag">Shopping</option>
-                            <option value="rocket_launch">Launch</option>
-                            <option value="design_services">Design</option>
-                            <option value="event">Events</option>
-                            <option value="school">Learning</option>
-                            <option value="inventory_2">Inventory</option>
-                        </select>
+                        <label class="block text-sm font-medium text-[#5c6b7f] dark:text-gray-400 mb-2">Icon Color</label>
+                        <div class="grid grid-cols-8 gap-2">
+                            <button type="button" data-color="#3b82f6" title="Blue" 
+                                class="color-option w-10 h-10 rounded-lg border-2 border-transparent hover:border-gray-400 dark:hover:border-gray-500 transition-all hover:scale-110 active"
+                                style="background-color: #3b82f6;">
+                            </button>
+                            <button type="button" data-color="#ef4444" title="Red"
+                                class="color-option w-10 h-10 rounded-lg border-2 border-transparent hover:border-gray-400 dark:hover:border-gray-500 transition-all hover:scale-110"
+                                style="background-color: #ef4444;">
+                            </button>
+                            <button type="button" data-color="#10b981" title="Green"
+                                class="color-option w-10 h-10 rounded-lg border-2 border-transparent hover:border-gray-400 dark:hover:border-gray-500 transition-all hover:scale-110"
+                                style="background-color: #10b981;">
+                            </button>
+                            <button type="button" data-color="#f59e0b" title="Amber"
+                                class="color-option w-10 h-10 rounded-lg border-2 border-transparent hover:border-gray-400 dark:hover:border-gray-500 transition-all hover:scale-110"
+                                style="background-color: #f59e0b;">
+                            </button>
+                            <button type="button" data-color="#8b5cf6" title="Purple"
+                                class="color-option w-10 h-10 rounded-lg border-2 border-transparent hover:border-gray-400 dark:hover:border-gray-500 transition-all hover:scale-110"
+                                style="background-color: #8b5cf6;">
+                            </button>
+                            <button type="button" data-color="#ec4899" title="Pink"
+                                class="color-option w-10 h-10 rounded-lg border-2 border-transparent hover:border-gray-400 dark:hover:border-gray-500 transition-all hover:scale-110"
+                                style="background-color: #ec4899;">
+                            </button>
+                            <button type="button" data-color="#14b8a6" title="Teal"
+                                class="color-option w-10 h-10 rounded-lg border-2 border-transparent hover:border-gray-400 dark:hover:border-gray-500 transition-all hover:scale-110"
+                                style="background-color: #14b8a6;">
+                            </button>
+                            <button type="button" data-color="#64748b" title="Slate"
+                                class="color-option w-10 h-10 rounded-lg border-2 border-transparent hover:border-gray-400 dark:hover:border-gray-500 transition-all hover:scale-110"
+                                style="background-color: #64748b;">
+                            </button>
+                        </div>
+                        <input type="hidden" id="newBoardIconColor" value="#3b82f6">
                     </div>
                     <div class="flex justify-end gap-3">
                         <button id="cancelCreateBoardBtn"
@@ -883,6 +1053,173 @@
             <span class="material-symbols-outlined text-[18px]">delete</span>
             Delete Task
         </button>
+    </div>
+
+    <!-- Board Context Menu -->
+    <div id="boardContextMenu"
+        class="fixed hidden z-[80] bg-white dark:bg-[#151e29] rounded-lg shadow-2xl border border-[#e5e7eb] dark:border-[#1e2936] py-1 w-48"
+        style="display: none;">
+        <button id="contextEditBoard"
+            class="w-full flex items-center gap-3 px-4 py-2 text-sm text-[#111418] dark:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] transition-colors text-left">
+            <span class="material-symbols-outlined text-[18px]">edit</span>
+            Edit Board
+        </button>
+        <div class="border-t border-[#e5e7eb] dark:border-[#1e2936] my-1"></div>
+        <button id="contextDeleteBoard"
+            class="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left">
+            <span class="material-symbols-outlined text-[18px]">delete</span>
+            Delete Board
+        </button>
+    </div>
+
+    <!-- Column Context Menu -->
+    <div id="columnContextMenu"
+        class="fixed hidden z-[80] bg-white dark:bg-[#151e29] rounded-lg shadow-2xl border border-[#e5e7eb] dark:border-[#1e2936] py-1 w-52"
+        style="display: none;">
+        <button id="contextColumnAddTask"
+            class="w-full flex items-center gap-3 px-4 py-2 text-sm text-[#111418] dark:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] transition-colors text-left">
+            <span class="material-symbols-outlined text-[18px]">add</span>
+            Add task
+        </button>
+        <div class="border-t border-[#e5e7eb] dark:border-[#1e2936] my-1"></div>
+        <button id="contextColumnRename"
+            class="w-full flex items-center gap-3 px-4 py-2 text-sm text-[#111418] dark:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] transition-colors text-left">
+            <span class="material-symbols-outlined text-[18px]">edit</span>
+            Rename list
+        </button>
+        <button id="contextColumnMoveLeft"
+            class="w-full flex items-center gap-3 px-4 py-2 text-sm text-[#111418] dark:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] transition-colors text-left">
+            <span class="material-symbols-outlined text-[18px]">arrow_back</span>
+            Move left
+        </button>
+        <button id="contextColumnMoveRight"
+            class="w-full flex items-center gap-3 px-4 py-2 text-sm text-[#111418] dark:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] transition-colors text-left">
+            <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+            Move right
+        </button>
+        <div class="border-t border-[#e5e7eb] dark:border-[#1e2936] my-1"></div>
+        <button id="contextColumnDelete"
+            class="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left">
+            <span class="material-symbols-outlined text-[18px]">delete</span>
+            Delete list
+        </button>
+    </div>
+
+    <!-- Edit Board Modal -->
+    <div id="editBoardModal" class="fixed inset-0 z-[70] hidden" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm transition-opacity"></div>
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div class="bg-white dark:bg-[#151e29] rounded-xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all border border-[#e5e7eb] dark:border-[#1e2936]">
+                <div class="p-6">
+                    <div class="flex items-center gap-3 mb-4 text-primary">
+                        <div class="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                            <span class="material-symbols-outlined text-2xl">edit</span>
+                        </div>
+                        <h3 class="text-lg font-bold text-[#111418] dark:text-white">Edit Board</h3>
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-[#5c6b7f] dark:text-gray-400 mb-2">Board Name & Icon</label>
+                        <div class="relative">
+                            <div class="flex items-center gap-0 bg-transparent dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 focus-within:ring-2 focus-within:ring-primary/50">
+                                <button type="button" id="editIconDropdownButton"
+                                    class="px-3 py-2.5 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-l-lg transition-colors">
+                                    <span class="material-symbols-outlined text-2xl" id="editSelectedIconPreview">dashboard</span>
+                                </button>
+                                <input type="text" id="editBoardName"
+                                    class="flex-1 px-3 py-2.5 bg-transparent text-[#111418] dark:text-white focus:outline-none border-none"
+                                    placeholder="e.g., Marketing Project">
+                            </div>
+                            <div id="editIconDropdownMenu"
+                                class="hidden absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-2 max-h-[280px] overflow-visible">
+                                <div class="grid grid-cols-5 gap-1.5">
+                                    <button type="button" data-icon="dashboard" title="Dashboard"
+                                        class="edit-icon-option p-2.5 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
+                                        <span class="material-symbols-outlined text-xl">dashboard</span>
+                                    </button>
+                                    <button type="button" data-icon="folder" title="Folder"
+                                        class="edit-icon-option p-2.5 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
+                                        <span class="material-symbols-outlined text-xl">folder</span>
+                                    </button>
+                                    <button type="button" data-icon="campaign" title="Campaign"
+                                        class="edit-icon-option p-2.5 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
+                                        <span class="material-symbols-outlined text-xl">campaign</span>
+                                    </button>
+                                    <button type="button" data-icon="code" title="Code"
+                                        class="edit-icon-option p-2.5 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
+                                        <span class="material-symbols-outlined text-xl">code</span>
+                                    </button>
+                                    <button type="button" data-icon="shopping_bag" title="Shopping"
+                                        class="edit-icon-option p-2.5 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
+                                        <span class="material-symbols-outlined text-xl">shopping_bag</span>
+                                    </button>
+                                    <button type="button" data-icon="rocket_launch" title="Launch"
+                                        class="edit-icon-option p-2.5 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
+                                        <span class="material-symbols-outlined text-xl">rocket_launch</span>
+                                    </button>
+                                    <button type="button" data-icon="design_services" title="Design"
+                                        class="edit-icon-option p-2.5 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
+                                        <span class="material-symbols-outlined text-xl">design_services</span>
+                                    </button>
+                                    <button type="button" data-icon="event" title="Events"
+                                        class="edit-icon-option p-2.5 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
+                                        <span class="material-symbols-outlined text-xl">event</span>
+                                    </button>
+                                    <button type="button" data-icon="school" title="Learning"
+                                        class="edit-icon-option p-2.5 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
+                                        <span class="material-symbols-outlined text-xl">school</span>
+                                    </button>
+                                    <button type="button" data-icon="inventory_2" title="Inventory"
+                                        class="edit-icon-option p-2.5 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
+                                        <span class="material-symbols-outlined text-xl">inventory_2</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <input type="hidden" id="editBoardIcon" value="dashboard">
+                        </div>
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-[#5c6b7f] dark:text-gray-400 mb-2">Icon Color</label>
+                        <div class="grid grid-cols-8 gap-2">
+                            <button type="button" data-color="#3b82f6" title="Blue"
+                                class="edit-color-option w-10 h-10 rounded-lg border-2 border-transparent hover:border-gray-400 dark:hover:border-gray-500 transition-all hover:scale-110"
+                                style="background-color: #3b82f6;"></button>
+                            <button type="button" data-color="#ef4444" title="Red"
+                                class="edit-color-option w-10 h-10 rounded-lg border-2 border-transparent hover:border-gray-400 dark:hover:border-gray-500 transition-all hover:scale-110"
+                                style="background-color: #ef4444;"></button>
+                            <button type="button" data-color="#10b981" title="Green"
+                                class="edit-color-option w-10 h-10 rounded-lg border-2 border-transparent hover:border-gray-400 dark:hover:border-gray-500 transition-all hover:scale-110"
+                                style="background-color: #10b981;"></button>
+                            <button type="button" data-color="#f59e0b" title="Amber"
+                                class="edit-color-option w-10 h-10 rounded-lg border-2 border-transparent hover:border-gray-400 dark:hover:border-gray-500 transition-all hover:scale-110"
+                                style="background-color: #f59e0b;"></button>
+                            <button type="button" data-color="#8b5cf6" title="Purple"
+                                class="edit-color-option w-10 h-10 rounded-lg border-2 border-transparent hover:border-gray-400 dark:hover:border-gray-500 transition-all hover:scale-110"
+                                style="background-color: #8b5cf6;"></button>
+                            <button type="button" data-color="#ec4899" title="Pink"
+                                class="edit-color-option w-10 h-10 rounded-lg border-2 border-transparent hover:border-gray-400 dark:hover:border-gray-500 transition-all hover:scale-110"
+                                style="background-color: #ec4899;"></button>
+                            <button type="button" data-color="#14b8a6" title="Teal"
+                                class="edit-color-option w-10 h-10 rounded-lg border-2 border-transparent hover:border-gray-400 dark:hover:border-gray-500 transition-all hover:scale-110"
+                                style="background-color: #14b8a6;"></button>
+                            <button type="button" data-color="#64748b" title="Slate"
+                                class="edit-color-option w-10 h-10 rounded-lg border-2 border-transparent hover:border-gray-400 dark:hover:border-gray-500 transition-all hover:scale-110"
+                                style="background-color: #64748b;"></button>
+                        </div>
+                        <input type="hidden" id="editBoardIconColor" value="#3b82f6">
+                    </div>
+                    <div class="flex justify-end gap-3">
+                        <button id="cancelEditBoardBtn"
+                            class="px-4 py-2 text-sm font-medium text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936]">
+                            Cancel
+                        </button>
+                        <button id="confirmEditBoardBtn"
+                            class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-blue-600 transition-colors rounded-lg shadow-sm">
+                            Save Changes
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Toast Container -->

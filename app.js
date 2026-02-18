@@ -133,6 +133,10 @@ const elements = {
     createBoardModal: document.getElementById('createBoardModal'),
     newBoardName: document.getElementById('newBoardName'),
     newBoardIcon: document.getElementById('newBoardIcon'),
+    newBoardIconColor: document.getElementById('newBoardIconColor'),
+    iconDropdownButton: document.getElementById('iconDropdownButton'),
+    iconDropdownMenu: document.getElementById('iconDropdownMenu'),
+    selectedIconPreview: document.getElementById('selectedIconPreview'),
     cancelCreateBoardBtn: document.getElementById('cancelCreateBoardBtn'),
     confirmCreateBoardBtn: document.getElementById('confirmCreateBoardBtn'),
     // Create List Modal
@@ -159,7 +163,28 @@ const elements = {
     contextPriorityLow: document.getElementById('contextPriorityLow'),
     contextPriorityMedium: document.getElementById('contextPriorityMedium'),
     contextPriorityHigh: document.getElementById('contextPriorityHigh'),
-    contextDeleteTask: document.getElementById('contextDeleteTask')
+    contextDeleteTask: document.getElementById('contextDeleteTask'),
+    // Board Context Menu
+    boardContextMenu: document.getElementById('boardContextMenu'),
+    contextEditBoard: document.getElementById('contextEditBoard'),
+    contextDeleteBoard: document.getElementById('contextDeleteBoard'),
+    // Column Context Menu
+    columnContextMenu: document.getElementById('columnContextMenu'),
+    contextColumnAddTask: document.getElementById('contextColumnAddTask'),
+    contextColumnRename: document.getElementById('contextColumnRename'),
+    contextColumnMoveLeft: document.getElementById('contextColumnMoveLeft'),
+    contextColumnMoveRight: document.getElementById('contextColumnMoveRight'),
+    contextColumnDelete: document.getElementById('contextColumnDelete'),
+    // Edit Board Modal
+    editBoardModal: document.getElementById('editBoardModal'),
+    editBoardName: document.getElementById('editBoardName'),
+    editBoardIcon: document.getElementById('editBoardIcon'),
+    editBoardIconColor: document.getElementById('editBoardIconColor'),
+    editIconDropdownButton: document.getElementById('editIconDropdownButton'),
+    editIconDropdownMenu: document.getElementById('editIconDropdownMenu'),
+    editSelectedIconPreview: document.getElementById('editSelectedIconPreview'),
+    cancelEditBoardBtn: document.getElementById('cancelEditBoardBtn'),
+    confirmEditBoardBtn: document.getElementById('confirmEditBoardBtn')
 };
 
 let workspaceMembers = [];
@@ -169,6 +194,7 @@ let labels = [];
 let activeWorkspaceId = null;
 let taskToDeleteId = null;
 let currentContextTask = null; // Track task for context menu
+let currentContextColumnId = null; // Track column for context menu
 
 // ===== Label Colors =====
 const labelColors = {
@@ -967,22 +993,6 @@ async function moveColumnRight(columnId) {
     renderBoard();
 }
 
-async function updateColumnPositions() {
-    try {
-        // Update all column positions
-        for (let i = 0; i < columns.length; i++) {
-            await authFetch(`${API_URL}/api/columns/${columns[i].id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ position: i })
-            });
-        }
-    } catch (e) {
-        console.error('Error updating column positions:', e);
-        showToast('Failed to update column order', 'error');
-    }
-}
-
 // ===== Label Management =====
 let globalLabels = [];
 let boardLabels = [];
@@ -1226,6 +1236,8 @@ async function loadBoards() {
 }
 
 function renderBoardList() {
+    console.log('Rendering board list. Boards:', boards.map(b => ({id: b.id, name: b.name, icon: b.icon, color: b.icon_color})));
+    
     if (boards.length === 0) {
         elements.boardList.innerHTML = `
             <div class="px-3 py-4 text-center text-xs text-[#8a98a8]">
@@ -1237,11 +1249,12 @@ function renderBoardList() {
 
     elements.boardList.innerHTML = boards.map(board => {
         const isActive = board.id === activeBoardId;
+        const iconColor = board.icon_color || '#3b82f6';
         return `
-            <div class="flex items-center gap-1 group/board">
+            <div class="flex items-center gap-1 group/board" oncontextmenu="showBoardContextMenu(event, '${board.id}'); return false;">
                 <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg flex-1 justify-start sidebar-item ${isActive ? 'bg-[#eff1f3] dark:bg-[#1e2936] text-[#111418] dark:text-white' : 'text-[#5c6b7f] dark:text-gray-400 hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] hover:text-[#111418] dark:hover:text-white'} transition-colors group"
-                    onclick="switchBoard('${board.id}'); return false;" title="${escapeHtml(board.name)}">
-                    <span class="material-symbols-outlined group-hover:text-primary transition-colors flex-shrink-0 ${isActive ? 'text-primary' : ''}">${escapeHtml(normalizeBoardIcon(board.icon))}</span>
+                    onclick="switchBoard('${board.id}'); return false;" data-sidebar-tooltip="${escapeHtml(board.name)}">
+                    <span class="material-symbols-outlined transition-colors flex-shrink-0" style="color: ${iconColor}">${escapeHtml(normalizeBoardIcon(board.icon))}</span>
                     <span class="text-sm font-medium truncate sidebar-text whitespace-nowrap">${escapeHtml(board.name)}</span>
                 </a>
                 <button onclick="showDeleteBoardModal('${board.id}', '${escapeHtml(board.name)}'); event.stopPropagation(); return false;" 
@@ -1254,20 +1267,23 @@ function renderBoardList() {
     }).join('');
 }
 
-async function createBoard(name, icon = 'dashboard') {
+async function createBoard(name, icon = 'dashboard', iconColor = '#3b82f6') {
     if (!activeWorkspaceId) return;
+    console.log('createBoard called with icon:', icon, 'normalized:', normalizeBoardIcon(icon), 'color:', iconColor);
     try {
         const response = await authFetch(`${API_URL}/api/boards`, {
             method: 'POST',
             body: JSON.stringify({
                 name,
                 icon: normalizeBoardIcon(icon),
+                icon_color: iconColor,
                 workspace_id: activeWorkspaceId
             })
         });
 
         if (!response) return;
         const newBoard = await response.json();
+        console.log('Board created:', newBoard);
         await loadBoards();
         switchBoard(newBoard.id);
         showToast('Board created successfully', 'success');
@@ -1363,6 +1379,23 @@ function showCreateBoardModal() {
     elements.newBoardName.value = '';
     if (elements.newBoardIcon) {
         elements.newBoardIcon.value = 'dashboard';
+        if (elements.selectedIconPreview) {
+            elements.selectedIconPreview.textContent = 'dashboard';
+            elements.selectedIconPreview.style.color = '#3b82f6';
+        }
+    }
+    if (elements.newBoardIconColor) {
+        elements.newBoardIconColor.value = '#3b82f6';
+        // Reset color selection
+        document.querySelectorAll('.color-option').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.color === '#3b82f6') {
+                btn.classList.add('active');
+            }
+        });
+    }
+    if (elements.iconDropdownMenu) {
+        elements.iconDropdownMenu.classList.add('hidden');
     }
     elements.createBoardModal.classList.remove('hidden');
     setTimeout(() => elements.newBoardName.focus(), 50);
@@ -1370,6 +1403,131 @@ function showCreateBoardModal() {
 
 function hideCreateBoardModal() {
     elements.createBoardModal.classList.add('hidden');
+    if (elements.iconDropdownMenu) {
+        elements.iconDropdownMenu.classList.add('hidden');
+    }
+    // Reset form values when closing
+    elements.newBoardName.value = '';
+    if (elements.newBoardIcon) {
+        elements.newBoardIcon.value = 'dashboard';
+        if (elements.selectedIconPreview) {
+            elements.selectedIconPreview.textContent = 'dashboard';
+            elements.selectedIconPreview.style.color = '#3b82f6';
+        }
+    }
+    if (elements.newBoardIconColor) {
+        elements.newBoardIconColor.value = '#3b82f6';
+    }
+}
+
+// ===== Board Context Menu =====
+let currentContextBoardId = null;
+
+function showBoardContextMenu(e, boardId) {
+    e.preventDefault();
+    e.stopPropagation();
+    currentContextBoardId = boardId;
+
+    const menu = elements.boardContextMenu;
+    menu.style.display = 'block';
+    menu.classList.remove('hidden');
+
+    const menuWidth = 192;
+    const menuHeight = menu.offsetHeight || 100;
+    let x = e.pageX;
+    let y = e.pageY;
+
+    if (x + menuWidth > window.innerWidth + window.scrollX) {
+        x = window.innerWidth + window.scrollX - menuWidth - 10;
+    }
+    if (y + menuHeight > window.innerHeight + window.scrollY) {
+        y = window.innerHeight + window.scrollY - menuHeight - 10;
+    }
+
+    menu.style.left = `${x}px`;
+    menu.style.top = `${y}px`;
+}
+
+function hideBoardContextMenu() {
+    if (elements.boardContextMenu) {
+        elements.boardContextMenu.style.display = 'none';
+        elements.boardContextMenu.classList.add('hidden');
+    }
+    currentContextBoardId = null;
+}
+
+// ===== Edit Board Modal =====
+function showEditBoardModal(boardId) {
+    const board = boards.find(b => b.id === boardId);
+    if (!board) return;
+
+    elements.editBoardName.value = board.name;
+    elements.editBoardIcon.value = board.icon || 'dashboard';
+    elements.editBoardIconColor.value = board.icon_color || '#3b82f6';
+
+    if (elements.editSelectedIconPreview) {
+        elements.editSelectedIconPreview.textContent = normalizeBoardIcon(board.icon || 'dashboard');
+        elements.editSelectedIconPreview.style.color = board.icon_color || '#3b82f6';
+    }
+
+    // Highlight the current icon
+    document.querySelectorAll('.edit-icon-option').forEach(btn => {
+        btn.classList.remove('bg-blue-100', 'dark:bg-blue-900/30');
+        if (btn.dataset.icon === (board.icon || 'dashboard')) {
+            btn.classList.add('bg-blue-100', 'dark:bg-blue-900/30');
+        }
+    });
+
+    // Highlight the current color
+    document.querySelectorAll('.edit-color-option').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.color === (board.icon_color || '#3b82f6')) {
+            btn.classList.add('active');
+        }
+    });
+
+    if (elements.editIconDropdownMenu) {
+        elements.editIconDropdownMenu.classList.add('hidden');
+    }
+
+    elements.editBoardModal.classList.remove('hidden');
+    elements.editBoardModal.dataset.boardId = boardId;
+    setTimeout(() => elements.editBoardName.focus(), 50);
+}
+
+function hideEditBoardModal() {
+    elements.editBoardModal.classList.add('hidden');
+    if (elements.editIconDropdownMenu) {
+        elements.editIconDropdownMenu.classList.add('hidden');
+    }
+    elements.editBoardName.value = '';
+    elements.editBoardModal.dataset.boardId = '';
+}
+
+async function updateBoard(boardId, data) {
+    try {
+        const response = await authFetch(`${API_URL}/api/boards/${boardId}`, {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
+        if (!response || !response.ok) {
+            throw new Error('Failed to update board');
+        }
+        const updated = await response.json();
+        // Update local board data
+        const idx = boards.findIndex(b => b.id === boardId);
+        if (idx !== -1) {
+            boards[idx] = { ...boards[idx], ...updated };
+        }
+        renderBoardList();
+        if (activeBoardId === boardId) {
+            renderBoard();
+        }
+        showToast('Board updated successfully', 'success');
+    } catch (e) {
+        console.error('Error updating board:', e);
+        showToast('Failed to update board', 'error');
+    }
 }
 
 async function loadWorkspaceMembers() {
@@ -2159,7 +2317,8 @@ async function updateTask(id, updates) {
 
         const index = tasks.findIndex(t => t.id === id);
         if (index !== -1) {
-            tasks[index] = updatedTask;
+            // Merge server fields without clobbering in-memory order
+            tasks[index] = { ...tasks[index], ...updatedTask };
         }
 
         renderBoard();
@@ -2403,49 +2562,58 @@ function showKafkaEvent(message, type = 'info') {
 // ===== Drag and Drop with Reordering =====
 let draggedTask = null;
 let draggedTaskId = null;
+let isDragging = false;
+
+function cleanupDragState() {
+    if (draggedTask) {
+        draggedTask.classList.remove('dragging');
+        draggedTask.style.opacity = '';
+    }
+    draggedTask = null;
+    draggedTaskId = null;
+    isDragging = false;
+    document.querySelectorAll('.column').forEach(col => col.classList.remove('drag-over'));
+    document.querySelectorAll('.drop-indicator').forEach(el => el.remove());
+}
 
 function handleDragStart(e) {
-    draggedTask = e.target;
-    draggedTaskId = e.target.dataset.taskId;
-    e.target.classList.add('dragging');
+    // Cancel any stale drag state before starting fresh
+    cleanupDragState();
+
+    draggedTask = e.target.closest('.task-card');
+    if (!draggedTask) return;
+    draggedTaskId = draggedTask.dataset.taskId;
+    isDragging = true;
+
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', draggedTaskId);
 
     // Slight delay to allow the drag image to be created
     setTimeout(() => {
-        e.target.style.opacity = '0.4';
+        if (draggedTask) {
+            draggedTask.classList.add('dragging');
+            draggedTask.style.opacity = '0.4';
+        }
     }, 0);
 }
 
 function handleDragEnd(e) {
-    e.target.classList.remove('dragging');
-    e.target.style.opacity = '';
-    draggedTask = null;
-    draggedTaskId = null;
-
-    // Remove all drag indicators
-    document.querySelectorAll('.column').forEach(col => {
-        col.classList.remove('drag-over');
-    });
-    document.querySelectorAll('.drop-indicator').forEach(indicator => {
-        indicator.remove();
-    });
+    cleanupDragState();
 }
 
 function handleDragOver(e) {
     e.preventDefault();
+    if (!isDragging) return;
     e.dataTransfer.dropEffect = 'move';
 
     const taskList = e.target.closest('.task-list');
-    if (!taskList || !draggedTask) return;
+    if (!taskList) return;
 
     // Find the card we're hovering over
     const afterElement = getDragAfterElement(taskList, e.clientY);
 
     // Remove existing indicators
-    document.querySelectorAll('.drop-indicator').forEach(indicator => {
-        indicator.remove();
-    });
+    document.querySelectorAll('.drop-indicator').forEach(indicator => indicator.remove());
 
     // Create drop indicator
     const indicator = document.createElement('div');
@@ -2475,6 +2643,7 @@ function getDragAfterElement(container, y) {
 
 function handleDragEnter(e) {
     e.preventDefault();
+    if (!isDragging) return;
     const column = e.target.closest('.column');
     if (column) {
         column.classList.add('drag-over');
@@ -2487,54 +2656,63 @@ function handleDragLeave(e) {
 
     if (column && column !== relatedColumn) {
         column.classList.remove('drag-over');
-        // Remove indicators when leaving column
-        column.querySelectorAll('.drop-indicator').forEach(indicator => {
-            indicator.remove();
-        });
+        column.querySelectorAll('.drop-indicator').forEach(el => el.remove());
     }
 }
 
 function handleDrop(e) {
     e.preventDefault();
 
-    // Remove all indicators
-    document.querySelectorAll('.drop-indicator').forEach(indicator => {
-        indicator.remove();
-    });
-
-    const column = e.target.closest('.column');
-    if (!column) return;
-
-    column.classList.remove('drag-over');
-
+    // Capture the drop target IDs before cleaning up drag state
     const taskId = e.dataTransfer.getData('text/plain');
+    const column = e.target.closest('.column');
+
+    // Clean up visual state immediately
+    document.querySelectorAll('.drop-indicator').forEach(el => el.remove());
+    document.querySelectorAll('.column').forEach(col => col.classList.remove('drag-over'));
+
+    if (!column || !taskId || !isDragging) {
+        cleanupDragState();
+        return;
+    }
+
     const newColumnId = column.dataset.columnId;
     const taskList = column.querySelector('.task-list');
+    if (!newColumnId || !taskList) {
+        cleanupDragState();
+        return;
+    }
 
-    if (!taskId || !newColumnId || !taskList) return;
-
-    // Find drop position
+    // Snapshot the after-element task ID from the DOM BEFORE we mutate anything
     const afterElement = getDragAfterElement(taskList, e.clientY);
+    const afterTaskId = afterElement ? afterElement.dataset.taskId : null;
 
     // Get the task being moved
     const taskIndex = tasks.findIndex(t => t.id === taskId);
-    if (taskIndex === -1) return;
+    if (taskIndex === -1) {
+        cleanupDragState();
+        return;
+    }
 
     const task = tasks[taskIndex];
     const oldColumnId = task.column_id;
+    const columnChanged = oldColumnId !== newColumnId;
 
     // Remove task from array
     tasks.splice(taskIndex, 1);
 
     // Update column_id
     task.column_id = newColumnId;
-    task.updatedAt = new Date().toISOString();
+    task.updated_at = new Date().toISOString();
 
-    // Find insertion position
-    if (afterElement) {
-        const afterTaskId = afterElement.dataset.taskId;
+    // Find insertion position using the snapshotted afterTaskId
+    if (afterTaskId) {
         const afterIndex = tasks.findIndex(t => t.id === afterTaskId);
-        tasks.splice(afterIndex, 0, task);
+        if (afterIndex !== -1) {
+            tasks.splice(afterIndex, 0, task);
+        } else {
+            tasks.push(task);
+        }
     } else {
         // Insert at end of the column group
         const lastIndexOfColumn = tasks.reduce((last, t, i) => t.column_id === newColumnId ? i : last, -1);
@@ -2545,17 +2723,39 @@ function handleDrop(e) {
         }
     }
 
-    // Update column if changed
-    if (oldColumnId !== newColumnId) {
-        updateTask(taskId, { column_id: newColumnId });
+    // Clean up drag state now that array is stable
+    cleanupDragState();
+
+    // Optimistically re-render immediately with the new order
+    renderBoard();
+
+    // Persist to backend without re-rendering on response
+    if (columnChanged) {
+        persistTaskDrop(taskId, { column_id: newColumnId });
     } else {
-        // Just reordering in same column - for now we just re-render
-        // Real reordering would need a 'position' field in the DB
-        renderBoard();
         showKafkaEvent(`Task reordered: ${task.title}`);
     }
+}
 
-    console.log('Kafka Event → task-reordered:', { taskId, column_id: newColumnId });
+async function persistTaskDrop(taskId, updates) {
+    try {
+        const response = await authFetch(`${API_URL}/api/tasks/${taskId}`, {
+            method: 'PUT',
+            body: JSON.stringify(updates)
+        });
+        if (!response || !response.ok) throw new Error('Failed to update task');
+        const updatedTask = await response.json();
+        // Patch only the changed fields on the in-memory task, no re-render
+        const index = tasks.findIndex(t => t.id === taskId);
+        if (index !== -1) {
+            tasks[index] = { ...tasks[index], ...updatedTask };
+        }
+        if (!elements.activityView.classList.contains('hidden')) renderActivityLog();
+        showKafkaEvent('Task moved: ' + updatedTask.title, 'success');
+    } catch (err) {
+        console.error('Error persisting task drop:', err);
+        showToast('Failed to save task move', 'error');
+    }
 }
 
 // ===== Column Drag and Drop =====
@@ -2733,6 +2933,61 @@ function hideTaskContextMenu() {
     currentContextTask = null;
 }
 
+// ===== Column Context Menu =====
+function showColumnContextMenu(e, columnId) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Close other menus
+    hideTaskContextMenu();
+    hideBoardContextMenu();
+    closeAllColumnMenus();
+
+    currentContextColumnId = columnId;
+
+    const colIndex = columns.findIndex(c => c.id === columnId);
+
+    // Toggle move left/right disabled states
+    if (elements.contextColumnMoveLeft) {
+        elements.contextColumnMoveLeft.disabled = colIndex <= 0;
+        elements.contextColumnMoveLeft.style.opacity = colIndex <= 0 ? '0.4' : '';
+        elements.contextColumnMoveLeft.style.cursor = colIndex <= 0 ? 'not-allowed' : '';
+    }
+    if (elements.contextColumnMoveRight) {
+        const atEnd = colIndex >= columns.length - 1;
+        elements.contextColumnMoveRight.disabled = atEnd;
+        elements.contextColumnMoveRight.style.opacity = atEnd ? '0.4' : '';
+        elements.contextColumnMoveRight.style.cursor = atEnd ? 'not-allowed' : '';
+    }
+
+    const menu = elements.columnContextMenu;
+    menu.style.display = 'block';
+    menu.classList.remove('hidden');
+
+    const menuWidth = 208;
+    const menuHeight = menu.offsetHeight || 200;
+    let x = e.pageX;
+    let y = e.pageY;
+
+    if (x + menuWidth > window.innerWidth + window.scrollX) {
+        x = window.innerWidth + window.scrollX - menuWidth - 10;
+    }
+    if (y + menuHeight > window.innerHeight + window.scrollY) {
+        y = window.innerHeight + window.scrollY - menuHeight - 10;
+    }
+
+    menu.style.left = `${x}px`;
+    menu.style.top = `${y}px`;
+}
+
+function hideColumnContextMenu() {
+    if (elements.columnContextMenu) {
+        elements.columnContextMenu.style.display = 'none';
+        elements.columnContextMenu.classList.add('hidden');
+    }
+    currentContextColumnId = null;
+}
+
 // ===== Theme Toggle =====
 function initTheme() {
     const savedTheme = localStorage.getItem('kafka-kanban-theme');
@@ -2876,13 +3131,147 @@ function initEventListeners() {
     elements.confirmCreateBoardBtn.addEventListener('click', () => {
         const name = elements.newBoardName.value.trim();
         if (name) {
-            createBoard(name, elements.newBoardIcon?.value || 'dashboard');
+            const iconValue = elements.newBoardIcon?.value || 'dashboard';
+            const colorValue = elements.newBoardIconColor?.value || '#3b82f6';
+            console.log('Creating board with icon:', iconValue, 'color:', colorValue);
+            createBoard(name, iconValue, colorValue);
         }
     });
 
     // List Creation
     elements.cancelCreateListBtn.addEventListener('click', hideCreateListModal);
     elements.confirmCreateListBtn.addEventListener('click', createColumn);
+
+    // Board Edit
+    elements.cancelEditBoardBtn.addEventListener('click', hideEditBoardModal);
+    elements.confirmEditBoardBtn.addEventListener('click', () => {
+        const boardId = elements.editBoardModal.dataset.boardId;
+        const name = elements.editBoardName.value.trim();
+        if (boardId && name) {
+            const icon = elements.editBoardIcon?.value || 'dashboard';
+            const iconColor = elements.editBoardIconColor?.value || '#3b82f6';
+            updateBoard(boardId, { name, icon, icon_color: iconColor });
+            hideEditBoardModal();
+        }
+    });
+
+    // Edit board modal - icon dropdown
+    if (elements.editIconDropdownButton && elements.editIconDropdownMenu) {
+        elements.editIconDropdownButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            elements.editIconDropdownMenu.classList.toggle('hidden');
+        });
+
+        document.querySelectorAll('.edit-icon-option').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const icon = btn.dataset.icon;
+                elements.editBoardIcon.value = icon;
+                elements.editSelectedIconPreview.textContent = icon;
+                document.querySelectorAll('.edit-icon-option').forEach(b => b.classList.remove('bg-blue-100', 'dark:bg-blue-900/30'));
+                btn.classList.add('bg-blue-100', 'dark:bg-blue-900/30');
+                elements.editIconDropdownMenu.classList.add('hidden');
+            });
+        });
+    }
+
+    // Edit board modal - color options
+    document.querySelectorAll('.edit-color-option').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const color = btn.dataset.color;
+            elements.editBoardIconColor.value = color;
+            elements.editSelectedIconPreview.style.color = color;
+            document.querySelectorAll('.edit-color-option').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        });
+    });
+
+    // Edit board modal - Enter key
+    elements.editBoardName.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            elements.confirmEditBoardBtn.click();
+        }
+    });
+
+    // Close edit board modal on outside click
+    elements.editBoardModal.addEventListener('click', (e) => {
+        if (e.target === elements.editBoardModal || e.target.classList.contains('bg-gray-900/50')) {
+            hideEditBoardModal();
+        }
+    });
+
+    // Board context menu event listeners
+    if (elements.contextEditBoard) {
+        elements.contextEditBoard.addEventListener('click', () => {
+            if (currentContextBoardId) {
+                showEditBoardModal(currentContextBoardId);
+                hideBoardContextMenu();
+            }
+        });
+    }
+
+    if (elements.contextDeleteBoard) {
+        elements.contextDeleteBoard.addEventListener('click', () => {
+            if (currentContextBoardId) {
+                const board = boards.find(b => b.id === currentContextBoardId);
+                if (board) {
+                    showDeleteBoardModal(currentContextBoardId, board.name);
+                }
+                hideBoardContextMenu();
+            }
+        });
+    }
+
+    // Column Context Menu buttons
+    if (elements.contextColumnAddTask) {
+        elements.contextColumnAddTask.addEventListener('click', () => {
+            if (currentContextColumnId) {
+                const id = currentContextColumnId;
+                hideColumnContextMenu();
+                scrollToAddCard(id);
+            }
+        });
+    }
+
+    if (elements.contextColumnRename) {
+        elements.contextColumnRename.addEventListener('click', () => {
+            if (currentContextColumnId) {
+                const id = currentContextColumnId;
+                hideColumnContextMenu();
+                editColumnTitle(id);
+            }
+        });
+    }
+
+    if (elements.contextColumnMoveLeft) {
+        elements.contextColumnMoveLeft.addEventListener('click', () => {
+            if (currentContextColumnId && !elements.contextColumnMoveLeft.disabled) {
+                const id = currentContextColumnId;
+                hideColumnContextMenu();
+                moveColumnLeft(id);
+            }
+        });
+    }
+
+    if (elements.contextColumnMoveRight) {
+        elements.contextColumnMoveRight.addEventListener('click', () => {
+            if (currentContextColumnId && !elements.contextColumnMoveRight.disabled) {
+                const id = currentContextColumnId;
+                hideColumnContextMenu();
+                moveColumnRight(id);
+            }
+        });
+    }
+
+    if (elements.contextColumnDelete) {
+        elements.contextColumnDelete.addEventListener('click', () => {
+            if (currentContextColumnId) {
+                const id = currentContextColumnId;
+                hideColumnContextMenu();
+                deleteColumn(id);
+            }
+        });
+    }
 
     // Allow Enter key to create list
     elements.newListTitle.addEventListener('keypress', (e) => {
@@ -2913,6 +3302,62 @@ function initEventListeners() {
         }
     });
 
+    // Icon dropdown functionality
+    if (elements.iconDropdownButton && elements.iconDropdownMenu) {
+        elements.iconDropdownButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            elements.iconDropdownMenu.classList.toggle('hidden');
+        });
+
+        // Handle icon selection
+        const iconOptions = document.querySelectorAll('.icon-option');
+        iconOptions.forEach(option => {
+            option.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const icon = option.dataset.icon;
+                
+                elements.newBoardIcon.value = icon;
+                elements.selectedIconPreview.textContent = icon;
+                // Apply current color to the new icon
+                if (elements.newBoardIconColor) {
+                    elements.selectedIconPreview.style.color = elements.newBoardIconColor.value;
+                }
+                elements.iconDropdownMenu.classList.add('hidden');
+            });
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!elements.iconDropdownButton?.contains(e.target) && !elements.iconDropdownMenu?.contains(e.target)) {
+                elements.iconDropdownMenu?.classList.add('hidden');
+            }
+        });
+    }
+
+    // Color selection functionality
+    const colorOptions = document.querySelectorAll('.color-option');
+    colorOptions.forEach(option => {
+        option.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const color = option.dataset.color;
+            
+            // Update hidden input
+            elements.newBoardIconColor.value = color;
+            
+            // Update icon preview color
+            if (elements.selectedIconPreview) {
+                elements.selectedIconPreview.style.color = color;
+            }
+            
+            // Update active state
+            colorOptions.forEach(btn => btn.classList.remove('active'));
+            option.classList.add('active');
+        });
+    });
+
     // Close create list modal on outside click
     elements.createListModal.addEventListener('click', (e) => {
         if (e.target === elements.createListModal || e.target.classList.contains('bg-gray-900/50')) {
@@ -2932,7 +3377,9 @@ function initEventListeners() {
         if (e.key === 'Enter') {
             const name = elements.newBoardName.value.trim();
             if (name) {
-                createBoard(name, elements.newBoardIcon?.value || 'dashboard');
+                const iconValue = elements.newBoardIcon?.value || 'dashboard';
+                const colorValue = elements.newBoardIconColor?.value || '#3b82f6';
+                createBoard(name, iconValue, colorValue);
             }
         } else if (e.key === 'Escape') {
             hideCreateBoardModal();
@@ -2944,8 +3391,14 @@ function initEventListeners() {
     // Escape key
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            if (elements.taskContextMenu && !elements.taskContextMenu.classList.contains('hidden')) {
+            if (elements.boardContextMenu && !elements.boardContextMenu.classList.contains('hidden')) {
+                hideBoardContextMenu();
+            } else if (elements.columnContextMenu && !elements.columnContextMenu.classList.contains('hidden')) {
+                hideColumnContextMenu();
+            } else if (elements.taskContextMenu && !elements.taskContextMenu.classList.contains('hidden')) {
                 hideTaskContextMenu();
+            } else if (!elements.editBoardModal.classList.contains('hidden')) {
+                hideEditBoardModal();
             } else if (!elements.taskPanel.classList.contains('hidden')) {
                 closeTaskPanel();
             } else if (!elements.deleteModal.classList.contains('hidden')) {
@@ -3044,6 +3497,16 @@ function initEventListeners() {
         // Close context menu when clicking outside
         if (!e.target.closest('#taskContextMenu') && !e.target.closest('.task-card')) {
             hideTaskContextMenu();
+        }
+
+        // Close board context menu when clicking outside
+        if (!e.target.closest('#boardContextMenu')) {
+            hideBoardContextMenu();
+        }
+
+        // Close column context menu when clicking outside
+        if (!e.target.closest('#columnContextMenu')) {
+            hideColumnContextMenu();
         }
     });
 
@@ -3158,6 +3621,14 @@ function attachBoardEventListeners() {
         // Column reordering drag indicators
         column.addEventListener('dragover', handleColumnDragOver);
         column.addEventListener('drop', handleColumnDrop);
+
+        // Column context menu
+        column.addEventListener('contextmenu', (e) => {
+            // If right-click is on a task card, let the task context menu handle it
+            if (e.target.closest('.task-card')) return;
+            const columnId = column.dataset.columnId;
+            if (columnId) showColumnContextMenu(e, columnId);
+        });
     });
 
     // Column drag and drop for reordering (only from header)

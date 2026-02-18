@@ -30,6 +30,21 @@ from backend.storage import get_storage_backend
 # Storage backend will be initialized during app startup
 storage = None
 
+def ensure_board_icon_column():
+    """Ensure the icon column exists and has default values"""
+    inspector = inspect(engine)
+    board_columns = {col["name"] for col in inspector.get_columns("boards")}
+    
+    if "icon" not in board_columns:
+        print("Adding icon column to boards table...")
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE boards ADD COLUMN icon VARCHAR DEFAULT 'dashboard'"))
+    
+    # Ensure all existing boards have an icon value
+    with engine.begin() as conn:
+        conn.execute(text("UPDATE boards SET icon = 'dashboard' WHERE icon IS NULL OR icon = ''"))
+    print("Board icon column ensured with default values")
+
 def seed_db():
     from backend.database import SessionLocal
     db = SessionLocal()
@@ -111,16 +126,6 @@ def normalize_board_icon(icon: Optional[str]) -> str:
     return normalized if normalized in ALLOWED_BOARD_ICONS else "dashboard"
 
 
-def ensure_board_icon_column():
-    inspector = inspect(engine)
-    board_columns = {col["name"] for col in inspector.get_columns("boards")}
-    if "icon" in board_columns:
-        return
-
-    with engine.begin() as conn:
-        conn.execute(text("ALTER TABLE boards ADD COLUMN icon VARCHAR DEFAULT 'dashboard'"))
-        conn.execute(text("UPDATE boards SET icon = 'dashboard' WHERE icon IS NULL OR icon = ''"))
-
 # ===== Connection Manager for WebSockets =====
 class ConnectionManager:
     def __init__(self):
@@ -146,8 +151,8 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 # ===== Global Kafka instances =====
-producer: AIOKafkaProducer = None
-consumer_task: asyncio.Task = None
+producer: Optional[AIOKafkaProducer] = None
+consumer_task: Optional[asyncio.Task] = None
 
 # ===== Kafka Consumer Background Task =====
 async def consume_events():
@@ -217,7 +222,7 @@ class KanbanEvent(BaseModel):
     type: str
     taskId: str
     data: dict = {}
-    timestamp: str = None
+    timestamp: Optional[str] = None
 
 class UserCreate(BaseModel):
     email: EmailStr
@@ -242,6 +247,21 @@ class BoardCreate(BaseModel):
     name: str
     workspace_id: str
     icon: Optional[str] = "dashboard"
+    icon_color: Optional[str] = "#3b82f6"
+
+class BoardResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: str
+    name: str
+    icon: str
+    icon_color: str
+    workspace_id: str
+
+class BoardUpdate(BaseModel):
+    name: Optional[str] = None
+    icon: Optional[str] = None
+    icon_color: Optional[str] = None
 
 class BoardColumnCreate(BaseModel):
     title: str
@@ -327,7 +347,7 @@ async def get_current_user(db: Session = Depends(get_db), token: str = Depends(o
     )
     try:
         payload = jwt.decode(token, auth.SECRET_KEY, algorithms=[auth.ALGORITHM])
-        email: str = payload.get("sub")
+        email: Optional[str] = payload.get("sub")
         if email is None:
             raise credentials_exception
     except JWTError:
@@ -376,23 +396,30 @@ def create_workspace(ws_in: WorkspaceCreate, current_user: models.User = Depends
     return new_ws
 
 # ===== Board Routes =====
-@app.get("/api/workspaces/{ws_id}/boards")
+@app.get("/api/workspaces/{ws_id}/boards", response_model=List[BoardResponse])
 def get_boards(ws_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     ws = db.query(models.Workspace).filter(models.Workspace.id == ws_id).first()
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
-    return ws.boards
+    boards = ws.boards
+    print(f"Returning {len(boards)} boards for workspace {ws_id}")
+    for board in boards:
+        print(f"  Board: id={board.id}, name={board.name}, icon={board.icon}")
+    return boards
 
-@app.post("/api/boards")
+@app.post("/api/boards", response_model=BoardResponse)
 def create_board(board_in: BoardCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    print(f"Creating board: name={board_in.name}, icon={board_in.icon}, color={board_in.icon_color}")
     new_board = models.Board(
         name=board_in.name,
         icon=normalize_board_icon(board_in.icon),
+        icon_color=board_in.icon_color or "#3b82f6",
         workspace_id=board_in.workspace_id
     )
     db.add(new_board)
     db.commit()
     db.refresh(new_board)
+    print(f"Board created: id={new_board.id}, icon={new_board.icon}, color={new_board.icon_color}")
     
     # Create default columns
     cols = [
@@ -404,6 +431,23 @@ def create_board(board_in: BoardCreate, current_user: models.User = Depends(get_
     db.commit()
     
     return new_board
+
+@app.put("/api/boards/{board_id}", response_model=BoardResponse)
+def update_board(board_id: str, board_in: BoardUpdate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    board = db.query(models.Board).filter(models.Board.id == board_id).first()
+    if not board:
+        raise HTTPException(status_code=404, detail="Board not found")
+    ws = db.query(models.Workspace).filter(models.Workspace.id == board.workspace_id).first()
+    ensure_workspace_access(ws, current_user)
+    if board_in.name is not None:
+        board.name = board_in.name
+    if board_in.icon is not None:
+        board.icon = normalize_board_icon(board_in.icon)
+    if board_in.icon_color is not None:
+        board.icon_color = board_in.icon_color
+    db.commit()
+    db.refresh(board)
+    return board
 
 @app.delete("/api/boards/{board_id}")
 def delete_board(board_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
