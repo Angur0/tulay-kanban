@@ -2493,8 +2493,13 @@ function handleIncomingKafkaEvent(kafkaEvent) {
     if (!elements.activityView.classList.contains('hidden')) renderActivityLog();
 
     // Sync tasks on relevant events (non-blocking)
+    // Skip re-sync if: (1) a drag is in progress (avoid clobbering optimistic update),
+    // or (2) the event was triggered by the current user (optimistic update already applied).
     if (['TASK_CREATED', 'TASK_UPDATED', 'TASK_MOVED', 'TASK_DELETED'].includes(kafkaEvent.type)) {
-        loadColumns().then(loadTasks); // Fire and forget - don't block
+        const isOwnEvent = currentUser && kafkaEvent.user_id === currentUser.id;
+        if (!isDragInProgress && !isOwnEvent) {
+            loadColumns().then(loadTasks); // Fire and forget - don't block
+        }
     }
 
     // Handle comment events
@@ -2573,6 +2578,9 @@ function showKafkaEvent(message, type = 'info') {
 let draggedTask = null;
 let draggedTaskId = null;
 let isDragging = false;
+let isDragInProgress = false; // Prevents WebSocket re-renders during active drag
+
+const TASK_DRAG_KEY = 'application/x-task-id';
 
 function cleanupDragState() {
     if (draggedTask) {
@@ -2582,23 +2590,30 @@ function cleanupDragState() {
     draggedTask = null;
     draggedTaskId = null;
     isDragging = false;
+    isDragInProgress = false;
     document.querySelectorAll('.column').forEach(col => col.classList.remove('drag-over'));
     document.querySelectorAll('.drop-indicator').forEach(el => el.remove());
 }
 
 function handleDragStart(e) {
-    // Cancel any stale drag state before starting fresh
+    const card = e.currentTarget; // always the card since listener is on the card
+    if (!card || !card.classList.contains('task-card')) return;
+
+    // Clean up any stale state
     cleanupDragState();
 
-    draggedTask = e.target.closest('.task-card');
-    if (!draggedTask) return;
-    draggedTaskId = draggedTask.dataset.taskId;
+    draggedTask = card;
+    draggedTaskId = card.dataset.taskId;
     isDragging = true;
+    isDragInProgress = true;
 
     e.dataTransfer.effectAllowed = 'move';
+    // Use a dedicated MIME type so task drops and column drops never collide
+    e.dataTransfer.setData(TASK_DRAG_KEY, draggedTaskId);
+    // Fallback for browsers that only expose text/plain in drop handlers
     e.dataTransfer.setData('text/plain', draggedTaskId);
 
-    // Slight delay to allow the drag image to be created
+    // Slight delay so the drag image is captured before we hide the card
     setTimeout(() => {
         if (draggedTask) {
             draggedTask.classList.add('dragging');
@@ -2612,14 +2627,20 @@ function handleDragEnd(e) {
 }
 
 function handleDragOver(e) {
-    e.preventDefault();
+    // Only handle if a task drag is active
     if (!isDragging) return;
+    e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
 
-    const taskList = e.target.closest('.task-list');
+    // Find task-list: either the target itself or its ancestor.
+    // Also fall back to the column's task-list if hovering over the header area.
+    let taskList = e.target.closest('.task-list');
+    if (!taskList) {
+        const column = e.target.closest('.column');
+        if (column) taskList = column.querySelector('.task-list');
+    }
     if (!taskList) return;
 
-    // Find the card we're hovering over
     const afterElement = getDragAfterElement(taskList, e.clientY);
 
     // Remove existing indicators
@@ -2652,8 +2673,8 @@ function getDragAfterElement(container, y) {
 }
 
 function handleDragEnter(e) {
-    e.preventDefault();
     if (!isDragging) return;
+    e.preventDefault();
     const column = e.target.closest('.column');
     if (column) {
         column.classList.add('drag-over');
@@ -2661,6 +2682,7 @@ function handleDragEnter(e) {
 }
 
 function handleDragLeave(e) {
+    if (!isDragging) return;
     const column = e.target.closest('.column');
     const relatedColumn = e.relatedTarget?.closest('.column');
 
@@ -2671,17 +2693,22 @@ function handleDragLeave(e) {
 }
 
 function handleDrop(e) {
-    e.preventDefault();
+    // Only handle task drops — ignore column drags
+    if (!isDragging) return;
 
-    // Capture the drop target IDs before cleaning up drag state
-    const taskId = e.dataTransfer.getData('text/plain');
+    e.preventDefault();
+    e.stopPropagation(); // prevent handleColumnDrop from also firing
+
+    // Read task ID from our dedicated key (fallback to text/plain)
+    const taskId = e.dataTransfer.getData(TASK_DRAG_KEY) ||
+        e.dataTransfer.getData('text/plain');
     const column = e.target.closest('.column');
 
     // Clean up visual state immediately
     document.querySelectorAll('.drop-indicator').forEach(el => el.remove());
     document.querySelectorAll('.column').forEach(col => col.classList.remove('drag-over'));
 
-    if (!column || !taskId || !isDragging) {
+    if (!column || !taskId) {
         cleanupDragState();
         return;
     }
@@ -2771,25 +2798,28 @@ async function persistTaskDrop(taskId, updates) {
 // ===== Column Drag and Drop =====
 let draggedColumn = null;
 
+const COLUMN_DRAG_KEY = 'application/x-column-id';
+
 function handleColumnDragStart(e) {
-    // Find the column from the dragged header
-    const header = e.target.closest('.column-drag-handle');
-    if (!header) {
+    // Only allow drag from the handle itself (not task cards inside the column)
+    const handle = e.target.closest('.column-drag-handle');
+    if (!handle) {
         e.preventDefault();
         return;
     }
 
-    draggedColumn = header.closest('.column');
+    draggedColumn = handle.closest('.column');
     if (!draggedColumn) {
         e.preventDefault();
         return;
     }
 
     e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', draggedColumn.dataset.columnId);
+    // Use a dedicated MIME type so column drops never collide with task drops
+    e.dataTransfer.setData(COLUMN_DRAG_KEY, draggedColumn.dataset.columnId);
 
     setTimeout(() => {
-        draggedColumn.style.opacity = '0.4';
+        if (draggedColumn) draggedColumn.style.opacity = '0.4';
     }, 0);
 }
 
@@ -2798,8 +2828,6 @@ function handleColumnDragEnd(e) {
         draggedColumn.style.opacity = '';
         draggedColumn = null;
     }
-
-    // Remove all column drag indicators
     document.querySelectorAll('.column').forEach(col => {
         col.classList.remove('column-drag-over-left', 'column-drag-over-right');
     });
@@ -2814,15 +2842,12 @@ function handleColumnDragOver(e) {
     const targetColumn = e.target.closest('.column');
     if (!targetColumn || targetColumn === draggedColumn) return;
 
-    // Remove all indicators
     document.querySelectorAll('.column').forEach(col => {
         col.classList.remove('column-drag-over-left', 'column-drag-over-right');
     });
 
-    // Determine which side to show indicator
     const rect = targetColumn.getBoundingClientRect();
     const midpoint = rect.left + rect.width / 2;
-
     if (e.clientX < midpoint) {
         targetColumn.classList.add('column-drag-over-left');
     } else {
@@ -2834,7 +2859,6 @@ function handleColumnDrop(e) {
     if (!draggedColumn) return;
 
     e.preventDefault();
-    e.stopPropagation();
 
     const targetColumn = e.target.closest('.column');
     if (!targetColumn || targetColumn === draggedColumn) {
@@ -2853,15 +2877,12 @@ function handleColumnDrop(e) {
         return;
     }
 
-    // Determine drop position
     const rect = targetColumn.getBoundingClientRect();
     const midpoint = rect.left + rect.width / 2;
     const dropBefore = e.clientX < midpoint;
 
-    // Remove dragged column from array
     const [movedColumn] = columns.splice(draggedIndex, 1);
 
-    // Calculate new index
     let newIndex = targetIndex;
     if (draggedIndex < targetIndex) {
         newIndex = dropBefore ? targetIndex - 1 : targetIndex;
@@ -2869,10 +2890,8 @@ function handleColumnDrop(e) {
         newIndex = dropBefore ? targetIndex : targetIndex + 1;
     }
 
-    // Insert at new position
     columns.splice(newIndex, 0, movedColumn);
 
-    // Update positions in database and re-render
     updateColumnPositions().then(() => {
         renderBoard();
         showToast('Column moved', 'success');
@@ -3621,27 +3640,39 @@ function attachBoardEventListeners() {
         });
     });
 
-    // Drag and drop on columns (for tasks)
+    // Task drag-and-drop: dragover/enter/leave/drop on each column
     document.querySelectorAll('.column').forEach(column => {
-        column.addEventListener('dragover', handleDragOver);
+        column.addEventListener('dragover', (e) => {
+            // Route to the correct handler based on what's being dragged
+            if (isDragging) {
+                handleDragOver(e);
+            } else if (draggedColumn) {
+                handleColumnDragOver(e);
+            } else {
+                // Unknown drag — still prevent default so drop can fire
+                e.preventDefault();
+            }
+        });
         column.addEventListener('dragenter', handleDragEnter);
         column.addEventListener('dragleave', handleDragLeave);
-        column.addEventListener('drop', handleDrop);
-
-        // Column reordering drag indicators
-        column.addEventListener('dragover', handleColumnDragOver);
-        column.addEventListener('drop', handleColumnDrop);
+        column.addEventListener('drop', (e) => {
+            // Route drop to the correct handler
+            if (isDragging) {
+                handleDrop(e);
+            } else if (draggedColumn) {
+                handleColumnDrop(e);
+            }
+        });
 
         // Column context menu
         column.addEventListener('contextmenu', (e) => {
-            // If right-click is on a task card, let the task context menu handle it
             if (e.target.closest('.task-card')) return;
             const columnId = column.dataset.columnId;
             if (columnId) showColumnContextMenu(e, columnId);
         });
     });
 
-    // Column drag and drop for reordering (only from header)
+    // Column drag-and-drop: dragstart/end only from the header handle
     document.querySelectorAll('.column-drag-handle').forEach(handle => {
         handle.addEventListener('dragstart', handleColumnDragStart);
         handle.addEventListener('dragend', handleColumnDragEnd);
