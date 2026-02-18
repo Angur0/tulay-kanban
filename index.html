@@ -164,8 +164,15 @@
             margin: 0;
         }
 
-        /* Hide the boards section header when collapsed */
-        #sidebar.collapsed .boards-section > div:first-child {
+        /* Center the boards section header when collapsed, hide only the label text */
+        #sidebar.collapsed .boards-section>div:first-child {
+            flex-direction: column;
+            align-items: center;
+            padding-left: 0;
+            padding-right: 0;
+        }
+
+        #sidebar.collapsed .boards-section>div:first-child p {
             display: none;
         }
 
@@ -206,6 +213,11 @@
             display: none;
         }
 
+        /* Hide "No boards yet" text when collapsed */
+        #sidebar.collapsed #boardList .board-list-empty {
+            display: none;
+        }
+
         #sidebar .sidebar-text {
             transition: opacity 0.3s, width 0.3s;
         }
@@ -236,13 +248,13 @@
             opacity: 0;
             transition: opacity 0.15s ease;
             z-index: 9999;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
         }
 
         .dark #sidebar.collapsed [data-sidebar-tooltip]::after {
             background: #0f172a;
             color: #e2e8f0;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
         }
 
         /* Arrow pointing left from tooltip */
@@ -268,7 +280,6 @@
         #sidebar.collapsed [data-sidebar-tooltip]:hover::before {
             opacity: 1;
         }
-
     </style>
 </head>
 
@@ -281,10 +292,14 @@
         <div class="flex flex-col p-4 gap-6">
             <!-- App Header -->
             <div class="flex items-center gap-3 px-2 sidebar-header">
-                <button id="sidebarToggle" class="flex items-center justify-center size-8 rounded-lg bg-primary text-white shadow-sm flex-shrink-0 hover:bg-blue-600 transition-colors" data-sidebar-tooltip="Toggle Sidebar">
+                <button id="sidebarToggle"
+                    class="flex items-center justify-center size-8 rounded-lg bg-primary text-white shadow-sm flex-shrink-0 hover:bg-blue-600 transition-colors"
+                    data-sidebar-tooltip="Toggle Sidebar">
                     <span class="material-symbols-outlined text-xl">developer_board</span>
                 </button>
-                <h1 class="text-base font-semibold tracking-tight text-[#111418] dark:text-white whitespace-nowrap sidebar-text">Tulay Kanban</h1>
+                <h1
+                    class="text-base font-semibold tracking-tight text-[#111418] dark:text-white whitespace-nowrap sidebar-text">
+                    Tulay Kanban</h1>
             </div>
 
             <!-- Boards Section -->
@@ -293,7 +308,7 @@
                     <p class="text-xs font-semibold text-[#8a98a8] uppercase tracking-wider sidebar-text">Boards</p>
                     <button id="createBoardBtn"
                         class="text-[#5c6b7f] dark:text-gray-400 hover:text-primary transition-colors flex-shrink-0"
-                        title="Create Board">
+                        title="Create Board" data-sidebar-tooltip="Create Board">
                         <span class="material-symbols-outlined text-[18px]">add</span>
                     </button>
                 </div>
@@ -321,13 +336,15 @@
                 <a id="navActivity"
                     class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors group justify-start sidebar-item"
                     href="#" data-sidebar-tooltip="Activity">
-                    <span class="material-symbols-outlined group-hover:text-primary transition-colors flex-shrink-0">history</span>
+                    <span
+                        class="material-symbols-outlined group-hover:text-primary transition-colors flex-shrink-0">history</span>
                     <span class="text-sm font-medium sidebar-text whitespace-nowrap">Activity</span>
                 </a>
                 <a id="labelManagerBtn"
                     class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors group justify-start sidebar-item"
                     href="#" onclick="openLabelManager('global'); return false;" data-sidebar-tooltip="Labels">
-                    <span class="material-symbols-outlined group-hover:text-primary transition-colors flex-shrink-0">label</span>
+                    <span
+                        class="material-symbols-outlined group-hover:text-primary transition-colors flex-shrink-0">label</span>
                     <span class="text-sm font-medium sidebar-text whitespace-nowrap">Labels</span>
                 </a>
             </nav>
@@ -506,7 +523,8 @@
                                     onblur="if(!this.value)this.type='text'" min="2020-01-01" max="2099-12-31"
                                     class="w-[140px] px-3 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/50">
                                 <button type="button" id="clearDueDateBtn"
-                                    class="text-[#8a98a8] hover:text-red-500 transition-colors hidden" title="Clear date">
+                                    class="text-[#8a98a8] hover:text-red-500 transition-colors hidden"
+                                    title="Clear date">
                                     <span class="material-symbols-outlined text-[16px]">close</span>
                                 </button>
                             </div>
@@ -703,12 +721,15 @@
                         <h3 class="text-lg font-bold text-[#111418] dark:text-white">Create New Board</h3>
                     </div>
                     <div class="mb-6">
-                        <label class="block text-sm font-medium text-[#5c6b7f] dark:text-gray-400 mb-2">Board Name & Icon</label>
+                        <label class="block text-sm font-medium text-[#5c6b7f] dark:text-gray-400 mb-2">Board Name &
+                            Icon</label>
                         <div class="relative">
-                            <div class="flex items-center gap-0 bg-transparent dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 focus-within:ring-2 focus-within:ring-primary/50">
+                            <div
+                                class="flex items-center gap-0 bg-transparent dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 focus-within:ring-2 focus-within:ring-primary/50">
                                 <button type="button" id="iconDropdownButton"
                                     class="px-3 py-2.5 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-l-lg transition-colors">
-                                    <span class="material-symbols-outlined text-2xl" id="selectedIconPreview">dashboard</span>
+                                    <span class="material-symbols-outlined text-2xl"
+                                        id="selectedIconPreview">dashboard</span>
                                 </button>
                                 <input type="text" id="newBoardName"
                                     class="flex-1 px-3 py-2.5 bg-transparent text-[#111418] dark:text-white focus:outline-none border-none"
@@ -763,9 +784,10 @@
                         </div>
                     </div>
                     <div class="mb-6">
-                        <label class="block text-sm font-medium text-[#5c6b7f] dark:text-gray-400 mb-2">Icon Color</label>
+                        <label class="block text-sm font-medium text-[#5c6b7f] dark:text-gray-400 mb-2">Icon
+                            Color</label>
                         <div class="grid grid-cols-8 gap-2">
-                            <button type="button" data-color="#3b82f6" title="Blue" 
+                            <button type="button" data-color="#3b82f6" title="Blue"
                                 class="color-option w-10 h-10 rounded-lg border-2 border-transparent hover:border-gray-400 dark:hover:border-gray-500 transition-all hover:scale-110 active"
                                 style="background-color: #3b82f6;">
                             </button>
@@ -1109,7 +1131,8 @@
     <div id="editBoardModal" class="fixed inset-0 z-[70] hidden" role="dialog" aria-modal="true">
         <div class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm transition-opacity"></div>
         <div class="fixed inset-0 flex items-center justify-center p-4">
-            <div class="bg-white dark:bg-[#151e29] rounded-xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all border border-[#e5e7eb] dark:border-[#1e2936]">
+            <div
+                class="bg-white dark:bg-[#151e29] rounded-xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all border border-[#e5e7eb] dark:border-[#1e2936]">
                 <div class="p-6">
                     <div class="flex items-center gap-3 mb-4 text-primary">
                         <div class="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
@@ -1118,12 +1141,15 @@
                         <h3 class="text-lg font-bold text-[#111418] dark:text-white">Edit Board</h3>
                     </div>
                     <div class="mb-6">
-                        <label class="block text-sm font-medium text-[#5c6b7f] dark:text-gray-400 mb-2">Board Name & Icon</label>
+                        <label class="block text-sm font-medium text-[#5c6b7f] dark:text-gray-400 mb-2">Board Name &
+                            Icon</label>
                         <div class="relative">
-                            <div class="flex items-center gap-0 bg-transparent dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 focus-within:ring-2 focus-within:ring-primary/50">
+                            <div
+                                class="flex items-center gap-0 bg-transparent dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 focus-within:ring-2 focus-within:ring-primary/50">
                                 <button type="button" id="editIconDropdownButton"
                                     class="px-3 py-2.5 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-l-lg transition-colors">
-                                    <span class="material-symbols-outlined text-2xl" id="editSelectedIconPreview">dashboard</span>
+                                    <span class="material-symbols-outlined text-2xl"
+                                        id="editSelectedIconPreview">dashboard</span>
                                 </button>
                                 <input type="text" id="editBoardName"
                                     class="flex-1 px-3 py-2.5 bg-transparent text-[#111418] dark:text-white focus:outline-none border-none"
@@ -1178,7 +1204,8 @@
                         </div>
                     </div>
                     <div class="mb-6">
-                        <label class="block text-sm font-medium text-[#5c6b7f] dark:text-gray-400 mb-2">Icon Color</label>
+                        <label class="block text-sm font-medium text-[#5c6b7f] dark:text-gray-400 mb-2">Icon
+                            Color</label>
                         <div class="grid grid-cols-8 gap-2">
                             <button type="button" data-color="#3b82f6" title="Blue"
                                 class="edit-color-option w-10 h-10 rounded-lg border-2 border-transparent hover:border-gray-400 dark:hover:border-gray-500 transition-all hover:scale-110"

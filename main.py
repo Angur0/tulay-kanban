@@ -31,7 +31,7 @@ from backend.storage import get_storage_backend
 storage = None
 
 def ensure_board_icon_column():
-    """Ensure the icon column exists and has default values"""
+    """Ensure the icon and icon_color columns exist and have default values"""
     inspector = inspect(engine)
     board_columns = {col["name"] for col in inspector.get_columns("boards")}
     
@@ -40,10 +40,16 @@ def ensure_board_icon_column():
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE boards ADD COLUMN icon VARCHAR DEFAULT 'dashboard'"))
     
+    if "icon_color" not in board_columns:
+        print("Adding icon_color column to boards table...")
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE boards ADD COLUMN icon_color VARCHAR DEFAULT '#3b82f6'"))
+
     # Ensure all existing boards have an icon value
     with engine.begin() as conn:
         conn.execute(text("UPDATE boards SET icon = 'dashboard' WHERE icon IS NULL OR icon = ''"))
-    print("Board icon column ensured with default values")
+        conn.execute(text("UPDATE boards SET icon_color = '#3b82f6' WHERE icon_color IS NULL OR icon_color = ''"))
+    print("Board icon/icon_color columns ensured with default values")
 
 def seed_db():
     from backend.database import SessionLocal

@@ -1236,11 +1236,11 @@ async function loadBoards() {
 }
 
 function renderBoardList() {
-    console.log('Rendering board list. Boards:', boards.map(b => ({id: b.id, name: b.name, icon: b.icon, color: b.icon_color})));
-    
+    console.log('Rendering board list. Boards:', boards.map(b => ({ id: b.id, name: b.name, icon: b.icon, color: b.icon_color })));
+
     if (boards.length === 0) {
         elements.boardList.innerHTML = `
-            <div class="px-3 py-4 text-center text-xs text-[#8a98a8]">
+            <div class="board-list-empty px-3 py-4 text-center text-xs text-[#8a98a8]">
                 No boards yet
             </div>
         `;
@@ -1284,8 +1284,18 @@ async function createBoard(name, icon = 'dashboard', iconColor = '#3b82f6') {
         if (!response) return;
         const newBoard = await response.json();
         console.log('Board created:', newBoard);
+        // Set the new board as active BEFORE loadBoards so the auto-select in
+        // loadBoards doesn't stomp it, and so switchBoard's early-return guard
+        // (activeBoardId === boardId) won't fire and skip loadColumns/loadTasks.
+        // We bypass switchBoard entirely and do the initialization inline.
+        activeBoardId = newBoard.id;
         await loadBoards();
-        switchBoard(newBoard.id);
+        renderBoardList();
+        await loadColumns();
+        await loadTasks();
+        loadActivities();
+        loadLabels();
+        switchView('board');
         showToast('Board created successfully', 'success');
         hideCreateBoardModal();
     } catch (e) {
@@ -3317,7 +3327,7 @@ function initEventListeners() {
                 e.preventDefault();
                 e.stopPropagation();
                 const icon = option.dataset.icon;
-                
+
                 elements.newBoardIcon.value = icon;
                 elements.selectedIconPreview.textContent = icon;
                 // Apply current color to the new icon
@@ -3343,15 +3353,15 @@ function initEventListeners() {
             e.preventDefault();
             e.stopPropagation();
             const color = option.dataset.color;
-            
+
             // Update hidden input
             elements.newBoardIconColor.value = color;
-            
+
             // Update icon preview color
             if (elements.selectedIconPreview) {
                 elements.selectedIconPreview.style.color = color;
             }
-            
+
             // Update active state
             colorOptions.forEach(btn => btn.classList.remove('active'));
             option.classList.add('active');
