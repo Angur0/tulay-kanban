@@ -1236,7 +1236,39 @@ async function loadBoards() {
 }
 
 function renderBoardList() {
-    console.log('Rendering board list. Boards:', boards.map(b => ({ id: b.id, name: b.name, icon: b.icon, color: b.icon_color })));
+    // Sort boards by position
+    boards.sort((a, b) => (a.position || 0) - (b.position || 0));
+
+    const isCollapsed = elements.sidebar.classList.contains('collapsed');
+    let displayBoards = boards;
+    let overflowBoards = [];
+
+    // If collapsed, use dynamic calculation
+    if (isCollapsed) {
+        // Calculate max visible items based on container height
+        // boardList has flex-1, so clientHeight is the available height for items
+        const containerHeight = elements.boardList.clientHeight;
+        // Each item is approx 42px (36px content + gap)
+        // We use 42px to be safe and ensure "More" button also fits
+        const itemHeight = 42;
+
+        let maxVisible = Math.max(1, Math.floor(containerHeight / itemHeight));
+
+        if (boards.length > maxVisible) {
+            // Reserve 1 slot for the "More" button
+            maxVisible = Math.max(1, maxVisible - 1);
+
+            displayBoards = boards.slice(0, maxVisible);
+            overflowBoards = boards.slice(maxVisible);
+        }
+    } else {
+        // Hide popout if expanded or no overflow
+        const popout = document.getElementById('boardsPopout');
+        if (popout) popout.style.display = 'none';
+
+        // Use all boards when expanded
+        displayBoards = boards;
+    }
 
     if (boards.length === 0) {
         elements.boardList.innerHTML = `
@@ -1247,11 +1279,18 @@ function renderBoardList() {
         return;
     }
 
-    elements.boardList.innerHTML = boards.map(board => {
+    const renderItem = (board, isOverflow = false) => {
         const isActive = board.id === activeBoardId;
         const iconColor = board.icon_color || '#3b82f6';
+        // Only draggable if expanded and not in overflow menu
+        const isDraggable = !isCollapsed && !isOverflow;
+
         return `
-            <div class="flex items-center gap-1 group/board" oncontextmenu="showBoardContextMenu(event, '${board.id}'); return false;">
+            <div class="flex items-center gap-1 group/board board-item ${isDraggable ? 'cursor-move' : ''}" 
+                 data-board-id="${board.id}"
+                 ${isDraggable ? 'draggable="true"' : ''}
+                 oncontextmenu="showBoardContextMenu(event, '${board.id}'); return false;">
+                 
                 <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg flex-1 justify-start sidebar-item ${isActive ? 'bg-[#eff1f3] dark:bg-[#1e2936] text-[#111418] dark:text-white' : 'text-[#5c6b7f] dark:text-gray-400 hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] hover:text-[#111418] dark:hover:text-white'} transition-colors group"
                     onclick="switchBoard('${board.id}'); return false;" data-sidebar-tooltip="${escapeHtml(board.name)}">
                     <span class="material-symbols-outlined transition-colors flex-shrink-0" style="color: ${iconColor}">${escapeHtml(normalizeBoardIcon(board.icon))}</span>
@@ -1264,8 +1303,209 @@ function renderBoardList() {
                 </button>
             </div>
         `;
-    }).join('');
+    };
+
+    let html = displayBoards.map(b => renderItem(b)).join('');
+
+    // Add "More" button for collapsed state overflow
+    if (overflowBoards.length > 0) {
+        html += `
+            <div class="flex items-center justify-center py-1 mt-1 group relative">
+                <button id="boardsMoreBtn" class="flex items-center justify-center size-8 rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] text-[#5c6b7f] transition-colors"
+                    title="More boards" onclick="toggleBoardsPopout(event)" data-sidebar-tooltip="More Boards">
+                    <span class="material-symbols-outlined">more_horiz</span>
+                </button>
+            </div>
+        `;
+
+        // Render content into the popout container
+        const popout = document.getElementById('boardsPopout');
+        if (popout) {
+            popout.innerHTML = overflowBoards.map(b => renderItem(b, true)).join('');
+        }
+    }
+
+    elements.boardList.innerHTML = html;
+
+    if (!isCollapsed) {
+        setupBoardDragAndDrop();
+    }
 }
+
+// ===== Board Drag and Drop & Overflow =====
+
+function setupBoardDragAndDrop() {
+    const items = elements.boardList.querySelectorAll('.board-item[draggable="true"]');
+    items.forEach(item => {
+        item.addEventListener('dragstart', handleBoardDragStart);
+        item.addEventListener('dragover', handleBoardDragOver);
+        item.addEventListener('dragleave', handleBoardDragLeave);
+        item.addEventListener('drop', handleBoardDrop);
+        item.addEventListener('dragend', handleBoardDragEnd);
+    });
+}
+
+let draggedBoardItem = null;
+
+function handleBoardDragStart(e) {
+    draggedBoardItem = this;
+    e.dataTransfer.effectAllowed = 'move';
+    this.classList.add('dragging');
+}
+
+function handleBoardDragOver(e) {
+    e.preventDefault();
+    if (this === draggedBoardItem) return;
+
+    this.classList.remove('drag-over-top', 'drag-over-bottom');
+
+    // Calculate if top or bottom half
+    const rect = this.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+
+    if (e.clientY < midY) {
+        this.classList.add('drag-over-top');
+    } else {
+        this.classList.add('drag-over-bottom');
+    }
+}
+
+function handleBoardDragLeave(e) {
+    this.classList.remove('drag-over-top', 'drag-over-bottom');
+}
+
+async function handleBoardDrop(e) {
+    e.preventDefault();
+    this.classList.remove('drag-over-top', 'drag-over-bottom', 'dragging');
+    if (!draggedBoardItem || this === draggedBoardItem) return;
+
+    const draggedId = draggedBoardItem.dataset.boardId;
+    const targetId = this.dataset.boardId;
+
+    // Find indices
+    const draggedIdx = boards.findIndex(b => b.id === draggedId);
+    let targetIdx = boards.findIndex(b => b.id === targetId);
+
+    if (draggedIdx === -1 || targetIdx === -1) return;
+
+    // Remove dragged item
+    const [movedBoard] = boards.splice(draggedIdx, 1);
+
+    // Determine drop position (top or bottom of target)
+    const rect = this.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+
+    // Adjust target index based on drop position relative to element center
+    // Note: Since we removed dragged item first, we need to be careful with index check
+    // If dragged item was BEFORE target, target index shifted down by 1 in the spliced array logic in some implementations, 
+    // but findIndex on CURRENT boards array handles it better if done carefully.
+    // Instead, let's just insert at the visualized position.
+
+    // Wait, simple array logic:
+    // Insert at targetIdx if top, targetIdx+1 if bottom.
+    // But targetIdx is based on original array? No, logic above modified array.
+    // Let's reload from scratch to avoid mutable array confusion logic bugs.
+
+    // Revert splice for a sec to think clearly.
+    // ... Actually, better:
+    // 1. Get current sorted list.
+    // 2. Remove dragged item.
+    // 3. Find drop index in remaining list.
+    // 4. Insert.
+
+    // This is getting complex to do purely in memory while matching DOM.
+    // Let's correct:
+    // targetIdx calculation needs to account for the removal if draggedItem was before targetItem.
+
+    if (e.clientY >= midY) {
+        // Drop after
+        // If we want to insert AFTER targetId
+        // In the modified array (where dragged is gone), find targetId again
+        const freshTargetIdx = boards.findIndex(b => b.id === targetId);
+        boards.splice(freshTargetIdx + 1, 0, movedBoard);
+    } else {
+        // Drop before
+        const freshTargetIdx = boards.findIndex(b => b.id === targetId);
+        boards.splice(freshTargetIdx, 0, movedBoard);
+    }
+
+    // Update positions
+    boards.forEach((b, idx) => b.position = idx);
+
+    // Optimistic render
+    renderBoardList();
+
+    // Persist
+    await updateBoardPositions();
+}
+
+function handleBoardDragEnd(e) {
+    this.classList.remove('dragging');
+    document.querySelectorAll('.board-item').forEach(item => {
+        item.classList.remove('drag-over-top', 'drag-over-bottom');
+    });
+    draggedBoardItem = null;
+}
+
+async function updateBoardPositions() {
+    if (!activeWorkspaceId || boards.length === 0) return;
+
+    const items = boards.map((b, idx) => ({ id: b.id, position: idx }));
+
+    try {
+        await authFetch(`${API_URL}/api/workspaces/${activeWorkspaceId}/boards/reorder`, {
+            method: 'POST',
+            body: JSON.stringify(items)
+        });
+    } catch (e) {
+        console.error('Failed to reorder boards:', e);
+        showToast('Failed to save board order', 'error');
+    }
+}
+
+function toggleBoardsPopout(e) {
+    e.stopPropagation();
+    const popout = document.getElementById('boardsPopout');
+    if (!popout) return;
+
+    const btn = document.getElementById('boardsMoreBtn');
+
+    if (popout.style.display === 'block') {
+        popout.style.display = 'none';
+        return;
+    }
+
+    // Position the popout relative to the button
+    const btnRect = btn.getBoundingClientRect();
+    const popoutHeight = popout.offsetHeight || 200; // Estimate if hidden
+    const windowHeight = window.innerHeight;
+
+    // Default top position aligned with button
+    let top = btnRect.top;
+
+    // Check if it would overflow bottom of screen
+    if (top + popoutHeight > windowHeight - 20) {
+        top = windowHeight - popoutHeight - 20;
+    }
+
+    popout.style.top = `${top}px`;
+    popout.style.display = 'block';
+}
+
+
+// Global click to close popout
+window.addEventListener('click', (e) => {
+    const popout = document.getElementById('boardsPopout');
+    if (popout && popout.style.display === 'block') {
+        if (!popout.contains(e.target)) {
+            popout.style.display = 'none';
+        }
+    }
+});
+
+// Sidebar toggle handler to re-render list
+
+
 
 async function createBoard(name, icon = 'dashboard', iconColor = '#3b82f6') {
     if (!activeWorkspaceId) return;
@@ -1375,6 +1615,11 @@ function hideDeleteBoardModal() {
 function switchBoard(boardId) {
     if (activeBoardId === boardId) return;
     activeBoardId = boardId;
+
+    // Close popout if open
+    const popout = document.getElementById('boardsPopout');
+    if (popout) popout.style.display = 'none';
+
     renderBoardList();
     loadColumns().then(loadTasks);
     loadActivities();
@@ -2818,19 +3063,19 @@ function handleColumnDragStart(e) {
     // Use a dedicated MIME type so column drops never collide with task drops
     e.dataTransfer.setData(COLUMN_DRAG_KEY, draggedColumn.dataset.columnId);
 
+    // Apply the same dragging style as task cards
     setTimeout(() => {
-        if (draggedColumn) draggedColumn.style.opacity = '0.4';
+        if (draggedColumn) draggedColumn.classList.add('dragging');
     }, 0);
 }
 
 function handleColumnDragEnd(e) {
     if (draggedColumn) {
-        draggedColumn.style.opacity = '';
+        draggedColumn.classList.remove('dragging');
         draggedColumn = null;
     }
-    document.querySelectorAll('.column').forEach(col => {
-        col.classList.remove('column-drag-over-left', 'column-drag-over-right');
-    });
+    // Remove all column drop indicators
+    document.querySelectorAll('.column-drop-indicator').forEach(el => el.remove());
 }
 
 function handleColumnDragOver(e) {
@@ -2839,19 +3084,25 @@ function handleColumnDragOver(e) {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
 
+    const board = document.getElementById('board');
     const targetColumn = e.target.closest('.column');
-    if (!targetColumn || targetColumn === draggedColumn) return;
+    if (!targetColumn || targetColumn === draggedColumn || !board) return;
 
-    document.querySelectorAll('.column').forEach(col => {
-        col.classList.remove('column-drag-over-left', 'column-drag-over-right');
-    });
+    // Remove existing indicators
+    document.querySelectorAll('.column-drop-indicator').forEach(el => el.remove());
 
+    // Determine whether to insert before or after the target column
     const rect = targetColumn.getBoundingClientRect();
-    const midpoint = rect.left + rect.width / 2;
-    if (e.clientX < midpoint) {
-        targetColumn.classList.add('column-drag-over-left');
+    const insertBefore = e.clientX < rect.left + rect.width / 2;
+
+    // Create a vertical indicator line (same primary colour as task indicator)
+    const indicator = document.createElement('div');
+    indicator.className = 'column-drop-indicator';
+
+    if (insertBefore) {
+        board.insertBefore(indicator, targetColumn);
     } else {
-        targetColumn.classList.add('column-drag-over-right');
+        board.insertBefore(indicator, targetColumn.nextSibling);
     }
 }
 
@@ -2859,6 +3110,9 @@ function handleColumnDrop(e) {
     if (!draggedColumn) return;
 
     e.preventDefault();
+
+    // Clean up indicator immediately
+    document.querySelectorAll('.column-drop-indicator').forEach(el => el.remove());
 
     const targetColumn = e.target.closest('.column');
     if (!targetColumn || targetColumn === draggedColumn) {
@@ -3041,6 +3295,7 @@ function updateThemeUI(isDark) {
 function toggleSidebar() {
     const isCollapsed = elements.sidebar.classList.toggle('collapsed');
     localStorage.setItem('kafka-kanban-sidebar', isCollapsed ? 'collapsed' : 'expanded');
+    renderBoardList();
 }
 
 function loadSidebarState() {
@@ -3495,6 +3750,17 @@ function initEventListeners() {
         labelCreateBtn.addEventListener('click', createLabel);
     }
 
+    // Close boards popout when clicking outside
+    document.addEventListener('click', (e) => {
+        const popout = document.getElementById('boardsPopout');
+        const moreBtn = document.getElementById('boardsMoreBtn');
+        if (popout && popout.style.display === 'block' &&
+            !popout.contains(e.target) &&
+            (!moreBtn || !moreBtn.contains(e.target))) {
+            popout.style.display = 'none';
+        }
+    });
+
     const panelLabelNew = document.getElementById('panelLabelNew');
     if (panelLabelNew) {
         panelLabelNew.addEventListener('click', () => {
@@ -3754,6 +4020,14 @@ async function init() {
         }
 
         initEventListeners();
+
+        // Add resize listener for dynamic board list overflow
+        window.addEventListener('resize', () => {
+            if (elements.sidebar.classList.contains('collapsed')) {
+                renderBoardList();
+            }
+        });
+
         console.log('Kafka Kanban Board initialized');
     } catch (error) {
         console.error('Initialization error:', error);

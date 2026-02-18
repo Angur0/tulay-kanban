@@ -31,7 +31,7 @@ from backend.storage import get_storage_backend
 storage = None
 
 def ensure_board_icon_column():
-    """Ensure the icon and icon_color columns exist and have default values"""
+    """Ensure the icon, icon_color, and position columns exist on boards"""
     inspector = inspect(engine)
     board_columns = {col["name"] for col in inspector.get_columns("boards")}
     
@@ -45,11 +45,24 @@ def ensure_board_icon_column():
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE boards ADD COLUMN icon_color VARCHAR DEFAULT '#3b82f6'"))
 
+    if "position" not in board_columns:
+        print("Adding position column to boards table...")
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE boards ADD COLUMN position INTEGER DEFAULT 0"))
+            # Assign sequential positions to existing boards ordered by created_at
+            conn.execute(text("""
+                UPDATE boards SET position = (
+                    SELECT COUNT(*) FROM boards b2
+                    WHERE b2.workspace_id = boards.workspace_id
+                    AND b2.created_at < boards.created_at
+                )
+            """))
+
     # Ensure all existing boards have an icon value
     with engine.begin() as conn:
         conn.execute(text("UPDATE boards SET icon = 'dashboard' WHERE icon IS NULL OR icon = ''"))
         conn.execute(text("UPDATE boards SET icon_color = '#3b82f6' WHERE icon_color IS NULL OR icon_color = ''"))
-    print("Board icon/icon_color columns ensured with default values")
+    print("Board icon/icon_color/position columns ensured with default values")
 
 def seed_db():
     from backend.database import SessionLocal
@@ -262,12 +275,14 @@ class BoardResponse(BaseModel):
     name: str
     icon: str
     icon_color: str
+    position: int
     workspace_id: str
 
 class BoardUpdate(BaseModel):
     name: Optional[str] = None
     icon: Optional[str] = None
     icon_color: Optional[str] = None
+    position: Optional[int] = None
 
 class BoardColumnCreate(BaseModel):
     title: str
@@ -407,7 +422,7 @@ def get_boards(ws_id: str, current_user: models.User = Depends(get_current_user)
     ws = db.query(models.Workspace).filter(models.Workspace.id == ws_id).first()
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
-    boards = ws.boards
+    boards = db.query(models.Board).filter(models.Board.workspace_id == ws_id).order_by(models.Board.position).all()
     print(f"Returning {len(boards)} boards for workspace {ws_id}")
     for board in boards:
         print(f"  Board: id={board.id}, name={board.name}, icon={board.icon}")
@@ -416,10 +431,13 @@ def get_boards(ws_id: str, current_user: models.User = Depends(get_current_user)
 @app.post("/api/boards", response_model=BoardResponse)
 def create_board(board_in: BoardCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     print(f"Creating board: name={board_in.name}, icon={board_in.icon}, color={board_in.icon_color}")
+    # Assign position as next in workspace
+    existing_count = db.query(models.Board).filter(models.Board.workspace_id == board_in.workspace_id).count()
     new_board = models.Board(
         name=board_in.name,
         icon=normalize_board_icon(board_in.icon),
         icon_color=board_in.icon_color or "#3b82f6",
+        position=existing_count,
         workspace_id=board_in.workspace_id
     )
     db.add(new_board)
@@ -451,9 +469,24 @@ def update_board(board_id: str, board_in: BoardUpdate, current_user: models.User
         board.icon = normalize_board_icon(board_in.icon)
     if board_in.icon_color is not None:
         board.icon_color = board_in.icon_color
+    if board_in.position is not None:
+        board.position = board_in.position
     db.commit()
     db.refresh(board)
     return board
+
+class BoardReorderItem(BaseModel):
+    id: str
+    position: int
+
+@app.post("/api/workspaces/{ws_id}/boards/reorder")
+def reorder_boards(ws_id: str, items: List[BoardReorderItem], current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    ws = db.query(models.Workspace).filter(models.Workspace.id == ws_id).first()
+    ensure_workspace_access(ws, current_user)
+    for item in items:
+        db.query(models.Board).filter(models.Board.id == item.id).update({"position": item.position})
+    db.commit()
+    return {"ok": True}
 
 @app.delete("/api/boards/{board_id}")
 def delete_board(board_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):

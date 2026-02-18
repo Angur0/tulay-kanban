@@ -49,6 +49,7 @@ class Board(Base):
     name = Column(String, nullable=False)
     icon = Column(String, nullable=False, default="dashboard")
     icon_color = Column(String, nullable=False, default="#3b82f6")
+    position = Column(Integer, default=0)
     workspace_id = Column(String, ForeignKey("workspaces.id"))
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 

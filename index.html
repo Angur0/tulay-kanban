@@ -69,7 +69,6 @@
         /* Drag and drop styles */
         .task-card.dragging {
             opacity: 0.5;
-            transform: rotate(2deg);
         }
 
         .column.drag-over {
@@ -80,13 +79,22 @@
             background-color: rgba(43, 140, 238, 0.1);
         }
 
-        /* Column drag indicators */
-        .column.column-drag-over-left {
-            border-left: 3px solid #6366f1;
+        /* Column drag — same look as task drag */
+        .column.dragging {
+            opacity: 0.4;
+            transition: opacity 0.15s;
         }
 
-        .column.column-drag-over-right {
-            border-right: 3px solid #6366f1;
+        /* Vertical drop indicator between columns (mirrors the horizontal task drop indicator) */
+        .column-drop-indicator {
+            width: 4px;
+            min-width: 4px;
+            align-self: stretch;
+            background-color: #2b8cee;
+            border-radius: 9999px;
+            margin: 0 2px;
+            flex-shrink: 0;
+            transition: opacity 0.1s;
         }
 
         /* Disable text selection in main panel */
@@ -159,7 +167,7 @@
         #sidebar.collapsed .boards-section {
             opacity: 1;
             height: auto;
-            overflow: visible;
+            overflow-y: auto;
             padding: 1rem 0;
             margin: 0;
         }
@@ -179,6 +187,9 @@
         /* Style board list when collapsed */
         #sidebar.collapsed #boardList {
             gap: 0.5rem;
+            overflow-y: hidden !important;
+            overflow-x: hidden !important;
+            padding-right: 0;
         }
 
         #sidebar.collapsed .sidebar-header {
@@ -280,6 +291,41 @@
         #sidebar.collapsed [data-sidebar-tooltip]:hover::before {
             opacity: 1;
         }
+
+        /* Board Drag and Drop */
+        .board-item.dragging {
+            opacity: 0.5;
+        }
+
+        .board-item.drag-over-top {
+            border-top: 2px solid #3b82f6;
+        }
+
+        .board-item.drag-over-bottom {
+            border-bottom: 2px solid #3b82f6;
+        }
+
+        /* Board Popout Menu */
+        #boardsPopout {
+            position: fixed;
+            left: 72px;
+            width: 220px;
+            max-height: 60vh;
+            overflow-y: auto;
+            overflow-x: hidden;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            border-radius: 0.5rem;
+            z-index: 60;
+            display: none;
+            padding: 0.5rem;
+        }
+
+        .dark #boardsPopout {
+            background: #151e29;
+            border-color: #1e2936;
+        }
     </style>
 </head>
 
@@ -289,7 +335,7 @@
     <!-- Sidebar -->
     <aside id="sidebar"
         class="w-[210px] flex-shrink-0 bg-[#fbfcfd] dark:bg-[#151e29] border-r border-[#e5e7eb] dark:border-[#1e2936] flex flex-col justify-between h-full z-20 transition-all duration-300 ease-in-out">
-        <div class="flex flex-col p-4 gap-6">
+        <div class="flex flex-col p-4 gap-6 flex-1 min-h-0">
             <!-- App Header -->
             <div class="flex items-center gap-3 px-2 sidebar-header">
                 <button id="sidebarToggle"
@@ -303,8 +349,8 @@
             </div>
 
             <!-- Boards Section -->
-            <div class="flex flex-col gap-2 sidebar-section boards-section">
-                <div class="flex items-center justify-between px-3">
+            <div class="flex flex-col gap-2 sidebar-section boards-section flex-1 min-h-0">
+                <div class="flex items-center justify-between px-3 flex-shrink-0">
                     <p class="text-xs font-semibold text-[#8a98a8] uppercase tracking-wider sidebar-text">Boards</p>
                     <button id="createBoardBtn"
                         class="text-[#5c6b7f] dark:text-gray-400 hover:text-primary transition-colors flex-shrink-0"
@@ -312,13 +358,14 @@
                         <span class="material-symbols-outlined text-[18px]">add</span>
                     </button>
                 </div>
-                <div id="boardList" class="flex flex-col gap-1">
+                <div id="boardList"
+                    class="flex-1 flex flex-col gap-1 overflow-y-auto overflow-x-hidden custom-scrollbar min-h-0">
                     <!-- Boards will be populated here -->
                 </div>
             </div>
 
             <!-- Navigation -->
-            <nav class="flex flex-col gap-1 mt-4">
+            <nav class="flex flex-col gap-1 mt-4 flex-shrink-0">
                 <a id="navBoard"
                     class="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#eff1f3] dark:bg-[#1e2936] text-[#111418] dark:text-white group transition-colors justify-start sidebar-item"
                     href="#" data-sidebar-tooltip="Board">
@@ -671,6 +718,11 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- Board Overflow Popout -->
+    <div id="boardsPopout" class="custom-scrollbar flex flex-col gap-1">
+        <!-- Overflow boards will be rendered here -->
     </div>
 
     <!-- Delete Confirmation Modal -->
