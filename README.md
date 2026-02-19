@@ -20,12 +20,15 @@ A modern, real-time Kanban board application powered by **Apache Kafka** for eve
 - **Drag & Drop** - Smooth task movement between lists and reordering within lists
 - **Rich Details** - Side panel editor for description, priority, labels, and due dates
 - **Due Dates** - proper management of task deadlines
-- **Labels & Priority** - Categorize tasks with visual indicators
+- **Multi-Label System** - categorise tasks with multiple labels (Global or Board-specific) with autoscrolling label marquees on cards
+- **Assignees & Avatars** - Assign tasks to workspace members with visual avatar indicators on cards
+- **Comments & Attachments** - Rich task discussion with threaded comments and image uploads
 
 ### User Experience
 - **Light/Dark Mode** - Full theme support
 - **Responsive Design** - Works great on different screen sizes
 - **Toast Notifications** - Non-intrusive feedback for interactions
+- **Dynamic Board Views** - Dedicated "My Tasks" view for personal assignment tracking
 
 ## Tech Stack
 
@@ -89,10 +92,12 @@ tulay-kanban/
 - [x] List reordering
 - [x] Task due dates
 - [x] Real-time updates via WebSockets
-- [ ] Task comments and attachments
+- [x] Task comments and attachments
+- [x] Team collaboration features (Assignees)
+- [x] Custom labels system
 - [ ] Advanced filtering and search
-- [ ] Team collaboration features (Invite members)
-- [ ] Custom labels and priority configuration
+- [ ] Real-time cursor presence
+- [ ] Workspace invitation system
 
 ## License
 
