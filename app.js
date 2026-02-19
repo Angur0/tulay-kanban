@@ -196,6 +196,18 @@ let taskToDeleteId = null;
 let currentContextTask = null; // Track task for context menu
 let currentContextColumnId = null; // Track column for context menu
 
+// ===== Column Color Classes =====
+const columnColorClasses = [
+    'bg-amber-500',
+    'bg-primary',
+    'bg-green-500',
+    'bg-purple-500',
+    'bg-pink-500',
+    'bg-indigo-500',
+    'bg-red-500',
+    'bg-yellow-500'
+];
+
 // ===== Label Colors =====
 const labelColors = {
     backend: {
@@ -426,7 +438,7 @@ function renderBoard() {
             <div class="column-drag-handle flex items-center justify-between mb-3 px-1" draggable="true">
                 <div class="flex items-center gap-2 cursor-grab active:cursor-grabbing">
                     <span class="material-symbols-outlined text-[#8a98a8] text-[18px]">drag_indicator</span>
-                    <span class="flex items-center justify-center size-5 rounded bg-${col.color || 'gray-100'} dark:bg-gray-800 text-[10px] font-bold text-gray-600 dark:text-gray-300" 
+                    <span class="flex items-center justify-center size-5 rounded text-[10px] font-bold text-white ${columnColorClasses[index % columnColorClasses.length]}" 
                           id="count-${col.id}">0</span>
                     <h3 class="text-sm font-semibold text-[#111418] dark:text-white editable-title" 
                         data-column-id="${col.id}" 
@@ -519,21 +531,9 @@ function updateHeaderStats() {
 
     console.log('Updating header stats:', columns.length, 'columns', tasks.length, 'tasks');
 
-    // Generate colors dynamically for all columns
-    const colorClasses = [
-        'bg-amber-500',
-        'bg-primary',
-        'bg-green-500',
-        'bg-purple-500',
-        'bg-pink-500',
-        'bg-indigo-500',
-        'bg-red-500',
-        'bg-yellow-500'
-    ];
-
     elements.headerStats.innerHTML = columns.map((col, index) => {
         const count = tasks.filter(t => t.column_id === col.id).length;
-        const colorClass = colorClasses[index % colorClasses.length];
+        const colorClass = columnColorClasses[index % columnColorClasses.length];
 
         return `
             <div class="flex items-center gap-1.5">
@@ -1869,6 +1869,15 @@ function createTaskCard(task) {
                     ${labelsHTML || ''}
                 </div>
             </div>
+            <!-- Assignee avatar -->
+            ${(() => {
+                if (!task.assignee_id) return '';
+                const assignee = workspaceMembers.find(m => m.id === task.assignee_id);
+                if (!assignee) return '';
+                const name = assignee.full_name || assignee.email || '';
+                const initials = name.split(/[\s@]+/).filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join('');
+                return `<div class="flex-shrink-0 w-6 h-6 rounded-full bg-primary flex items-center justify-center text-white text-[10px] font-bold" title="${escapeHtml(name)}">${initials}</div>`;
+            })()}
         </div>
     `;
 
