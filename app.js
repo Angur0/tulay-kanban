@@ -1826,12 +1826,12 @@ function createTaskCard(task) {
     // Render labels (if task has new label system)
     let labelsHTML = '';
     if (task.labels && task.labels.length > 0) {
-        labelsHTML = `<div class="flex flex-wrap gap-1">${task.labels.map(label => `
-            <span class="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium text-white" 
+        labelsHTML = task.labels.map(label => `
+            <span class="inline-flex items-center flex-shrink-0 rounded px-1.5 py-0.5 text-xs font-medium text-white" 
                   style="background-color: ${label.color || '#93c5fd'}">
                 ${escapeHtml(label.name)}
             </span>
-        `).join('')}</div>`;
+        `).join('');
     } else if (task.label) {
         // Fallback to old label system
         const labelStyle = labelColors[task.label] || labelColors.frontend;
@@ -1864,9 +1864,11 @@ function createTaskCard(task) {
                         <span class="material-symbols-outlined text-[16px] text-[#5c6b7f] dark:text-gray-400 hover:text-primary dark:hover:text-primary">add_photo_alternate</span>
                     </button>
                 </div>
-                <!-- Labels (flush to corner, slide away on hover) -->
-                <div class="absolute left-0 max-w-full transition-all duration-200 group-hover:translate-x-16 group-hover:opacity-0">
-                    ${labelsHTML || ''}
+                <!-- Labels (scrollable, slide away on hover) -->
+                <div class="task-labels-row absolute left-0 right-0 overflow-hidden transition-all duration-200 group-hover:translate-x-16 group-hover:opacity-0">
+                    <div class="task-labels-inner flex gap-1 items-center">
+                        ${labelsHTML || ''}
+                    </div>
                 </div>
             </div>
             <!-- Assignee avatar -->
@@ -1932,6 +1934,19 @@ function createTaskCard(task) {
     // Drag events
     card.addEventListener('dragstart', handleDragStart);
     card.addEventListener('dragend', handleDragEnd);
+
+    // Schedule autoscroll check after card is in DOM
+    requestAnimationFrame(() => {
+        const row   = card.querySelector('.task-labels-row');
+        const inner = card.querySelector('.task-labels-inner');
+        if (row && inner) {
+            const overflow = inner.scrollWidth - row.clientWidth;
+            if (overflow > 0) {
+                inner.style.setProperty('--label-overflow', `-${overflow}px`);
+                inner.classList.add('labels-autoscroll');
+            }
+        }
+    });
 
     return card;
 }
