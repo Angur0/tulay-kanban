@@ -3890,6 +3890,13 @@ function initEventListeners() {
             if ((scrollingDown && canScrollDown) || (scrollingUp && canScrollUp)) {
                 return; // Let it scroll vertically
             }
+
+            // Inside a task list but can't scroll further vertically:
+            // If the gesture is predominantly vertical (touchpad mixed scroll),
+            // don't hijack it as a horizontal board scroll — just let it be.
+            if (Math.abs(e.deltaY) >= Math.abs(e.deltaX)) {
+                return;
+            }
         }
 
         // Enable horizontal scrolling for touchpad swiping (has deltaX)
