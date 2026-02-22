@@ -10,6 +10,15 @@ Real-time Kanban board built with FastAPI, PostgreSQL, Kafka, and a modular vani
 - Comments + image attachments
 - Light/Dark theme and responsive layout
 
+## Current changes (2026-02-22)
+
+- Frontend bootstrap was simplified: `frontend/app.js` now initializes and delegates to modular ES modules.
+- Frontend orchestration was split into focused listener modules in `frontend/listeners/*`.
+- Non-listener runtime handlers were extracted to `frontend/services/*` for board/task/modal/realtime/drag-drop flows.
+- Backend monolith routing was decomposed into feature routers in `backend/routers/*`.
+- Shared backend cross-cutting logic was isolated in `backend/core/*`.
+- Board ordering now supports batched reorder via `POST /api/workspaces/{ws_id}/boards/reorder`.
+
 ## Tech stack
 
 - Frontend: Vanilla JavaScript ES modules + Tailwind CSS
@@ -63,18 +72,41 @@ If you are not authenticated, the app redirects to `/login`.
 tulay-kanban/
 ├── main.py                # Root launcher (imports backend.main)
 ├── backend/
-│   ├── main.py
-│   ├── auth.py
+│   ├── main.py            # Backend composition root
+│   ├── core/
+│   │   ├── auth.py
+│   │   ├── deps.py
+│   │   ├── realtime.py
+│   │   └── setup.py
 │   ├── database.py
 │   ├── models.py
+│   ├── schemas.py
+│   ├── routers/
+│   │   ├── auth.py
+│   │   ├── boards.py
+│   │   ├── labels.py
+│   │   ├── misc.py
+│   │   ├── tasks.py
+│   │   └── workspaces.py
 │   └── storage.py
 ├── frontend/
 │   ├── app.js             # Frontend bootstrap entrypoint
-│   ├── events.js          # Main app orchestration + event wiring
 │   ├── dom-events.js      # Static DOM-only event hooks
 │   ├── api.js             # Frontend HTTP/Kafka transport helpers
 │   ├── state.js           # Frontend constants/shared primitives
 │   ├── ui.js              # Frontend UI/format helpers
+│   ├── events.js          # Frontend composition/orchestration root
+│   ├── listeners/
+│   │   ├── board.js
+│   │   ├── task.js
+│   │   ├── modal.js
+│   │   └── dragdrop.js
+│   ├── services/
+│   │   ├── board-service.js
+│   │   ├── task-service.js
+│   │   ├── modal-service.js
+│   │   ├── realtime-service.js
+│   │   └── dragdrop-service.js
 │   ├── index.html         # Main app shell
 │   └── login.html         # Login page
 ├── scripts/
@@ -87,6 +119,7 @@ tulay-kanban/
 
 ## Documentation
 
+- [Architecture](docs/ARCHITECTURE.md)
 - [Known Issues](docs/KNOWN_ISSUES.md)
 - [Storage Architecture](docs/STORAGE_ARCHITECTURE.md)
 - [Storage Migration](docs/STORAGE_MIGRATION.md)

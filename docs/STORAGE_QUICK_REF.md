@@ -34,7 +34,9 @@ That's it! 🎉
 
 | File | Purpose |
 |------|---------|
-| `backend/main.py` | FastAPI app entry implementation |
+| `backend/main.py` | FastAPI app composition root |
+| `backend/core/realtime.py` | Shared runtime state (storage/Kafka/websocket) |
+| `backend/routers/misc.py` | Upload endpoint and misc API routes |
 | `backend/storage.py` | Storage abstraction layer |
 | `frontend/events.js` | Frontend orchestration for upload flows |
 | `.env.example` | Configuration template |

@@ -9,7 +9,7 @@ The application now uses a **storage abstraction layer** that supports multiple 
 ```
 ┌─────────────────────────────────────┐
 │         FastAPI Application         │
-│     (backend/main.py + launcher)    │
+│  (backend/main.py composition root) │
 └───────────────┬─────────────────────┘
                 │
                 │ uses
@@ -59,10 +59,15 @@ The application now uses a **storage abstraction layer** that supports multiple 
 ### Modified Files
 
 1. **`backend/main.py`**
-   - Added `from backend.storage import get_storage_backend`
-   - Initialize storage backend: `storage = get_storage_backend()`
-   - Updated `/api/upload-image` endpoint to use storage backend
-   - Added file size validation (5MB limit)
+   - Initializes storage backend during lifespan via `backend.storage.get_storage_backend()`
+   - Wires routers and shared runtime state
+
+2. **`backend/core/realtime.py`**
+   - Holds shared runtime state (`storage`, Kafka producer/consumer, websocket manager)
+
+3. **`backend/routers/misc.py`**
+   - Implements `/api/upload-image` using the storage backend
+   - Enforces file type and 5MB size validation
 
 2. **`requirements.txt`**
    - Added boto3 as optional dependency (commented out)
@@ -158,7 +163,7 @@ class StorageBackend(ABC):
 1. User clicks "Add Image" in task panel
 2. Frontend validates file (type, size)
 3. POST to `/api/upload-image` with multipart form data
-4. Backend validates request (auth, file type, size)
+4. Backend validates request (auth, file type, size) in `backend/routers/misc.py`
 5. Storage backend processes upload:
    - **Local**: Saves to disk, returns `/uploads/filename`
    - **R2**: Uploads via boto3, returns `https://...`

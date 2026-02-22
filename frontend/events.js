@@ -16,6 +16,61 @@ import {
 import { authFetch, sendKafkaEventRequest } from './api.js';
 import { escapeHtml, formatEventData, formatDate, showToast, showKafkaEvent } from './ui.js';
 import { bindStaticDomEvents } from './dom-events.js';
+import { bindBoardListeners } from './listeners/board.js';
+import { bindTaskListeners } from './listeners/task.js';
+import { bindModalListeners } from './listeners/modal.js';
+import { bindDragDropListeners } from './listeners/dragdrop.js';
+import {
+    showCreateListModalService,
+    hideCreateListModalService,
+    createColumnService,
+    showDeleteListModalService,
+    hideDeleteListModalService,
+    confirmDeleteListService
+} from './services/modal-service.js';
+import {
+    loadBoardsService,
+    createBoardService,
+    deleteBoardService,
+    showDeleteBoardModalService,
+    hideDeleteBoardModalService,
+    switchBoardService,
+    showCreateBoardModalService,
+    hideCreateBoardModalService,
+    showEditBoardModalService,
+    hideEditBoardModalService,
+    updateBoardService
+} from './services/board-service.js';
+import {
+    saveTaskFromPanelService,
+    addTaskService,
+    addTaskToColumnService,
+    updateTaskService,
+    showDeleteModalService,
+    hideDeleteModalService,
+    deleteTaskService
+} from './services/task-service.js';
+import {
+    sendKafkaEventService,
+    connectWebSocketService,
+    handleIncomingKafkaEventService,
+    notifyKafkaEventService
+} from './services/realtime-service.js';
+import {
+    cleanupDragStateService,
+    handleDragStartService,
+    handleDragEndService,
+    handleDragOverService,
+    getDragAfterElementService,
+    handleDragEnterService,
+    handleDragLeaveService,
+    handleDropService,
+    persistTaskDropService,
+    handleColumnDragStartService,
+    handleColumnDragEndService,
+    handleColumnDragOverService,
+    handleColumnDropService
+} from './services/dragdrop-service.js';
 
 // ===== State Management =====
 let tasks = [];
@@ -662,40 +717,25 @@ async function loadColumns() {
 }
 
 function showCreateListModal() {
-    elements.createListModal.classList.remove('hidden');
-    elements.newListTitle.value = '';
-    elements.newListTitle.focus();
+    showCreateListModalService({ elements });
 }
 
 function hideCreateListModal() {
-    elements.createListModal.classList.add('hidden');
-    elements.newListTitle.value = '';
+    hideCreateListModalService({ elements });
 }
 
 async function createColumn() {
-    const title = elements.newListTitle.value.trim();
-    if (!title) return;
-
-    hideCreateListModal();
-
-    try {
-        const response = await authFetch(`${API_URL}/api/boards/${activeBoardId}/columns`, {
-            method: 'POST',
-            body: JSON.stringify({
-                title,
-                position: columns.length,
-                color: 'blue-100' // Default color for now
-            })
-        });
-
-        if (!response) return;
-        await loadColumns();
-        renderBoard();
-        showToast('List created', 'success');
-    } catch (e) {
-        console.error('Error creating column:', e);
-        showToast('Failed to create list', 'error');
-    }
+    await createColumnService({
+        elements,
+        activeBoardId,
+        columns,
+        authFetch,
+        API_URL,
+        hideCreateListModal,
+        loadColumns,
+        renderBoard,
+        showToast
+    });
 }
 
 async function deleteColumn(columnId) {
@@ -707,65 +747,25 @@ async function deleteColumn(columnId) {
 }
 
 function showDeleteListModal(columnId) {
-    const column = columns.find(c => c.id === columnId);
-    if (!column) return;
-
-    const modal = document.getElementById('deleteListModal');
-    const listNameEl = document.getElementById('deleteListName');
-    const confirmInput = document.getElementById('deleteListConfirmInput');
-    const confirmBtn = document.getElementById('confirmDeleteListBtn');
-
-    listNameEl.textContent = column.title;
-    confirmInput.value = '';
-    confirmBtn.disabled = true;
-    modal.classList.remove('hidden');
-
-    // Enable confirm button when input matches list name
-    const inputHandler = () => {
-        confirmBtn.disabled = confirmInput.value !== column.title;
-    };
-
-    confirmInput.addEventListener('input', inputHandler);
-
-    // Store columnId for confirmation
-    confirmBtn.onclick = async () => {
-        await confirmDeleteList(columnId);
-        hideDeleteListModal();
-    };
-
-    // Focus input
-    setTimeout(() => confirmInput.focus(), 100);
+    showDeleteListModalService({
+        columns,
+        confirmDeleteList,
+        hideDeleteListModal
+    }, columnId);
 }
 
 function hideDeleteListModal() {
-    const modal = document.getElementById('deleteListModal');
-    const confirmInput = document.getElementById('deleteListConfirmInput');
-    const confirmBtn = document.getElementById('confirmDeleteListBtn');
-
-    modal.classList.add('hidden');
-    confirmInput.value = '';
-    confirmBtn.disabled = true;
-    confirmBtn.onclick = null;
+    hideDeleteListModalService();
 }
 
 async function confirmDeleteList(columnId) {
-    try {
-        const response = await authFetch(`${API_URL}/api/columns/${columnId}`, {
-            method: 'DELETE'
-        });
-
-        if (response.ok) {
-            await loadColumns();
-            renderBoard();
-            showToast('List deleted', 'success');
-        } else {
-            const data = await response.json();
-            showToast(data.detail || 'Failed to delete list', 'error');
-        }
-    } catch (e) {
-        console.error('Error deleting column:', e);
-        showToast('Make sure list is empty before deleting', 'error');
-    }
+    await confirmDeleteListService({
+        authFetch,
+        API_URL,
+        loadColumns,
+        renderBoard,
+        showToast
+    }, columnId);
 }
 
 function editColumnTitle(columnId) {
@@ -1113,20 +1113,20 @@ function getSelectedLabelIds() {
 
 // ===== Board Management =====
 async function loadBoards() {
-    if (!activeWorkspaceId) return;
-    try {
-        const response = await authFetch(`${API_URL}/api/workspaces/${activeWorkspaceId}/boards`);
-        if (!response) return;
-        boards = await response.json();
-        // If no active board, select the first one
-        if (!activeBoardId && boards.length > 0) {
-            activeBoardId = boards[0].id;
-        }
-        renderBoardList();
-    } catch (e) {
-        console.error('Error loading boards:', e);
-        showToast('Failed to load boards', 'error');
-    }
+    await loadBoardsService({
+        activeWorkspaceId,
+        authFetch,
+        API_URL,
+        setBoards: (value) => {
+            boards = value;
+        },
+        getActiveBoardId: () => activeBoardId,
+        setActiveBoardId: (value) => {
+            activeBoardId = value;
+        },
+        renderBoardList,
+        showToast
+    });
 }
 
 function renderBoardList() {
@@ -1403,171 +1403,103 @@ window.addEventListener('click', (e) => {
 
 
 async function createBoard(name, icon = 'dashboard', iconColor = '#3b82f6') {
-    if (!activeWorkspaceId) return;
-    console.log('createBoard called with icon:', icon, 'normalized:', normalizeBoardIcon(icon), 'color:', iconColor);
-    try {
-        const response = await authFetch(`${API_URL}/api/boards`, {
-            method: 'POST',
-            body: JSON.stringify({
-                name,
-                icon: normalizeBoardIcon(icon),
-                icon_color: iconColor,
-                workspace_id: activeWorkspaceId
-            })
-        });
-
-        if (!response) return;
-        const newBoard = await response.json();
-        console.log('Board created:', newBoard);
-        // Set the new board as active BEFORE loadBoards so the auto-select in
-        // loadBoards doesn't stomp it, and so switchBoard's early-return guard
-        // (activeBoardId === boardId) won't fire and skip loadColumns/loadTasks.
-        // We bypass switchBoard entirely and do the initialization inline.
-        activeBoardId = newBoard.id;
-        await loadBoards();
-        renderBoardList();
-        await loadColumns();
-        await loadTasks();
-        loadActivities();
-        loadLabels();
-        switchView('board');
-        showToast('Board created successfully', 'success');
-        hideCreateBoardModal();
-    } catch (e) {
-        console.error('Error creating board:', e);
-        showToast('Failed to create board', 'error');
-    }
+    await createBoardService({
+        activeWorkspaceId,
+        normalizeBoardIcon,
+        authFetch,
+        API_URL,
+        setActiveBoardId: (value) => {
+            activeBoardId = value;
+        },
+        loadBoards,
+        renderBoardList,
+        loadColumns,
+        loadTasks,
+        loadActivities,
+        loadLabels,
+        switchView,
+        showToast,
+        hideCreateBoardModal
+    }, name, icon, iconColor);
 }
 
 let boardToDeleteId = null;
 
 async function deleteBoard(boardId) {
-    try {
-        const response = await authFetch(`${API_URL}/api/boards/${boardId}`, {
-            method: 'DELETE'
-        });
-
-        if (!response || !response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.detail || 'Failed to delete board');
-        }
-
-        // Remove board from local array
-        boards = boards.filter(b => b.id !== boardId);
-
-        // If we deleted the active board, switch to another board
-        if (activeBoardId === boardId) {
-            closeTaskPanel();
-            if (boards.length > 0) {
-                switchBoard(boards[0].id);
-            } else {
-                // Close WebSocket if it's open
-                if (websocket) {
-                    websocket.onclose = null;
-                    websocket.close();
-                    websocket = null;
-                }
-
-                activeBoardId = null;
-                tasks = [];
-                columns = [];
-                kafkaConnected = false;
-                updateKafkaStatusUI();
-                renderBoard();
-            }
-        }
-
-        renderBoardList();
-        showToast('Board deleted successfully', 'success');
-        hideDeleteBoardModal();
-    } catch (e) {
-        console.error('Error deleting board:', e);
-        showToast(e.message || 'Failed to delete board', 'error');
-    }
+    await deleteBoardService({
+        authFetch,
+        API_URL,
+        getBoards: () => boards,
+        setBoards: (value) => {
+            boards = value;
+        },
+        getActiveBoardId: () => activeBoardId,
+        closeTaskPanel,
+        switchBoard,
+        getWebsocket: () => websocket,
+        setWebsocket: (value) => {
+            websocket = value;
+        },
+        setActiveBoardId: (value) => {
+            activeBoardId = value;
+        },
+        setTasks: (value) => {
+            tasks = value;
+        },
+        setColumns: (value) => {
+            columns = value;
+        },
+        setKafkaConnected: (value) => {
+            kafkaConnected = value;
+        },
+        updateKafkaStatusUI,
+        renderBoard,
+        renderBoardList,
+        showToast,
+        hideDeleteBoardModal
+    }, boardId);
 }
 
 function showDeleteBoardModal(boardId, boardName) {
-    boardToDeleteId = boardId;
-    elements.deleteBoardName.textContent = boardName;
-    elements.deleteBoardConfirmInput.value = '';
-    elements.confirmDeleteBoardBtn.disabled = true;
-    elements.deleteBoardModal.classList.remove('hidden');
-
-    // Store board name for validation
-    elements.deleteBoardConfirmInput.dataset.boardName = boardName;
-
-    // Focus input
-    setTimeout(() => elements.deleteBoardConfirmInput.focus(), 100);
+    showDeleteBoardModalService({
+        elements,
+        setBoardToDeleteId: (value) => {
+            boardToDeleteId = value;
+        }
+    }, boardId, boardName);
 }
 
 function hideDeleteBoardModal() {
-    elements.deleteBoardModal.classList.add('hidden');
-    elements.deleteBoardConfirmInput.value = '';
-    elements.confirmDeleteBoardBtn.disabled = true;
-    boardToDeleteId = null;
+    hideDeleteBoardModalService({
+        elements,
+        setBoardToDeleteId: (value) => {
+            boardToDeleteId = value;
+        }
+    });
 }
 
 function switchBoard(boardId) {
-    if (activeBoardId === boardId) return;
-    activeBoardId = boardId;
-
-    // Close popout if open
-    const popout = document.getElementById('boardsPopout');
-    if (popout) popout.style.display = 'none';
-
-    renderBoardList();
-    loadColumns().then(loadTasks);
-    loadActivities();
-    loadLabels(); // Reload labels for the new board
-
-    // Switch to board view if not already there
-    switchView('board');
+    switchBoardService({
+        getActiveBoardId: () => activeBoardId,
+        setActiveBoardId: (value) => {
+            activeBoardId = value;
+        },
+        renderBoardList,
+        loadColumns,
+        loadTasks,
+        loadActivities,
+        loadLabels,
+        switchView
+    }, boardId);
 }
 
 // ===== Create Board Modal =====
 function showCreateBoardModal() {
-    elements.newBoardName.value = '';
-    if (elements.newBoardIcon) {
-        elements.newBoardIcon.value = 'dashboard';
-        if (elements.selectedIconPreview) {
-            elements.selectedIconPreview.textContent = 'dashboard';
-            elements.selectedIconPreview.style.color = '#3b82f6';
-        }
-    }
-    if (elements.newBoardIconColor) {
-        elements.newBoardIconColor.value = '#3b82f6';
-        // Reset color selection
-        document.querySelectorAll('.color-option').forEach(btn => {
-            btn.classList.remove('active');
-            if (btn.dataset.color === '#3b82f6') {
-                btn.classList.add('active');
-            }
-        });
-    }
-    if (elements.iconDropdownMenu) {
-        elements.iconDropdownMenu.classList.add('hidden');
-    }
-    elements.createBoardModal.classList.remove('hidden');
-    setTimeout(() => elements.newBoardName.focus(), 50);
+    showCreateBoardModalService({ elements });
 }
 
 function hideCreateBoardModal() {
-    elements.createBoardModal.classList.add('hidden');
-    if (elements.iconDropdownMenu) {
-        elements.iconDropdownMenu.classList.add('hidden');
-    }
-    // Reset form values when closing
-    elements.newBoardName.value = '';
-    if (elements.newBoardIcon) {
-        elements.newBoardIcon.value = 'dashboard';
-        if (elements.selectedIconPreview) {
-            elements.selectedIconPreview.textContent = 'dashboard';
-            elements.selectedIconPreview.style.color = '#3b82f6';
-        }
-    }
-    if (elements.newBoardIconColor) {
-        elements.newBoardIconColor.value = '#3b82f6';
-    }
+    hideCreateBoardModalService({ elements });
 }
 
 // ===== Board Context Menu =====
@@ -1608,76 +1540,30 @@ function hideBoardContextMenu() {
 
 // ===== Edit Board Modal =====
 function showEditBoardModal(boardId) {
-    const board = boards.find(b => b.id === boardId);
-    if (!board) return;
-
-    elements.editBoardName.value = board.name;
-    elements.editBoardIcon.value = board.icon || 'dashboard';
-    elements.editBoardIconColor.value = board.icon_color || '#3b82f6';
-
-    if (elements.editSelectedIconPreview) {
-        elements.editSelectedIconPreview.textContent = normalizeBoardIcon(board.icon || 'dashboard');
-        elements.editSelectedIconPreview.style.color = board.icon_color || '#3b82f6';
-    }
-
-    // Highlight the current icon
-    document.querySelectorAll('.edit-icon-option').forEach(btn => {
-        btn.classList.remove('bg-blue-100', 'dark:bg-blue-900/30');
-        if (btn.dataset.icon === (board.icon || 'dashboard')) {
-            btn.classList.add('bg-blue-100', 'dark:bg-blue-900/30');
-        }
-    });
-
-    // Highlight the current color
-    document.querySelectorAll('.edit-color-option').forEach(btn => {
-        btn.classList.remove('active');
-        if (btn.dataset.color === (board.icon_color || '#3b82f6')) {
-            btn.classList.add('active');
-        }
-    });
-
-    if (elements.editIconDropdownMenu) {
-        elements.editIconDropdownMenu.classList.add('hidden');
-    }
-
-    elements.editBoardModal.classList.remove('hidden');
-    elements.editBoardModal.dataset.boardId = boardId;
-    setTimeout(() => elements.editBoardName.focus(), 50);
+    showEditBoardModalService({
+        elements,
+        getBoards: () => boards,
+        normalizeBoardIcon
+    }, boardId);
 }
 
 function hideEditBoardModal() {
-    elements.editBoardModal.classList.add('hidden');
-    if (elements.editIconDropdownMenu) {
-        elements.editIconDropdownMenu.classList.add('hidden');
-    }
-    elements.editBoardName.value = '';
-    elements.editBoardModal.dataset.boardId = '';
+    hideEditBoardModalService({ elements });
 }
 
 async function updateBoard(boardId, data) {
-    try {
-        const response = await authFetch(`${API_URL}/api/boards/${boardId}`, {
-            method: 'PUT',
-            body: JSON.stringify(data)
-        });
-        if (!response || !response.ok) {
-            throw new Error('Failed to update board');
-        }
-        const updated = await response.json();
-        // Update local board data
-        const idx = boards.findIndex(b => b.id === boardId);
-        if (idx !== -1) {
-            boards[idx] = { ...boards[idx], ...updated };
-        }
-        renderBoardList();
-        if (activeBoardId === boardId) {
-            renderBoard();
-        }
-        showToast('Board updated successfully', 'success');
-    } catch (e) {
-        console.error('Error updating board:', e);
-        showToast('Failed to update board', 'error');
-    }
+    await updateBoardService({
+        authFetch,
+        API_URL,
+        getBoards: () => boards,
+        setBoards: (value) => {
+            boards = value;
+        },
+        renderBoardList,
+        getActiveBoardId: () => activeBoardId,
+        renderBoard,
+        showToast
+    }, boardId, data);
 }
 
 async function loadWorkspaceMembers() {
@@ -2325,44 +2211,15 @@ function removeCommentImage(index) {
 }
 
 function saveTaskFromPanel() {
-    if (!currentEditingTask) return;
-
-    // Validate due date is not in the past
-    const dueDateValue = elements.panelDueDate.value;
-    if (dueDateValue) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const selectedDate = new Date(dueDateValue);
-        if (selectedDate < today) {
-            showToast('Due date cannot be in the past', 'error');
-            elements.panelDueDate.focus();
-            return;
-        }
-    }
-
-    // Get the new column_id from the status dropdown
-    const newColumnId = elements.panelStatusSelect.value;
-    const newColumn = columns.find(c => c.id === newColumnId);
-
-    const updates = {
-        title: elements.panelTitle.value.trim(),
-        description: elements.panelDescription.value.trim(),
-        column_id: newColumnId,
-        status: newColumn ? newColumn.title.toLowerCase().replace(/\s+/g, '') : currentEditingTask.status,
-        priority: elements.panelPrioritySelect.value,
-        label_ids: getSelectedLabelIds(),
-        due_date: dueDateValue || null,
-        assignee_id: elements.panelAssigneeSelect.value || null,
-        images: currentEditingTask.images || []
-    };
-
-    if (!updates.title) {
-        elements.panelTitle.focus();
-        return;
-    }
-
-    updateTask(currentEditingTask.id, updates);
-    closeTaskPanel();
+    saveTaskFromPanelService({
+        getCurrentEditingTask: () => currentEditingTask,
+        elements,
+        columns,
+        getSelectedLabelIds,
+        showToast,
+        updateTask,
+        closeTaskPanel
+    });
 }
 
 // Filter events for this task from globalEvents
@@ -2393,145 +2250,89 @@ function renderEventLog(task) {
 
 // ===== Task CRUD Operations =====
 async function addTask(title, description, priority, status, labelIds = []) {
-    if (!activeBoardId) return;
-
-    const taskData = {
-        title,
-        description,
-        priority,
-        status,
-        label_ids: labelIds,
-        board_id: activeBoardId
-    };
-
-    try {
-        const response = await authFetch(`${API_URL}/api/tasks`, {
-            method: 'POST',
-            body: JSON.stringify(taskData)
-        });
-
-        if (!response) return; // authFetch handles redirect
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Failed to create task:', response.status, errorText);
-            showToast('Failed to create task', 'error');
-            return;
-        }
-
-        const newTask = await response.json();
-        tasks.push(newTask);
-        renderBoard();
-        notifyKafkaEvent('Task created: ' + newTask.title, 'success');
-
-        // Notification is handled by WebSocket now, but for immediate UI feedback:
-        if (!elements.activityView.classList.contains('hidden')) renderActivityLog();
-    } catch (e) {
-        console.error('Error adding task:', e);
-        showToast('Failed to create task', 'error');
-    }
+    await addTaskService({
+        activeBoardId,
+        authFetch,
+        API_URL,
+        tasks,
+        setTasks: (value) => {
+            tasks = value;
+        },
+        renderBoard,
+        notifyKafkaEvent,
+        elements,
+        renderActivityLog,
+        showToast
+    }, title, description, priority, status, labelIds);
 }
 
 async function addTaskToColumn(title, description, priority, columnId, labelIds = []) {
-    if (!activeBoardId) return;
-
-    const taskData = {
-        title,
-        description,
-        priority,
-        label_ids: labelIds,
-        board_id: activeBoardId,
-        column_id: columnId
-    };
-
-    try {
-        const response = await authFetch(`${API_URL}/api/tasks`, {
-            method: 'POST',
-            body: JSON.stringify(taskData)
-        });
-
-        if (!response) return; // authFetch handles redirect
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Failed to create task:', response.status, errorText);
-            showToast('Failed to create task', 'error');
-            return;
-        }
-
-        const newTask = await response.json();
-        tasks.push(newTask);
-        renderBoard();
-        notifyKafkaEvent('Task created: ' + newTask.title, 'success');
-
-        // Notification is handled by WebSocket now, but for immediate UI feedback:
-        if (!elements.activityView.classList.contains('hidden')) renderActivityLog();
-    } catch (e) {
-        console.error('Error adding task:', e);
-        showToast('Failed to create task', 'error');
-    }
+    await addTaskToColumnService({
+        activeBoardId,
+        authFetch,
+        API_URL,
+        tasks,
+        setTasks: (value) => {
+            tasks = value;
+        },
+        renderBoard,
+        notifyKafkaEvent,
+        elements,
+        renderActivityLog,
+        showToast
+    }, title, description, priority, columnId, labelIds);
 }
 
 async function updateTask(id, updates) {
-    try {
-        const response = await authFetch(`${API_URL}/api/tasks/${id}`, {
-            method: 'PUT',
-            body: JSON.stringify(updates)
-        });
-
-        if (!response.ok) throw new Error('Failed to update task');
-
-        const updatedTask = await response.json();
-
-        const index = tasks.findIndex(t => t.id === id);
-        if (index !== -1) {
-            // Merge server fields without clobbering in-memory order
-            tasks[index] = { ...tasks[index], ...updatedTask };
-        }
-
-        renderBoard();
-        if (!elements.activityView.classList.contains('hidden')) renderActivityLog();
-        notifyKafkaEvent('Task updated: ' + updatedTask.title, 'success');
-    } catch (e) {
-        console.error('Error updating task:', e);
-        showToast('Failed to update task', 'error');
-    }
+    await updateTaskService({
+        authFetch,
+        API_URL,
+        tasks,
+        setTasks: (value) => {
+            tasks = value;
+        },
+        renderBoard,
+        elements,
+        renderActivityLog,
+        notifyKafkaEvent,
+        showToast
+    }, id, updates);
 }
 
 // ===== Delete Confirmation =====
 function showDeleteModal(task) {
-    taskToDeleteId = task.id;
-    elements.deleteTaskTitle.textContent = task.title;
-    elements.deleteModal.classList.remove('hidden');
+    showDeleteModalService({
+        elements,
+        setTaskToDeleteId: (value) => {
+            taskToDeleteId = value;
+        }
+    }, task);
 }
 
 function hideDeleteModal() {
-    elements.deleteModal.classList.add('hidden');
-    taskToDeleteId = null;
+    hideDeleteModalService({
+        elements,
+        setTaskToDeleteId: (value) => {
+            taskToDeleteId = value;
+        }
+    });
 }
 
 async function deleteTask(id) {
-    const task = tasks.find(t => t.id === id);
-    if (!task) return;
-
-    // No confirm() call here - modal handles it
-
-    try {
-        const response = await authFetch(`${API_URL}/api/tasks/${id}`, {
-            method: 'DELETE'
-        });
-
-        if (!response.ok) throw new Error('Failed to delete task');
-
-        tasks = tasks.filter(t => t.id !== id);
-        renderBoard();
-        if (!elements.activityView.classList.contains('hidden')) renderActivityLog();
-        closeTaskPanel();
-        notifyKafkaEvent('Task deleted: ' + task.title, 'success');
-    } catch (e) {
-        console.error('Error deleting task:', e);
-        showToast('Failed to delete task', 'error');
-    }
+    await deleteTaskService({
+        tasks,
+        setTasks: (value) => {
+            tasks = value;
+        },
+        authFetch,
+        API_URL,
+        renderBoard,
+        elements,
+        renderActivityLog,
+        closeTaskPanel,
+        notifyKafkaEvent,
+        showToast
+    }, id);
 }
 
 function moveTask(taskId, newStatus) {
@@ -2568,100 +2369,45 @@ function moveTask(taskId, newStatus) {
 
 // ===== Kafka API Integration =====
 async function sendKafkaEvent(eventType, taskId, data = {}) {
-    const event = {
-        type: eventType,
-        taskId: taskId,
-        data: data,
-        timestamp: new Date().toISOString()
-    };
-
-    try {
-        const result = await sendKafkaEventRequest(API_URL, event);
-        console.log('Kafka API response:', result);
-
-        if (result.status === 'sent') {
-            kafkaConnected = true;
-            updateKafkaStatusUI();
-        }
-    } catch (error) {
-        console.error('Failed to send Kafka event:', error);
-        kafkaConnected = false;
-        updateKafkaStatusUI();
-    }
+    await sendKafkaEventService({
+        sendKafkaEventRequest,
+        API_URL,
+        setKafkaConnected: (value) => {
+            kafkaConnected = value;
+        },
+        updateKafkaStatusUI
+    }, eventType, taskId, data);
 }
 
 // ===== WebSocket Connection =====
 function connectWebSocket() {
-    if (!activeBoardId) return;
-
-    try {
-        const wsUrl = getWsUrl(activeBoardId);
-        websocket = new WebSocket(wsUrl);
-
-        websocket.onopen = () => {
-            console.log('WebSocket connected to board:', activeBoardId);
-            kafkaConnected = true;
-            updateKafkaStatusUI();
-        };
-
-        websocket.onmessage = (event) => {
-            console.log('WebSocket message:', event.data);
-            try {
-                const kafkaEvent = JSON.parse(event.data);
-                handleIncomingKafkaEvent(kafkaEvent);
-            } catch (e) {
-                console.error('Failed to parse WebSocket message:', e);
-            }
-        };
-
-        websocket.onclose = () => {
-            console.log('WebSocket disconnected, reconnecting in 3s...');
-            kafkaConnected = false;
-            updateKafkaStatusUI();
-            setTimeout(connectWebSocket, 3000);
-        };
-
-        websocket.onerror = (error) => {
-            console.error('WebSocket error:', error);
-            kafkaConnected = false;
-            updateKafkaStatusUI();
-        };
-    } catch (error) {
-        console.error('Failed to connect WebSocket:', error);
-        setTimeout(connectWebSocket, 3000);
-    }
+    connectWebSocketService({
+        getActiveBoardId: () => activeBoardId,
+        getWsUrl,
+        setWebsocket: (value) => {
+            websocket = value;
+        },
+        setKafkaConnected: (value) => {
+            kafkaConnected = value;
+        },
+        updateKafkaStatusUI,
+        handleIncomingKafkaEvent,
+        reconnect: connectWebSocket
+    });
 }
 
 function handleIncomingKafkaEvent(kafkaEvent) {
-    // Add to global events (Activity log)
-    globalEvents.unshift({
-        type: kafkaEvent.type,
-        taskId: kafkaEvent.taskId,
-        originalTaskId: kafkaEvent.taskId,
-        data: kafkaEvent.data || {},
-        time: new Date().toLocaleTimeString(),
-        timestamp: new Date().toISOString()
-    });
-
-    if (!elements.activityView.classList.contains('hidden')) renderActivityLog();
-
-    // Sync tasks on relevant events (non-blocking)
-    // Skip re-sync if: (1) a drag is in progress (avoid clobbering optimistic update),
-    // or (2) the event was triggered by the current user (optimistic update already applied).
-    if (['TASK_CREATED', 'TASK_UPDATED', 'TASK_MOVED', 'TASK_DELETED'].includes(kafkaEvent.type)) {
-        const isOwnEvent = currentUser && kafkaEvent.user_id === currentUser.id;
-        if (!isDragInProgress && !isOwnEvent) {
-            loadColumns().then(loadTasks); // Fire and forget - don't block
-        }
-    }
-
-    // Handle comment events
-    if (['COMMENT_ADDED', 'COMMENT_UPDATED', 'COMMENT_DELETED'].includes(kafkaEvent.type)) {
-        // If the task panel is open for this task, reload comments
-        if (currentEditingTask && currentEditingTask.id === kafkaEvent.taskId) {
-            loadComments(kafkaEvent.taskId);
-        }
-    }
+    handleIncomingKafkaEventService({
+        globalEvents,
+        renderActivityLog,
+        elements,
+        currentUser,
+        isDragInProgress: dragDropState.isDragInProgress,
+        loadColumns,
+        loadTasks,
+        currentEditingTask,
+        loadComments
+    }, kafkaEvent);
 }
 
 function updateKafkaStatusUI() {
@@ -2672,340 +2418,101 @@ function updateKafkaStatusUI() {
 
 // ===== Kafka Status Display =====
 function notifyKafkaEvent(message, type = 'info') {
-    showKafkaEvent(elements.kafkaStatus, updateKafkaStatusUI, elements.toastContainer, message, type);
+    notifyKafkaEventService({ showKafkaEvent, elements, updateKafkaStatusUI }, message, type);
 }
 
 // ===== Drag and Drop with Reordering =====
-let draggedTask = null;
-let draggedTaskId = null;
-let isDragging = false;
-let isDragInProgress = false; // Prevents WebSocket re-renders during active drag
+const dragDropState = {
+    draggedTask: null,
+    draggedTaskId: null,
+    isDragging: false,
+    isDragInProgress: false,
+    draggedColumn: null
+};
 
 function cleanupDragState() {
-    if (draggedTask) {
-        draggedTask.classList.remove('dragging');
-        draggedTask.style.opacity = '';
-    }
-    draggedTask = null;
-    draggedTaskId = null;
-    isDragging = false;
-    isDragInProgress = false;
-    document.querySelectorAll('.column').forEach(col => col.classList.remove('drag-over'));
-    document.querySelectorAll('.drop-indicator').forEach(el => el.remove());
+    cleanupDragStateService(dragDropState);
 }
 
 function handleDragStart(e) {
-    const card = e.currentTarget; // always the card since listener is on the card
-    if (!card || !card.classList.contains('task-card')) return;
-
-    // Clean up any stale state
-    cleanupDragState();
-
-    draggedTask = card;
-    draggedTaskId = card.dataset.taskId;
-    isDragging = true;
-    isDragInProgress = true;
-
-    e.dataTransfer.effectAllowed = 'move';
-    // Use a dedicated MIME type so task drops and column drops never collide
-    e.dataTransfer.setData(TASK_DRAG_KEY, draggedTaskId);
-    // Fallback for browsers that only expose text/plain in drop handlers
-    e.dataTransfer.setData('text/plain', draggedTaskId);
-
-    // Slight delay so the drag image is captured before we hide the card
-    setTimeout(() => {
-        if (draggedTask) {
-            draggedTask.classList.add('dragging');
-            draggedTask.style.opacity = '0.4';
-        }
-    }, 0);
+    handleDragStartService({ state: dragDropState, TASK_DRAG_KEY }, e);
 }
 
 function handleDragEnd(e) {
-    cleanupDragState();
+    handleDragEndService(dragDropState);
 }
 
 function handleDragOver(e) {
-    // Only handle if a task drag is active
-    if (!isDragging) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-
-    // Find task-list: either the target itself or its ancestor.
-    // Also fall back to the column's task-list if hovering over the header area.
-    let taskList = e.target.closest('.task-list');
-    if (!taskList) {
-        const column = e.target.closest('.column');
-        if (column) taskList = column.querySelector('.task-list');
-    }
-    if (!taskList) return;
-
-    const afterElement = getDragAfterElement(taskList, e.clientY);
-
-    // Remove existing indicators
-    document.querySelectorAll('.drop-indicator').forEach(indicator => indicator.remove());
-
-    // Create drop indicator
-    const indicator = document.createElement('div');
-    indicator.className = 'drop-indicator h-1 bg-primary rounded-full my-1 transition-all';
-
-    if (afterElement == null) {
-        taskList.appendChild(indicator);
-    } else {
-        taskList.insertBefore(indicator, afterElement);
-    }
+    handleDragOverService({ state: dragDropState }, e);
 }
 
 function getDragAfterElement(container, y) {
-    const draggableElements = [...container.querySelectorAll('.task-card:not(.dragging)')];
-
-    return draggableElements.reduce((closest, child) => {
-        const box = child.getBoundingClientRect();
-        const offset = y - box.top - box.height / 2;
-
-        if (offset < 0 && offset > closest.offset) {
-            return { offset: offset, element: child };
-        } else {
-            return closest;
-        }
-    }, { offset: Number.NEGATIVE_INFINITY }).element;
+    return getDragAfterElementService(container, y);
 }
 
 function handleDragEnter(e) {
-    if (!isDragging) return;
-    e.preventDefault();
-    const column = e.target.closest('.column');
-    if (column) {
-        column.classList.add('drag-over');
-    }
+    handleDragEnterService({ state: dragDropState }, e);
 }
 
 function handleDragLeave(e) {
-    if (!isDragging) return;
-    const column = e.target.closest('.column');
-    const relatedColumn = e.relatedTarget?.closest('.column');
-
-    if (column && column !== relatedColumn) {
-        column.classList.remove('drag-over');
-        column.querySelectorAll('.drop-indicator').forEach(el => el.remove());
-    }
+    handleDragLeaveService({ state: dragDropState }, e);
 }
 
 function handleDrop(e) {
-    // Only handle task drops — ignore column drags
-    if (!isDragging) return;
-
-    e.preventDefault();
-    e.stopPropagation(); // prevent handleColumnDrop from also firing
-
-    // Read task ID from our dedicated key (fallback to text/plain)
-    const taskId = e.dataTransfer.getData(TASK_DRAG_KEY) ||
-        e.dataTransfer.getData('text/plain');
-    const column = e.target.closest('.column');
-
-    // Clean up visual state immediately
-    document.querySelectorAll('.drop-indicator').forEach(el => el.remove());
-    document.querySelectorAll('.column').forEach(col => col.classList.remove('drag-over'));
-
-    if (!column || !taskId) {
-        cleanupDragState();
-        return;
-    }
-
-    const newColumnId = column.dataset.columnId;
-    const taskList = column.querySelector('.task-list');
-    if (!newColumnId || !taskList) {
-        cleanupDragState();
-        return;
-    }
-
-    // Snapshot the after-element task ID from the DOM BEFORE we mutate anything
-    const afterElement = getDragAfterElement(taskList, e.clientY);
-    const afterTaskId = afterElement ? afterElement.dataset.taskId : null;
-
-    // Get the task being moved
-    const taskIndex = tasks.findIndex(t => t.id === taskId);
-    if (taskIndex === -1) {
-        cleanupDragState();
-        return;
-    }
-
-    const task = tasks[taskIndex];
-    const oldColumnId = task.column_id;
-    const columnChanged = oldColumnId !== newColumnId;
-
-    // Remove task from array
-    tasks.splice(taskIndex, 1);
-
-    // Update column_id
-    task.column_id = newColumnId;
-    task.updated_at = new Date().toISOString();
-
-    // Find insertion position using the snapshotted afterTaskId
-    if (afterTaskId) {
-        const afterIndex = tasks.findIndex(t => t.id === afterTaskId);
-        if (afterIndex !== -1) {
-            tasks.splice(afterIndex, 0, task);
-        } else {
-            tasks.push(task);
-        }
-    } else {
-        // Insert at end of the column group
-        const lastIndexOfColumn = tasks.reduce((last, t, i) => t.column_id === newColumnId ? i : last, -1);
-        if (lastIndexOfColumn === -1) {
-            tasks.push(task);
-        } else {
-            tasks.splice(lastIndexOfColumn + 1, 0, task);
-        }
-    }
-
-    // Clean up drag state now that array is stable
-    cleanupDragState();
-
-    // Optimistically re-render immediately with the new order
-    renderBoard();
-
-    // Persist to backend without re-rendering on response
-    if (columnChanged) {
-        persistTaskDrop(taskId, { column_id: newColumnId });
-    } else {
-        notifyKafkaEvent(`Task reordered: ${task.title}`);
-    }
+    handleDropService({
+        state: dragDropState,
+        TASK_DRAG_KEY,
+        tasks,
+        setTasks: (value) => {
+            tasks = value;
+        },
+        renderBoard,
+        persistTaskDrop,
+        notifyKafkaEvent
+    }, e);
 }
 
 async function persistTaskDrop(taskId, updates) {
-    try {
-        const response = await authFetch(`${API_URL}/api/tasks/${taskId}`, {
-            method: 'PUT',
-            body: JSON.stringify(updates)
-        });
-        if (!response || !response.ok) throw new Error('Failed to update task');
-        const updatedTask = await response.json();
-        // Patch only the changed fields on the in-memory task, no re-render
-        const index = tasks.findIndex(t => t.id === taskId);
-        if (index !== -1) {
-            tasks[index] = { ...tasks[index], ...updatedTask };
-        }
-        if (!elements.activityView.classList.contains('hidden')) renderActivityLog();
-        notifyKafkaEvent('Task moved: ' + updatedTask.title, 'success');
-    } catch (err) {
-        console.error('Error persisting task drop:', err);
-        showToast('Failed to save task move', 'error');
-    }
+    await persistTaskDropService({
+        authFetch,
+        API_URL,
+        tasks,
+        setTasks: (value) => {
+            tasks = value;
+        },
+        elements,
+        renderActivityLog,
+        notifyKafkaEvent,
+        showToast
+    }, taskId, updates);
 }
 
 // ===== Column Drag and Drop =====
-let draggedColumn = null;
-
 const COLUMN_DRAG_KEY = 'application/x-column-id';
 
 function handleColumnDragStart(e) {
-    // Only allow drag from the handle itself (not task cards inside the column)
-    const handle = e.target.closest('.column-drag-handle');
-    if (!handle) {
-        e.preventDefault();
-        return;
-    }
-
-    draggedColumn = handle.closest('.column');
-    if (!draggedColumn) {
-        e.preventDefault();
-        return;
-    }
-
-    e.dataTransfer.effectAllowed = 'move';
-    // Use a dedicated MIME type so column drops never collide with task drops
-    e.dataTransfer.setData(COLUMN_DRAG_KEY, draggedColumn.dataset.columnId);
-
-    // Apply the same dragging style as task cards
-    setTimeout(() => {
-        if (draggedColumn) draggedColumn.classList.add('dragging');
-    }, 0);
+    handleColumnDragStartService({ state: dragDropState, COLUMN_DRAG_KEY }, e);
 }
 
 function handleColumnDragEnd(e) {
-    if (draggedColumn) {
-        draggedColumn.classList.remove('dragging');
-        draggedColumn = null;
-    }
-    // Remove all column drop indicators
-    document.querySelectorAll('.column-drop-indicator').forEach(el => el.remove());
+    handleColumnDragEndService(dragDropState);
 }
 
 function handleColumnDragOver(e) {
-    if (!draggedColumn) return;
-
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-
-    const board = document.getElementById('board');
-    const targetColumn = e.target.closest('.column');
-    if (!targetColumn || targetColumn === draggedColumn || !board) return;
-
-    // Remove existing indicators
-    document.querySelectorAll('.column-drop-indicator').forEach(el => el.remove());
-
-    // Determine whether to insert before or after the target column
-    const rect = targetColumn.getBoundingClientRect();
-    const insertBefore = e.clientX < rect.left + rect.width / 2;
-
-    // Create a vertical indicator line (same primary colour as task indicator)
-    const indicator = document.createElement('div');
-    indicator.className = 'column-drop-indicator';
-
-    if (insertBefore) {
-        board.insertBefore(indicator, targetColumn);
-    } else {
-        board.insertBefore(indicator, targetColumn.nextSibling);
-    }
+    handleColumnDragOverService({ state: dragDropState }, e);
 }
 
 function handleColumnDrop(e) {
-    if (!draggedColumn) return;
-
-    e.preventDefault();
-
-    // Clean up indicator immediately
-    document.querySelectorAll('.column-drop-indicator').forEach(el => el.remove());
-
-    const targetColumn = e.target.closest('.column');
-    if (!targetColumn || targetColumn === draggedColumn) {
-        handleColumnDragEnd(e);
-        return;
-    }
-
-    const draggedId = draggedColumn.dataset.columnId;
-    const targetId = targetColumn.dataset.columnId;
-
-    const draggedIndex = columns.findIndex(c => c.id === draggedId);
-    const targetIndex = columns.findIndex(c => c.id === targetId);
-
-    if (draggedIndex === -1 || targetIndex === -1) {
-        handleColumnDragEnd(e);
-        return;
-    }
-
-    const rect = targetColumn.getBoundingClientRect();
-    const midpoint = rect.left + rect.width / 2;
-    const dropBefore = e.clientX < midpoint;
-
-    const [movedColumn] = columns.splice(draggedIndex, 1);
-
-    let newIndex = targetIndex;
-    if (draggedIndex < targetIndex) {
-        newIndex = dropBefore ? targetIndex - 1 : targetIndex;
-    } else {
-        newIndex = dropBefore ? targetIndex : targetIndex + 1;
-    }
-
-    columns.splice(newIndex, 0, movedColumn);
-
-    updateColumnPositions().then(() => {
-        renderBoard();
-        showToast('Column moved', 'success');
-    });
-
-    handleColumnDragEnd(e);
+    handleColumnDropService({
+        state: dragDropState,
+        columns,
+        setColumns: (value) => {
+            columns = value;
+        },
+        updateColumnPositions,
+        renderBoard,
+        showToast
+    }, e);
 }
 
 // ===== Task Context Menu =====
@@ -3161,762 +2668,106 @@ function loadSidebarState() {
 
 // ===== Event Listeners =====
 function initEventListeners() {
-    // Panel close buttons
-    elements.closePanelBtn.addEventListener('click', closeTaskPanel);
-    elements.cancelPanelBtn.addEventListener('click', closeTaskPanel);
-    elements.panelOverlay.addEventListener('click', closeTaskPanel);
-
-    // Panel save
-    elements.savePanelBtn.addEventListener('click', saveTaskFromPanel);
-
-    // Panel delete
-    elements.deleteTaskBtn.addEventListener('click', () => {
-        if (currentEditingTask) {
-            showDeleteModal(currentEditingTask);
-        }
+    bindBoardListeners({
+        elements,
+        showCreateListModal,
+        switchBoard,
+        showDeleteBoardModal,
+        toggleBoardsPopout,
+        scrollToAddCard,
+        moveColumnLeft,
+        moveColumnRight,
+        editColumnTitle,
+        deleteColumn,
+        openImageModal,
+        removeTaskImage,
+        deleteComment,
+        removeCommentImage,
+        deleteLabel,
+        showBoardContextMenu,
+        switchView,
+        toggleTheme,
+        toggleSidebar,
+        openLabelManager,
+        closeLabelManager,
+        createLabel
     });
 
-    document.addEventListener('click', (event) => {
-        const actionElement = event.target.closest('[data-action]');
-        if (!actionElement) return;
-
-        const { action } = actionElement.dataset;
-
-        if (action === 'open-create-board') {
-            const createBoardButton = document.getElementById('createBoardBtn');
-            if (createBoardButton) {
-                createBoardButton.click();
-            }
-            return;
-        }
-
-        if (action === 'open-create-list') {
-            showCreateListModal();
-            return;
-        }
-
-        if (action === 'switch-board') {
-            event.preventDefault();
-            switchBoard(actionElement.dataset.boardId);
-            return;
-        }
-
-        if (action === 'delete-board') {
-            event.preventDefault();
-            event.stopPropagation();
-            showDeleteBoardModal(actionElement.dataset.boardId, actionElement.dataset.boardName || '');
-            return;
-        }
-
-        if (action === 'toggle-boards-popout') {
-            event.preventDefault();
-            toggleBoardsPopout(event);
-            return;
-        }
-
-        if (action === 'column-add-card') {
-            scrollToAddCard(actionElement.dataset.columnId);
-            return;
-        }
-
-        if (action === 'column-move-left') {
-            if (!actionElement.disabled) {
-                moveColumnLeft(actionElement.dataset.columnId);
-            }
-            return;
-        }
-
-        if (action === 'column-move-right') {
-            if (!actionElement.disabled) {
-                moveColumnRight(actionElement.dataset.columnId);
-            }
-            return;
-        }
-
-        if (action === 'column-rename') {
-            editColumnTitle(actionElement.dataset.columnId);
-            return;
-        }
-
-        if (action === 'column-delete') {
-            deleteColumn(actionElement.dataset.columnId);
-            return;
-        }
-
-        if (action === 'open-image-modal') {
-            const imageUrl = actionElement.dataset.imageUrl;
-            if (imageUrl) {
-                openImageModal(imageUrl);
-            }
-            return;
-        }
-
-        if (action === 'remove-task-image') {
-            removeTaskImage(Number(actionElement.dataset.imageIndex));
-            return;
-        }
-
-        if (action === 'delete-comment') {
-            deleteComment(actionElement.dataset.commentId);
-            return;
-        }
-
-        if (action === 'remove-comment-image') {
-            removeCommentImage(Number(actionElement.dataset.imageIndex));
-            return;
-        }
-
-        if (action === 'label-delete') {
-            deleteLabel(actionElement.dataset.labelId);
-            return;
-        }
-
-        if (action === 'dismiss-toast') {
-            const toast = actionElement.closest('div');
-            if (toast) {
-                toast.remove();
-            }
-        }
+    bindTaskListeners({
+        elements,
+        closeTaskPanel,
+        saveTaskFromPanel,
+        getCurrentEditingTask: () => currentEditingTask,
+        showDeleteModal,
+        showToast,
+        uploadTaskImage,
+        renderTaskImages,
+        postComment,
+        uploadCommentImage,
+        getCurrentCommentImages: () => currentCommentImages,
+        renderCommentImages,
+        getTaskToDeleteId: () => taskToDeleteId,
+        deleteTask,
+        hideDeleteModal,
+        getActiveInlineForm: () => activeInlineForm,
+        hideInlineAddForm,
+        closeAllColumnMenus,
+        hideTaskContextMenu,
+        hideBoardContextMenu,
+        hideColumnContextMenu,
+        getCurrentContextTask: () => currentContextTask,
+        openTaskPanel,
+        updateTask
     });
 
-    document.addEventListener('contextmenu', (event) => {
-        const boardItem = event.target.closest('[data-board-context="1"]');
-        if (!boardItem) return;
-
-        event.preventDefault();
-        const boardId = boardItem.dataset.boardId;
-        if (boardId) {
-            showBoardContextMenu(event, boardId);
-        }
+    bindModalListeners({
+        elements,
+        showCreateBoardModal,
+        hideCreateBoardModal,
+        createBoard,
+        hideCreateListModal,
+        showCreateListModal,
+        createColumn,
+        hideEditBoardModal,
+        updateBoard,
+        getCurrentContextBoardId: () => currentContextBoardId,
+        showEditBoardModal,
+        hideBoardContextMenu,
+        getBoards: () => boards,
+        showDeleteBoardModal,
+        hideColumnContextMenu,
+        getCurrentContextColumnId: () => currentContextColumnId,
+        scrollToAddCard,
+        editColumnTitle,
+        moveColumnLeft,
+        moveColumnRight,
+        deleteColumn,
+        hideDeleteBoardModal,
+        getBoardToDeleteId: () => boardToDeleteId,
+        deleteBoard,
+        hideDeleteListModal,
+        hideTaskContextMenu,
+        closeTaskPanel,
+        hideDeleteModal,
+        closeLabelManager,
+        hideInlineAddForm
     });
-
-    // Image upload
-    elements.panelAddImageBtn.addEventListener('click', () => {
-        elements.panelImageUpload.click();
-    });
-
-    elements.panelImageUpload.addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        // Validate file size (max 5MB)
-        if (file.size > 5 * 1024 * 1024) {
-            showToast('Image must be smaller than 5MB', 'error');
-            e.target.value = '';
-            return;
-        }
-
-        const imageUrl = await uploadTaskImage(file);
-        if (imageUrl && currentEditingTask) {
-            if (!currentEditingTask.images) {
-                currentEditingTask.images = [];
-            }
-            currentEditingTask.images.push(imageUrl);
-            renderTaskImages(currentEditingTask.images);
-        }
-
-        // Clear the input so the same file can be uploaded again
-        e.target.value = '';
-    });
-
-    // Comment functionality
-    elements.submitCommentBtn.addEventListener('click', postComment);
-
-    elements.commentInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && e.ctrlKey) {
-            postComment();
-        }
-    });
-
-    elements.addCommentImageBtn.addEventListener('click', () => {
-        elements.commentImageUpload.click();
-    });
-
-    elements.commentImageUpload.addEventListener('change', async (e) => {
-        const files = Array.from(e.target.files);
-        if (files.length === 0) return;
-
-        // Validate file sizes (max 5MB each)
-        for (const file of files) {
-            if (file.size > 5 * 1024 * 1024) {
-                showToast('Each image must be smaller than 5MB', 'error');
-                e.target.value = '';
-                return;
-            }
-        }
-
-        // Upload all files
-        for (const file of files) {
-            const imageUrl = await uploadCommentImage(file);
-            if (imageUrl) {
-                currentCommentImages.push(imageUrl);
-            }
-        }
-
-        renderCommentImages();
-
-        // Clear the input so the same files can be uploaded again
-        e.target.value = '';
-    });
-
-    // Delete Modal
-    elements.cancelDeleteBtn.addEventListener('click', hideDeleteModal);
-    elements.confirmDeleteBtn.addEventListener('click', async () => {
-        if (taskToDeleteId) {
-            await deleteTask(taskToDeleteId);
-            hideDeleteModal();
-            closeTaskPanel(); // Close the side panel too
-        }
-    });
-
-    // Close modal on outside click
-    elements.deleteModal.addEventListener('click', (e) => {
-        if (e.target === elements.deleteModal || e.target.classList.contains('bg-gray-900/50')) {
-            hideDeleteModal();
-        }
-    });
-
-    // Board Creation
-    elements.createBoardBtn.addEventListener('click', showCreateBoardModal);
-    elements.cancelCreateBoardBtn.addEventListener('click', hideCreateBoardModal);
-
-    elements.confirmCreateBoardBtn.addEventListener('click', () => {
-        const name = elements.newBoardName.value.trim();
-        if (name) {
-            const iconValue = elements.newBoardIcon?.value || 'dashboard';
-            const colorValue = elements.newBoardIconColor?.value || '#3b82f6';
-            console.log('Creating board with icon:', iconValue, 'color:', colorValue);
-            createBoard(name, iconValue, colorValue);
-        }
-    });
-
-    // List Creation
-    elements.cancelCreateListBtn.addEventListener('click', hideCreateListModal);
-    elements.confirmCreateListBtn.addEventListener('click', createColumn);
-
-    // Board Edit
-    elements.cancelEditBoardBtn.addEventListener('click', hideEditBoardModal);
-    elements.confirmEditBoardBtn.addEventListener('click', () => {
-        const boardId = elements.editBoardModal.dataset.boardId;
-        const name = elements.editBoardName.value.trim();
-        if (boardId && name) {
-            const icon = elements.editBoardIcon?.value || 'dashboard';
-            const iconColor = elements.editBoardIconColor?.value || '#3b82f6';
-            updateBoard(boardId, { name, icon, icon_color: iconColor });
-            hideEditBoardModal();
-        }
-    });
-
-    // Edit board modal - icon dropdown
-    if (elements.editIconDropdownButton && elements.editIconDropdownMenu) {
-        elements.editIconDropdownButton.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            elements.editIconDropdownMenu.classList.toggle('hidden');
-        });
-
-        document.querySelectorAll('.edit-icon-option').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const icon = btn.dataset.icon;
-                elements.editBoardIcon.value = icon;
-                elements.editSelectedIconPreview.textContent = icon;
-                document.querySelectorAll('.edit-icon-option').forEach(b => b.classList.remove('bg-blue-100', 'dark:bg-blue-900/30'));
-                btn.classList.add('bg-blue-100', 'dark:bg-blue-900/30');
-                elements.editIconDropdownMenu.classList.add('hidden');
-            });
-        });
-    }
-
-    // Edit board modal - color options
-    document.querySelectorAll('.edit-color-option').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const color = btn.dataset.color;
-            elements.editBoardIconColor.value = color;
-            elements.editSelectedIconPreview.style.color = color;
-            document.querySelectorAll('.edit-color-option').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-        });
-    });
-
-    // Edit board modal - Enter key
-    elements.editBoardName.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            elements.confirmEditBoardBtn.click();
-        }
-    });
-
-    // Close edit board modal on outside click
-    elements.editBoardModal.addEventListener('click', (e) => {
-        if (e.target === elements.editBoardModal || e.target.classList.contains('bg-gray-900/50')) {
-            hideEditBoardModal();
-        }
-    });
-
-    // Board context menu event listeners
-    if (elements.contextEditBoard) {
-        elements.contextEditBoard.addEventListener('click', () => {
-            if (currentContextBoardId) {
-                showEditBoardModal(currentContextBoardId);
-                hideBoardContextMenu();
-            }
-        });
-    }
-
-    if (elements.contextDeleteBoard) {
-        elements.contextDeleteBoard.addEventListener('click', () => {
-            if (currentContextBoardId) {
-                const board = boards.find(b => b.id === currentContextBoardId);
-                if (board) {
-                    showDeleteBoardModal(currentContextBoardId, board.name);
-                }
-                hideBoardContextMenu();
-            }
-        });
-    }
-
-    // Column Context Menu buttons
-    if (elements.contextColumnAddTask) {
-        elements.contextColumnAddTask.addEventListener('click', () => {
-            if (currentContextColumnId) {
-                const id = currentContextColumnId;
-                hideColumnContextMenu();
-                scrollToAddCard(id);
-            }
-        });
-    }
-
-    if (elements.contextColumnRename) {
-        elements.contextColumnRename.addEventListener('click', () => {
-            if (currentContextColumnId) {
-                const id = currentContextColumnId;
-                hideColumnContextMenu();
-                editColumnTitle(id);
-            }
-        });
-    }
-
-    if (elements.contextColumnMoveLeft) {
-        elements.contextColumnMoveLeft.addEventListener('click', () => {
-            if (currentContextColumnId && !elements.contextColumnMoveLeft.disabled) {
-                const id = currentContextColumnId;
-                hideColumnContextMenu();
-                moveColumnLeft(id);
-            }
-        });
-    }
-
-    if (elements.contextColumnMoveRight) {
-        elements.contextColumnMoveRight.addEventListener('click', () => {
-            if (currentContextColumnId && !elements.contextColumnMoveRight.disabled) {
-                const id = currentContextColumnId;
-                hideColumnContextMenu();
-                moveColumnRight(id);
-            }
-        });
-    }
-
-    if (elements.contextColumnDelete) {
-        elements.contextColumnDelete.addEventListener('click', () => {
-            if (currentContextColumnId) {
-                const id = currentContextColumnId;
-                hideColumnContextMenu();
-                deleteColumn(id);
-            }
-        });
-    }
-
-    // Allow Enter key to create list
-    elements.newListTitle.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            createColumn();
-        }
-    });
-
-    // Board Deletion
-    elements.cancelDeleteBoardBtn.addEventListener('click', hideDeleteBoardModal);
-    elements.deleteBoardConfirmInput.addEventListener('input', () => {
-        const boardName = elements.deleteBoardConfirmInput.dataset.boardName;
-        elements.confirmDeleteBoardBtn.disabled = elements.deleteBoardConfirmInput.value !== boardName;
-    });
-    elements.confirmDeleteBoardBtn.addEventListener('click', async () => {
-        if (boardToDeleteId) {
-            await deleteBoard(boardToDeleteId);
-        }
-    });
-
-    // List Deletion
-    elements.cancelDeleteListBtn.addEventListener('click', hideDeleteListModal);
-
-    // Close create board modal on outside click
-    elements.createBoardModal.addEventListener('click', (e) => {
-        if (e.target === elements.createBoardModal || e.target.classList.contains('bg-gray-900/50')) {
-            hideCreateBoardModal();
-        }
-    });
-
-    // Icon dropdown functionality
-    if (elements.iconDropdownButton && elements.iconDropdownMenu) {
-        elements.iconDropdownButton.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            elements.iconDropdownMenu.classList.toggle('hidden');
-        });
-
-        // Handle icon selection
-        const iconOptions = document.querySelectorAll('.icon-option');
-        iconOptions.forEach(option => {
-            option.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const icon = option.dataset.icon;
-
-                elements.newBoardIcon.value = icon;
-                elements.selectedIconPreview.textContent = icon;
-                // Apply current color to the new icon
-                if (elements.newBoardIconColor) {
-                    elements.selectedIconPreview.style.color = elements.newBoardIconColor.value;
-                }
-                elements.iconDropdownMenu.classList.add('hidden');
-            });
-        });
-
-        // Close dropdown when clicking outside
-        document.addEventListener('click', (e) => {
-            if (!elements.iconDropdownButton?.contains(e.target) && !elements.iconDropdownMenu?.contains(e.target)) {
-                elements.iconDropdownMenu?.classList.add('hidden');
-            }
-        });
-    }
-
-    // Color selection functionality
-    const colorOptions = document.querySelectorAll('.color-option');
-    colorOptions.forEach(option => {
-        option.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const color = option.dataset.color;
-
-            // Update hidden input
-            elements.newBoardIconColor.value = color;
-
-            // Update icon preview color
-            if (elements.selectedIconPreview) {
-                elements.selectedIconPreview.style.color = color;
-            }
-
-            // Update active state
-            colorOptions.forEach(btn => btn.classList.remove('active'));
-            option.classList.add('active');
-        });
-    });
-
-    // Close create list modal on outside click
-    elements.createListModal.addEventListener('click', (e) => {
-        if (e.target === elements.createListModal || e.target.classList.contains('bg-gray-900/50')) {
-            hideCreateListModal();
-        }
-    });
-
-    // Close delete board modal on outside click
-    elements.deleteBoardModal.addEventListener('click', (e) => {
-        if (e.target === elements.deleteBoardModal || e.target.classList.contains('bg-gray-900/50')) {
-            hideDeleteBoardModal();
-        }
-    });
-
-    // Create board on Enter key
-    elements.newBoardName.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            const name = elements.newBoardName.value.trim();
-            if (name) {
-                const iconValue = elements.newBoardIcon?.value || 'dashboard';
-                const colorValue = elements.newBoardIconColor?.value || '#3b82f6';
-                createBoard(name, iconValue, colorValue);
-            }
-        } else if (e.key === 'Escape') {
-            hideCreateBoardModal();
-        }
-    });
-
-
-
-    // Escape key
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            if (elements.boardContextMenu && !elements.boardContextMenu.classList.contains('hidden')) {
-                hideBoardContextMenu();
-            } else if (elements.columnContextMenu && !elements.columnContextMenu.classList.contains('hidden')) {
-                hideColumnContextMenu();
-            } else if (elements.taskContextMenu && !elements.taskContextMenu.classList.contains('hidden')) {
-                hideTaskContextMenu();
-            } else if (!elements.editBoardModal.classList.contains('hidden')) {
-                hideEditBoardModal();
-            } else if (!elements.taskPanel.classList.contains('hidden')) {
-                closeTaskPanel();
-            } else if (!elements.deleteModal.classList.contains('hidden')) {
-                hideDeleteModal();
-            } else if (!elements.deleteBoardModal.classList.contains('hidden')) {
-                hideDeleteBoardModal();
-            } else if (!elements.deleteListModal.classList.contains('hidden')) {
-                hideDeleteListModal();
-            } else if (!elements.createListModal.classList.contains('hidden')) {
-                hideCreateListModal();
-            } else if (!elements.createBoardModal.classList.contains('hidden')) {
-                hideCreateBoardModal();
-            } else if (document.getElementById('labelManagerModal') && !document.getElementById('labelManagerModal').classList.contains('hidden')) {
-                closeLabelManager();
-            } else {
-                hideInlineAddForm();
-            }
-        }
-    });
-
-    // Navigation
-    elements.navBoard.addEventListener('click', (e) => {
-        e.preventDefault();
-        switchView('board');
-    });
-
-    elements.navActivity.addEventListener('click', (e) => {
-        e.preventDefault();
-        switchView('activity');
-    });
-
-    elements.navMyTasks.addEventListener('click', (e) => {
-        e.preventDefault();
-        switchView('my-tasks');
-    });
-
-    // Theme
-    elements.themeToggle.addEventListener('click', toggleTheme);
-
-    // Sidebar Toggle
-    elements.sidebarToggle.addEventListener('click', toggleSidebar);
-
-    // Logout
-    document.getElementById('logoutBtn').addEventListener('click', () => {
-        localStorage.removeItem('access_token');
-        window.location.href = '/login';
-    });
-
-    // Label Manager
-    const labelManagerBtn = document.getElementById('labelManagerBtn');
-    if (labelManagerBtn) {
-        labelManagerBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            openLabelManager('global');
-        });
-    }
-
-    const labelCloseBtn = document.getElementById('labelCloseBtn');
-    if (labelCloseBtn) {
-        labelCloseBtn.addEventListener('click', closeLabelManager);
-    }
-
-    const labelCreateBtn = document.getElementById('labelCreateBtn');
-    if (labelCreateBtn) {
-        labelCreateBtn.addEventListener('click', createLabel);
-    }
-
-    // Close boards popout when clicking outside
-    document.addEventListener('click', (e) => {
-        const popout = document.getElementById('boardsPopout');
-        const moreBtn = document.getElementById('boardsMoreBtn');
-        if (popout && popout.style.display === 'block' &&
-            !popout.contains(e.target) &&
-            (!moreBtn || !moreBtn.contains(e.target))) {
-            popout.style.display = 'none';
-        }
-    });
-
-    const panelLabelNew = document.getElementById('panelLabelNew');
-    if (panelLabelNew) {
-        panelLabelNew.addEventListener('click', () => {
-            openLabelManager('board');
-        });
-    }
-
-    // Close label manager modal on outside click
-    const labelManagerModal = document.getElementById('labelManagerModal');
-    if (labelManagerModal) {
-        labelManagerModal.addEventListener('click', (e) => {
-            if (e.target === labelManagerModal || e.target.classList.contains('bg-gray-900/50')) {
-                closeLabelManager();
-            }
-        });
-    }
-
-    // Global click to close inline forms and column menus
-    document.addEventListener('click', (e) => {
-        if (activeInlineForm && !e.target.closest('.inline-add-form') && !e.target.closest('.add-card-btn') && !e.target.closest('#addTaskBtn')) {
-            hideInlineAddForm();
-        }
-
-        // Close column menus when clicking outside
-        if (!e.target.closest('.column-menu') && !e.target.closest('.column-menu-btn')) {
-            closeAllColumnMenus();
-        }
-
-        // Close context menu when clicking outside
-        if (!e.target.closest('#taskContextMenu') && !e.target.closest('.task-card')) {
-            hideTaskContextMenu();
-        }
-
-        // Close board context menu when clicking outside
-        if (!e.target.closest('#boardContextMenu')) {
-            hideBoardContextMenu();
-        }
-
-        // Close column context menu when clicking outside
-        if (!e.target.closest('#columnContextMenu')) {
-            hideColumnContextMenu();
-        }
-    });
-
-    // Context Menu Event Listeners
-    if (elements.contextOpenTask) {
-        elements.contextOpenTask.addEventListener('click', () => {
-            if (currentContextTask) {
-                openTaskPanel(currentContextTask);
-                hideTaskContextMenu();
-            }
-        });
-    }
-
-    if (elements.contextPriorityLow) {
-        elements.contextPriorityLow.addEventListener('click', () => {
-            if (currentContextTask) {
-                updateTask(currentContextTask.id, { priority: 'low' });
-                hideTaskContextMenu();
-            }
-        });
-    }
-
-    if (elements.contextPriorityMedium) {
-        elements.contextPriorityMedium.addEventListener('click', () => {
-            if (currentContextTask) {
-                updateTask(currentContextTask.id, { priority: 'medium' });
-                hideTaskContextMenu();
-            }
-        });
-    }
-
-    if (elements.contextPriorityHigh) {
-        elements.contextPriorityHigh.addEventListener('click', () => {
-            if (currentContextTask) {
-                updateTask(currentContextTask.id, { priority: 'high' });
-                hideTaskContextMenu();
-            }
-        });
-    }
-
-    if (elements.contextDeleteTask) {
-        elements.contextDeleteTask.addEventListener('click', () => {
-            if (currentContextTask) {
-                showDeleteModal(currentContextTask);
-                hideTaskContextMenu();
-            }
-        });
-    }
-
-    // Horizontal scroll with mouse wheel and touchpad
-    elements.boardView.addEventListener('wheel', (e) => {
-        const taskList = e.target.closest('.task-list');
-
-        // If inside a task list, check if it can scroll vertically
-        if (taskList) {
-            const canScrollUp = taskList.scrollTop > 0;
-            const canScrollDown = taskList.scrollTop < (taskList.scrollHeight - taskList.clientHeight);
-            const scrollingDown = e.deltaY > 0;
-            const scrollingUp = e.deltaY < 0;
-
-            // Allow vertical scroll if the list can scroll in that direction
-            if ((scrollingDown && canScrollDown) || (scrollingUp && canScrollUp)) {
-                return; // Let it scroll vertically
-            }
-
-            // Inside a task list but can't scroll further vertically:
-            // If the gesture is predominantly vertical (touchpad mixed scroll),
-            // don't hijack it as a horizontal board scroll — just let it be.
-            if (Math.abs(e.deltaY) >= Math.abs(e.deltaX)) {
-                return;
-            }
-        }
-
-        // Enable horizontal scrolling for touchpad swiping (has deltaX)
-        if (Math.abs(e.deltaX) > 0) {
-            // Touchpad horizontal swipe detected
-            e.preventDefault();
-            elements.boardView.scrollLeft += e.deltaX;
-        } else if (Math.abs(e.deltaY) > 0) {
-            // Mouse wheel - convert to horizontal scroll when over headers, buttons, or empty space
-            e.preventDefault();
-            elements.boardView.scrollLeft += e.deltaY;
-        }
-    }, { passive: false });
 }
 
 function attachBoardEventListeners() {
-    // Add card buttons in columns
-    document.querySelectorAll('.add-card-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            showInlineAddForm(btn.dataset.columnId);
-        });
-    });
-
-    // Column menu buttons
-    document.querySelectorAll('.column-menu-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const columnId = btn.dataset.columnId;
-            const menu = document.querySelector(`.column-menu[data-column-id="${columnId}"]`);
-
-            // Close other menus
-            document.querySelectorAll('.column-menu').forEach(m => {
-                if (m !== menu) m.classList.add('hidden');
-            });
-
-            // Toggle this menu
-            menu.classList.toggle('hidden');
-        });
-    });
-
-    // Task drag-and-drop: dragover/enter/leave/drop on each column
-    document.querySelectorAll('.column').forEach(column => {
-        column.addEventListener('dragover', (e) => {
-            // Route to the correct handler based on what's being dragged
-            if (isDragging) {
-                handleDragOver(e);
-            } else if (draggedColumn) {
-                handleColumnDragOver(e);
-            } else {
-                // Unknown drag — still prevent default so drop can fire
-                e.preventDefault();
-            }
-        });
-        column.addEventListener('dragenter', handleDragEnter);
-        column.addEventListener('dragleave', handleDragLeave);
-        column.addEventListener('drop', (e) => {
-            // Route drop to the correct handler
-            if (isDragging) {
-                handleDrop(e);
-            } else if (draggedColumn) {
-                handleColumnDrop(e);
-            }
-        });
-
-        // Column context menu
-        column.addEventListener('contextmenu', (e) => {
-            if (e.target.closest('.task-card')) return;
-            const columnId = column.dataset.columnId;
-            if (columnId) showColumnContextMenu(e, columnId);
-        });
-    });
-
-    // Column drag-and-drop: dragstart/end only from the header handle
-    document.querySelectorAll('.column-drag-handle').forEach(handle => {
-        handle.addEventListener('dragstart', handleColumnDragStart);
-        handle.addEventListener('dragend', handleColumnDragEnd);
+    bindDragDropListeners({
+        showInlineAddForm,
+        isTaskDragging: () => dragDropState.isDragging,
+        isColumnDragging: () => Boolean(dragDropState.draggedColumn),
+        handleDragOver,
+        handleColumnDragOver,
+        handleDragEnter,
+        handleDragLeave,
+        handleDrop,
+        handleColumnDrop,
+        showColumnContextMenu,
+        handleColumnDragStart,
+        handleColumnDragEnd
     });
 }
 // ===== End of Event Listeners =====
