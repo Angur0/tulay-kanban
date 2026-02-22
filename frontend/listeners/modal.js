@@ -38,6 +38,7 @@ export function bindModalListeners({
         if (name) {
             const iconValue = elements.newBoardIcon?.value || 'dashboard';
             const colorValue = elements.newBoardIconColor?.value || '#3b82f6';
+            hideCreateBoardModal();
             createBoard(name, iconValue, colorValue);
         }
     });
@@ -190,6 +191,7 @@ export function bindModalListeners({
     elements.confirmDeleteBoardBtn.addEventListener('click', async () => {
         const boardToDeleteId = getBoardToDeleteId();
         if (boardToDeleteId) {
+            hideDeleteBoardModal();
             await deleteBoard(boardToDeleteId);
         }
     });
@@ -262,12 +264,19 @@ export function bindModalListeners({
         }
     });
 
+    elements.deleteListModal.addEventListener('click', (e) => {
+        if (e.target === elements.deleteListModal || e.target.classList.contains('bg-gray-900/50')) {
+            hideDeleteListModal();
+        }
+    });
+
     elements.newBoardName.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             const name = elements.newBoardName.value.trim();
             if (name) {
                 const iconValue = elements.newBoardIcon?.value || 'dashboard';
                 const colorValue = elements.newBoardIconColor?.value || '#3b82f6';
+                hideCreateBoardModal();
                 createBoard(name, iconValue, colorValue);
             }
         } else if (e.key === 'Escape') {

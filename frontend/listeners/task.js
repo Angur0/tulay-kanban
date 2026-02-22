@@ -104,9 +104,9 @@ export function bindTaskListeners({
     elements.confirmDeleteBtn.addEventListener('click', async () => {
         const taskToDeleteId = getTaskToDeleteId();
         if (taskToDeleteId) {
-            await deleteTask(taskToDeleteId);
             hideDeleteModal();
             closeTaskPanel();
+            await deleteTask(taskToDeleteId);
         }
     });
 
