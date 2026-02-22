@@ -30,6 +30,12 @@ export function bindModalListeners({
     closeLabelManager,
     hideInlineAddForm
 }) {
+    const isOutsideModalContent = (modalEl, target) => {
+        const modalContent = modalEl?.querySelector('[data-modal-content]');
+        if (!modalContent) return false;
+        return !modalContent.contains(target);
+    };
+
     elements.createBoardBtn.addEventListener('click', showCreateBoardModal);
     elements.cancelCreateBoardBtn.addEventListener('click', hideCreateBoardModal);
 
@@ -94,7 +100,7 @@ export function bindModalListeners({
     });
 
     elements.editBoardModal.addEventListener('click', (e) => {
-        if (e.target === elements.editBoardModal || e.target.classList.contains('bg-gray-900/50')) {
+        if (isOutsideModalContent(elements.editBoardModal, e.target)) {
             hideEditBoardModal();
         }
     });
@@ -177,7 +183,7 @@ export function bindModalListeners({
         });
     }
 
-    elements.newListTitle.addEventListener('keypress', (e) => {
+    elements.newListTitle.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             createColumn();
         }
@@ -188,6 +194,12 @@ export function bindModalListeners({
         const boardName = elements.deleteBoardConfirmInput.dataset.boardName;
         elements.confirmDeleteBoardBtn.disabled = elements.deleteBoardConfirmInput.value !== boardName;
     });
+    elements.deleteBoardConfirmInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !elements.confirmDeleteBoardBtn.disabled) {
+            e.preventDefault();
+            elements.confirmDeleteBoardBtn.click();
+        }
+    });
     elements.confirmDeleteBoardBtn.addEventListener('click', async () => {
         const boardToDeleteId = getBoardToDeleteId();
         if (boardToDeleteId) {
@@ -197,9 +209,15 @@ export function bindModalListeners({
     });
 
     elements.cancelDeleteListBtn.addEventListener('click', hideDeleteListModal);
+    elements.deleteListConfirmInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !elements.confirmDeleteListBtn.disabled) {
+            e.preventDefault();
+            elements.confirmDeleteListBtn.click();
+        }
+    });
 
     elements.createBoardModal.addEventListener('click', (e) => {
-        if (e.target === elements.createBoardModal || e.target.classList.contains('bg-gray-900/50')) {
+        if (isOutsideModalContent(elements.createBoardModal, e.target)) {
             hideCreateBoardModal();
         }
     });
@@ -253,19 +271,19 @@ export function bindModalListeners({
     });
 
     elements.createListModal.addEventListener('click', (e) => {
-        if (e.target === elements.createListModal || e.target.classList.contains('bg-gray-900/50')) {
+        if (isOutsideModalContent(elements.createListModal, e.target)) {
             hideCreateListModal();
         }
     });
 
     elements.deleteBoardModal.addEventListener('click', (e) => {
-        if (e.target === elements.deleteBoardModal || e.target.classList.contains('bg-gray-900/50')) {
+        if (isOutsideModalContent(elements.deleteBoardModal, e.target)) {
             hideDeleteBoardModal();
         }
     });
 
     elements.deleteListModal.addEventListener('click', (e) => {
-        if (e.target === elements.deleteListModal || e.target.classList.contains('bg-gray-900/50')) {
+        if (isOutsideModalContent(elements.deleteListModal, e.target)) {
             hideDeleteListModal();
         }
     });

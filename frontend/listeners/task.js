@@ -24,6 +24,12 @@ export function bindTaskListeners({
     openTaskPanel,
     updateTask
 }) {
+    const isOutsideModalContent = (modalEl, target) => {
+        const modalContent = modalEl?.querySelector('[data-modal-content]');
+        if (!modalContent) return false;
+        return !modalContent.contains(target);
+    };
+
     elements.closePanelBtn.addEventListener('click', closeTaskPanel);
     elements.cancelPanelBtn.addEventListener('click', closeTaskPanel);
     elements.panelOverlay.addEventListener('click', closeTaskPanel);
@@ -109,9 +115,15 @@ export function bindTaskListeners({
             await deleteTask(taskToDeleteId);
         }
     });
+    elements.deleteModal.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            elements.confirmDeleteBtn.click();
+        }
+    });
 
     elements.deleteModal.addEventListener('click', (e) => {
-        if (e.target === elements.deleteModal || e.target.classList.contains('bg-gray-900/50')) {
+        if (isOutsideModalContent(elements.deleteModal, e.target)) {
             hideDeleteModal();
         }
     });
