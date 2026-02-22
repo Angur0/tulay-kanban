@@ -83,6 +83,14 @@ tulay-kanban/
 └── README.md
 ```
 
+
+## Documentation
+
+- [Known Issues & Technical Debt](docs/KNOWN_ISSUES.md)
+- [Storage Architecture](docs/STORAGE_ARCHITECTURE.md)
+- [Storage Migration Guide](docs/STORAGE_MIGRATION.md)
+- [Storage Quick Reference](docs/STORAGE_QUICK_REF.md)
+
 ## Future Roadmap
 
 - [x] Multiple boards and workspace management
