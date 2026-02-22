@@ -1,4 +1,5 @@
 fastapi
+Pillow
 uvicorn
 aiokafka 
 websockets

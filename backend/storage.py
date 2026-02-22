@@ -3,6 +3,7 @@ Storage abstraction layer for file uploads
 Supports local filesystem and can be extended for Cloudflare R2
 """
 
+import io
 import os
 import shutil
 from abc import ABC, abstractmethod
@@ -10,6 +11,8 @@ from pathlib import Path
 from typing import BinaryIO, Optional
 import datetime
 import uuid
+
+from PIL import Image
 
 
 class StorageBackend(ABC):
@@ -57,6 +60,37 @@ class StorageBackend(ABC):
         pass
 
 
+def strip_image_metadata(file: BinaryIO, content_type: str) -> BinaryIO:
+    """
+    Return a copy of the file with EXIF/metadata stripped.
+    Only processes recognised image types; other files are returned as-is.
+    """
+    image_types = {"image/jpeg", "image/png", "image/webp", "image/gif", "image/bmp", "image/tiff"}
+    if content_type not in image_types:
+        return file
+
+    try:
+        file.seek(0)
+        img = Image.open(file)
+        img.load()  # fully read before we close the source
+
+        # Re-save into a fresh buffer without EXIF
+        output = io.BytesIO()
+        # Preserve format; fall back to JPEG for unknown
+        fmt = img.format or "JPEG"
+        # PNG doesn't support EXIF kwarg, so we only pass it for JPEG/WEBP/TIFF
+        if fmt in ("JPEG", "WEBP", "TIFF"):
+            img.save(output, format=fmt, exif=b"")
+        else:
+            img.save(output, format=fmt)
+        output.seek(0)
+        return output
+    except Exception as e:
+        print(f"Warning: could not strip image metadata ({e}); uploading original")
+        file.seek(0)
+        return file
+
+
 class LocalFileStorage(StorageBackend):
     """Local filesystem storage implementation"""
     
@@ -81,10 +115,13 @@ class LocalFileStorage(StorageBackend):
         unique_filename = f"{datetime.datetime.utcnow().timestamp()}_{uuid.uuid4()}.{file_extension}"
         file_path = self.upload_dir / unique_filename
         
+        # Strip EXIF/metadata before saving
+        clean_file = strip_image_metadata(file, content_type)
+
         # Save file
         with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file, buffer)
-        
+            shutil.copyfileobj(clean_file, buffer)
+
         # Return public URL
         return f"{self.base_url}/uploads/{unique_filename}"
     
@@ -165,10 +202,12 @@ class CloudflareR2Storage(StorageBackend):
         file_extension = filename.split(".")[-1]
         file_key = f"images/{datetime.datetime.utcnow().strftime('%Y/%m')}/{uuid.uuid4()}.{file_extension}"
         
+        # Strip EXIF/metadata before uploading
+        clean_file = strip_image_metadata(file, content_type)
+
         # Upload to R2
-        file.seek(0)  # Reset file pointer
         self.s3_client.upload_fileobj(
-            file,
+            clean_file,
             self.bucket_name,
             file_key,
             ExtraArgs={
