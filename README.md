@@ -50,6 +50,22 @@ Wait for Kafka/Postgres to be healthy before launching backend.
 pip install -r requirements.txt
 ```
 
+Optional (Cloudflare R2 storage only):
+
+```bash
+pip install boto3
+```
+
+### 3.1) Configure environment (optional)
+
+The app runs with defaults, but you can set optional environment variables:
+
+- `STORAGE_BACKEND` (`local` or `r2`, default: `local`)
+- `BASE_URL` (default: empty string; use `http://localhost:8000` for absolute upload URLs)
+- `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL` (required only for `STORAGE_BACKEND=r2`)
+
+You can copy `.env.example` as reference, but note this project does **not** auto-load `.env` at runtime. Export variables in your shell (or Docker/host environment) before starting the app.
+
 ### 4) Run backend
 
 ```bash
@@ -57,6 +73,23 @@ python main.py
 ```
 
 Open http://localhost:8000
+
+## Troubleshooting startup (`python main.py` exits with code 1)
+
+Most startup failures are one of these:
+
+1. **PostgreSQL is not running on `localhost:5432`**
+	- Start infra first: `docker compose up -d`
+	- Verify container health/logs with `docker compose ps` and `docker compose logs db`
+
+2. **Dependencies are missing**
+	- Reinstall: `pip install -r requirements.txt`
+
+3. **Kafka is unavailable**
+	- Kafka connection failures are non-fatal in this project (it falls back to websocket-only broadcast), but ensure `kafka` container is up if you need Kafka-backed fan-out.
+
+4. **Python version/runtime mismatch**
+	- Use Python `3.9+`.
 
 ## Login
 
@@ -125,6 +158,8 @@ tulay-kanban/
 - [Storage Architecture](docs/STORAGE_ARCHITECTURE.md)
 - [Storage Migration](docs/STORAGE_MIGRATION.md)
 - [Storage Quick Reference](docs/STORAGE_QUICK_REF.md)
+
+For known technical debt and pending refactors, see [Known Issues](docs/KNOWN_ISSUES.md).
 
 ## License
 

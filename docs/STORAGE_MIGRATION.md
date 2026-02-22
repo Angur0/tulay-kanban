@@ -55,7 +55,7 @@ pip install boto3
 
 ### 5. Configure Environment Variables
 
-Create a `.env` file (or update your existing one) with:
+Set variables in your shell/session (or container environment) with:
 
 ```bash
 # Storage Configuration
@@ -69,6 +69,17 @@ R2_BUCKET_NAME=kanban-images
 R2_PUBLIC_URL=https://pub-xxxxxxxxxxxxx.r2.dev
 ```
 
+PowerShell example:
+
+```powershell
+$env:STORAGE_BACKEND="r2"
+$env:R2_ACCOUNT_ID="your-cloudflare-account-id"
+$env:R2_ACCESS_KEY_ID="your-r2-access-key-id"
+$env:R2_SECRET_ACCESS_KEY="your-r2-secret-access-key"
+$env:R2_BUCKET_NAME="kanban-images"
+$env:R2_PUBLIC_URL="https://pub-xxxxxxxxxxxxx.r2.dev"
+```
+
 **Finding your Account ID:**
 - Go to Cloudflare Dashboard
 - It's in the URL: `dash.cloudflare.com/YOUR_ACCOUNT_ID`
@@ -78,21 +89,7 @@ R2_PUBLIC_URL=https://pub-xxxxxxxxxxxxx.r2.dev
 - In your bucket settings, look for "Public bucket URL"
 - Or use a custom domain if configured
 
-### 6. Update Application to Load Environment Variables
-
-If not already done, ensure your application loads the `.env` file in your startup path (for this project, `backend/main.py` is the app composition root):
-
-```python
-from dotenv import load_dotenv
-load_dotenv()
-```
-
-Then install python-dotenv:
-```bash
-pip install python-dotenv
-```
-
-### 7. Restart the Application
+### 6. Restart the Application
 
 ```bash
 python main.py
@@ -231,7 +228,7 @@ STORAGE_BACKEND=local
 - Solution: Install boto3: `pip install boto3`
 
 **Error: "R2 storage requires environment variables"**
-- Solution: Ensure all R2_* variables are set in your .env file
+- Solution: Ensure all required R2_* variables are set in your current shell/session
 
 **Images not loading:**
 - Check that your R2 bucket has public access enabled

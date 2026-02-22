@@ -78,7 +78,7 @@ The application now uses a **storage abstraction layer** that supports multiple 
 The storage backend is selected via the `STORAGE_BACKEND` environment variable:
 
 ```python
-# .env file
+# environment variable
 STORAGE_BACKEND=local  # or 'r2'
 ```
 
@@ -260,8 +260,18 @@ export R2_ACCESS_KEY_ID=xxx
 export R2_SECRET_ACCESS_KEY=xxx
 export R2_BUCKET_NAME=xxx
 export R2_PUBLIC_URL=xxx
+python main.py
+```
 
-# Or use .env file
+PowerShell example:
+
+```powershell
+$env:STORAGE_BACKEND="r2"
+$env:R2_ACCOUNT_ID="xxx"
+$env:R2_ACCESS_KEY_ID="xxx"
+$env:R2_SECRET_ACCESS_KEY="xxx"
+$env:R2_BUCKET_NAME="xxx"
+$env:R2_PUBLIC_URL="xxx"
 python main.py
 ```
 
@@ -275,7 +285,7 @@ See [STORAGE_MIGRATION.md](STORAGE_MIGRATION.md) for detailed troubleshooting st
 - Install: `pip install boto3`
 
 **"R2 storage requires environment variables"**
-- Check `.env` file has all R2_* variables
+- Check that all required `R2_*` variables are set in the current shell/session
 
 **Images not loading**
 - Verify bucket public access settings

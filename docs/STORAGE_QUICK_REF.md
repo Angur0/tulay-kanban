@@ -40,8 +40,8 @@ That's it! 🎉
 | `backend/storage.py` | Storage abstraction layer |
 | `frontend/events.js` | Frontend orchestration for upload flows |
 | `.env.example` | Configuration template |
-| `STORAGE_MIGRATION.md` | Full migration guide |
-| `STORAGE_ARCHITECTURE.md` | Technical details |
+| `docs/STORAGE_MIGRATION.md` | Full migration guide |
+| `docs/STORAGE_ARCHITECTURE.md` | Technical details |
 
 ## Key Features
 
@@ -67,9 +67,13 @@ That's it! 🎉
 
 ## Need Help?
 
-- **Setup R2:** See `STORAGE_MIGRATION.md`
-- **Architecture:** See `STORAGE_ARCHITECTURE.md`
+- **Setup R2:** See `docs/STORAGE_MIGRATION.md`
+- **Architecture:** See `docs/STORAGE_ARCHITECTURE.md`
 - **Configuration:** See `.env.example`
+
+## Environment Variable Note
+
+Use `.env.example` as a reference template. The application does not auto-load a `.env` file by default, so set variables in your shell/session (or container environment) before running `python main.py`.
 
 ## Pro Tips 💡
 
