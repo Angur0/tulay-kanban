@@ -9,7 +9,7 @@ The application now uses a **storage abstraction layer** that supports multiple 
 ```
 ┌─────────────────────────────────────┐
 │         FastAPI Application         │
-│         (main.py)                   │
+│     (backend/main.py + launcher)    │
 └───────────────┬─────────────────────┘
                 │
                 │ uses
@@ -58,7 +58,7 @@ The application now uses a **storage abstraction layer** that supports multiple 
 
 ### Modified Files
 
-1. **`main.py`**
+1. **`backend/main.py`**
    - Added `from backend.storage import get_storage_backend`
    - Initialize storage backend: `storage = get_storage_backend()`
    - Updated `/api/upload-image` endpoint to use storage backend
@@ -242,7 +242,7 @@ Consider implementing:
 
 ### Local Storage
 ```bash
-# Default - no config needed
+# From repository root (default - no config needed)
 python main.py
 ```
 

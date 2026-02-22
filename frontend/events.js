@@ -3,12 +3,21 @@
  * Superthread-style task management with inline creation and slide-out panel
  */
 
-// ===== State Management =====
-const STORAGE_KEY = 'kafka-kanban-tasks';
-const API_URL = window.location.origin;
-const WS_URL = `ws://${window.location.host}/ws`;
-const getWsUrl = (boardId) => `ws://${window.location.host}/ws/${boardId}`;
+import {
+    STORAGE_KEY,
+    API_URL,
+    getWsUrl,
+    normalizeBoardIcon,
+    columnColorClasses,
+    labelColors,
+    statusLabels,
+    TASK_DRAG_KEY
+} from './state.js';
+import { authFetch, sendKafkaEventRequest } from './api.js';
+import { escapeHtml, formatEventData, formatDate, showToast, showKafkaEvent } from './ui.js';
+import { bindStaticDomEvents } from './dom-events.js';
 
+// ===== State Management =====
 let tasks = [];
 let globalEvents = [];
 let currentUser = null;
@@ -17,46 +26,6 @@ let currentEditingTask = null;
 let activeInlineForm = null;
 let websocket = null;
 let kafkaConnected = false;
-
-const BOARD_ICONS = new Set([
-    'dashboard',
-    'folder',
-    'campaign',
-    'code',
-    'shopping_bag',
-    'rocket_launch',
-    'design_services',
-    'event',
-    'school',
-    'inventory_2'
-]);
-
-function normalizeBoardIcon(icon) {
-    return BOARD_ICONS.has(icon) ? icon : 'dashboard';
-}
-
-// Authenticated Fetch Wrapper
-async function authFetch(url, options = {}) {
-    const token = localStorage.getItem('access_token');
-    if (!token) {
-        window.location.href = '/login';
-        return null;
-    }
-
-    const headers = {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        ...options.headers
-    };
-
-    const response = await fetch(url, { ...options, headers });
-    if (response.status === 401) {
-        localStorage.removeItem('access_token');
-        window.location.href = '/login';
-        return null;
-    }
-    return response;
-}
 
 // ===== DOM Elements =====
 const elements = {
@@ -197,47 +166,7 @@ let currentContextTask = null; // Track task for context menu
 let currentContextColumnId = null; // Track column for context menu
 
 // ===== Column Color Classes =====
-const columnColorClasses = [
-    'bg-amber-500',
-    'bg-primary',
-    'bg-green-500',
-    'bg-purple-500',
-    'bg-pink-500',
-    'bg-indigo-500',
-    'bg-red-500',
-    'bg-yellow-500'
-];
-
-// ===== Label Colors =====
-const labelColors = {
-    backend: {
-        bg: 'bg-blue-50 dark:bg-blue-900/30',
-        text: 'text-blue-700 dark:text-blue-400',
-        ring: 'ring-blue-700/10 dark:ring-blue-400/20'
-    },
-    frontend: {
-        bg: 'bg-green-50 dark:bg-green-900/30',
-        text: 'text-green-700 dark:text-green-400',
-        ring: 'ring-green-600/20 dark:ring-green-500/20'
-    },
-    design: {
-        bg: 'bg-purple-50 dark:bg-purple-900/30',
-        text: 'text-purple-700 dark:text-purple-400',
-        ring: 'ring-purple-700/10 dark:ring-purple-400/20'
-    },
-    devops: {
-        bg: 'bg-gray-50 dark:bg-gray-800',
-        text: 'text-gray-600 dark:text-gray-400',
-        ring: 'ring-gray-500/10 dark:ring-gray-400/20'
-    }
-};
-
-// ===== Status Labels =====
-const statusLabels = {
-    todo: 'To Do',
-    inprogress: 'In Progress',
-    done: 'Done'
-};
+// ===== Column Color Classes =====
 
 // ===== Task Data Model =====
 class Task {
@@ -395,7 +324,7 @@ function renderBoard() {
                 <span class="material-symbols-outlined text-5xl mb-4 opacity-30">dashboard_customize</span>
                 <p class="text-base font-medium mb-2">No boards yet</p>
                 <p class="text-sm mb-4">Create your first board to get started</p>
-                <button onclick="document.getElementById('createBoardBtn').click()" 
+                <button data-action="open-create-board" 
                     class="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-blue-600 text-white text-sm font-medium rounded-lg shadow-sm transition-colors">
                     <span class="material-symbols-outlined text-[18px]">add</span>
                     Create Board
@@ -423,7 +352,7 @@ function renderBoard() {
                 <span class="material-symbols-outlined text-5xl mb-4 opacity-30">view_week</span>
                 <p class="text-base font-medium mb-2">No lists yet</p>
                 <p class="text-sm mb-4">Create your first list to organize tasks</p>
-                <button onclick="showCreateListModal()" 
+                <button data-action="open-create-list" 
                     class="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-blue-600 text-white text-sm font-medium rounded-lg shadow-sm transition-colors">
                     <span class="material-symbols-outlined text-[18px]">add</span>
                     Create List
@@ -449,25 +378,25 @@ function renderBoard() {
                         <span class="material-symbols-outlined text-[18px]">more_horiz</span>
                     </button>
                     <div class="column-menu hidden absolute right-0 top-8 bg-white dark:bg-[#151e29] rounded-lg shadow-xl border border-[#e5e7eb] dark:border-[#1e2936] py-1 w-48 z-10" data-column-id="${col.id}">
-                        <button onclick="scrollToAddCard('${col.id}')" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-[#111418] dark:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] transition-colors text-left">
+                        <button data-action="column-add-card" data-column-id="${col.id}" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-[#111418] dark:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] transition-colors text-left">
                             <span class="material-symbols-outlined text-[18px]">add</span>
                             Add card
                         </button>
                         <div class="border-t border-[#e5e7eb] dark:border-[#1e2936] my-1"></div>
-                        <button onclick="moveColumnLeft('${col.id}')" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-[#111418] dark:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] transition-colors text-left" ${index === 0 ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
+                        <button data-action="column-move-left" data-column-id="${col.id}" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-[#111418] dark:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] transition-colors text-left" ${index === 0 ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
                             <span class="material-symbols-outlined text-[18px]">arrow_back</span>
                             Move left
                         </button>
-                        <button onclick="moveColumnRight('${col.id}')" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-[#111418] dark:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] transition-colors text-left" ${index === columns.length - 1 ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
+                        <button data-action="column-move-right" data-column-id="${col.id}" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-[#111418] dark:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] transition-colors text-left" ${index === columns.length - 1 ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
                             <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
                             Move right
                         </button>
                         <div class="border-t border-[#e5e7eb] dark:border-[#1e2936] my-1"></div>
-                        <button onclick="editColumnTitle('${col.id}')" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-[#111418] dark:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] transition-colors text-left">
+                        <button data-action="column-rename" data-column-id="${col.id}" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-[#111418] dark:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] transition-colors text-left">
                             <span class="material-symbols-outlined text-[18px]">edit</span>
                             Rename list
                         </button>
-                        <button onclick="deleteColumn('${col.id}')" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left">
+                        <button data-action="column-delete" data-column-id="${col.id}" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left">
                             <span class="material-symbols-outlined text-[18px]">delete</span>
                             Delete list
                         </button>
@@ -963,36 +892,6 @@ async function updateColumnPositions() {
     }
 }
 
-async function moveColumnLeft(columnId) {
-    closeAllColumnMenus();
-    const index = columns.findIndex(c => c.id === columnId);
-    if (index <= 0) return;
-
-    // Swap positions
-    const temp = columns[index - 1];
-    columns[index - 1] = columns[index];
-    columns[index] = temp;
-
-    // Update positions in database
-    await updateColumnPositions();
-    renderBoard();
-}
-
-async function moveColumnRight(columnId) {
-    closeAllColumnMenus();
-    const index = columns.findIndex(c => c.id === columnId);
-    if (index < 0 || index >= columns.length - 1) return;
-
-    // Swap positions
-    const temp = columns[index + 1];
-    columns[index + 1] = columns[index];
-    columns[index] = temp;
-
-    // Update positions in database
-    await updateColumnPositions();
-    renderBoard();
-}
-
 // ===== Label Management =====
 let globalLabels = [];
 let boardLabels = [];
@@ -1061,7 +960,7 @@ function renderLabelLists() {
                     <span class="w-4 h-4 rounded" style="background-color: ${label.color || '#93c5fd'}"></span>
                     <span class="text-sm text-[#111418] dark:text-white">${escapeHtml(label.name)}</span>
                 </div>
-                <button onclick="deleteLabel('${label.id}')" class="text-red-500 hover:text-red-700 transition-colors">
+                <button data-action="label-delete" data-label-id="${label.id}" class="text-red-500 hover:text-red-700 transition-colors">
                     <span class="material-symbols-outlined text-[16px]">delete</span>
                 </button>
             </div>
@@ -1078,7 +977,7 @@ function renderLabelLists() {
                     <span class="w-4 h-4 rounded" style="background-color: ${label.color || '#93c5fd'}"></span>
                     <span class="text-sm text-[#111418] dark:text-white">${escapeHtml(label.name)}</span>
                 </div>
-                <button onclick="deleteLabel('${label.id}')" class="text-red-500 hover:text-red-700 transition-colors">
+                <button data-action="label-delete" data-label-id="${label.id}" class="text-red-500 hover:text-red-700 transition-colors">
                     <span class="material-symbols-outlined text-[16px]">delete</span>
                 </button>
             </div>
@@ -1212,11 +1111,6 @@ function getSelectedLabelIds() {
     return Array.from(checkboxes).map(cb => cb.value);
 }
 
-// Expose label management functions to global scope for inline onclick handlers
-window.openLabelManager = openLabelManager;
-window.closeLabelManager = closeLabelManager;
-window.deleteLabel = deleteLabel;
-
 // ===== Board Management =====
 async function loadBoards() {
     if (!activeWorkspaceId) return;
@@ -1288,15 +1182,16 @@ function renderBoardList() {
         return `
             <div class="flex items-center gap-1 group/board board-item ${isDraggable ? 'cursor-move' : ''}" 
                  data-board-id="${board.id}"
+                 data-board-context="1"
                  ${isDraggable ? 'draggable="true"' : ''}
-                 oncontextmenu="showBoardContextMenu(event, '${board.id}'); return false;">
+                 >
                  
                 <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg flex-1 justify-start sidebar-item ${isActive ? 'bg-[#eff1f3] dark:bg-[#1e2936] text-[#111418] dark:text-white' : 'text-[#5c6b7f] dark:text-gray-400 hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] hover:text-[#111418] dark:hover:text-white'} transition-colors group"
-                    onclick="switchBoard('${board.id}'); return false;" data-sidebar-tooltip="${escapeHtml(board.name)}">
+                    data-action="switch-board" data-board-id="${board.id}" data-sidebar-tooltip="${escapeHtml(board.name)}">
                     <span class="material-symbols-outlined transition-colors flex-shrink-0" style="color: ${iconColor}">${escapeHtml(normalizeBoardIcon(board.icon))}</span>
                     <span class="text-sm font-medium truncate sidebar-text whitespace-nowrap">${escapeHtml(board.name)}</span>
                 </a>
-                <button onclick="showDeleteBoardModal('${board.id}', '${escapeHtml(board.name)}'); event.stopPropagation(); return false;" 
+                <button data-action="delete-board" data-board-id="${board.id}" data-board-name="${escapeHtml(board.name)}"
                     class="opacity-0 group-hover/board:opacity-100 p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-[#8a98a8] hover:text-red-600 dark:hover:text-red-400 transition-all sidebar-text" 
                     title="Delete board">
                     <span class="material-symbols-outlined text-[16px]">delete</span>
@@ -1312,7 +1207,7 @@ function renderBoardList() {
         html += `
             <div class="flex items-center justify-center py-1 mt-1 group relative">
                 <button id="boardsMoreBtn" class="flex items-center justify-center size-8 rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] text-[#5c6b7f] transition-colors"
-                    title="More boards" onclick="toggleBoardsPopout(event)" data-sidebar-tooltip="More Boards">
+                    title="More boards" data-action="toggle-boards-popout" data-sidebar-tooltip="More Boards">
                     <span class="material-symbols-outlined">more_horiz</span>
                 </button>
             </div>
@@ -2181,10 +2076,10 @@ function renderTaskImages(images) {
         <div class="relative group aspect-square rounded-lg overflow-hidden border border-[#e5e7eb] dark:border-[#1e2936] bg-gray-100 dark:bg-gray-800">
             <img src="${url}" alt="Task image ${index + 1}" 
                 class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                onclick="openImageModal('${url}')">
+                data-action="open-image-modal" data-image-url="${url}">
             <button type="button" 
                 class="absolute top-1 right-1 p-1 bg-red-600 hover:bg-red-700 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
-                onclick="removeTaskImage(${index})"
+                data-action="remove-task-image" data-image-index="${index}"
                 title="Remove image">
                 <span class="material-symbols-outlined text-[16px]">close</span>
             </button>
@@ -2291,7 +2186,7 @@ function renderComments(comments) {
                     <div class="aspect-square rounded-lg overflow-hidden border border-[#e5e7eb] dark:border-[#1e2936] bg-gray-100 dark:bg-gray-800">
                         <img src="${url}" alt="Comment image" 
                             class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                            onclick="openImageModal('${url}')">
+                            data-action="open-image-modal" data-image-url="${url}">
                     </div>
                 `).join('')}
             </div>
@@ -2310,7 +2205,7 @@ function renderComments(comments) {
                         </div>
                     </div>
                     ${isOwner ? `
-                        <button onclick="deleteComment('${comment.id}')" 
+                        <button data-action="delete-comment" data-comment-id="${comment.id}"
                             class="p-1 text-[#5c6b7f] hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors"
                             title="Delete comment">
                             <span class="material-symbols-outlined text-[18px]">delete</span>
@@ -2416,7 +2311,7 @@ function renderCommentImages() {
                 class="w-full h-full object-cover">
             <button type="button" 
                 class="absolute top-1 right-1 p-1 bg-red-600 hover:bg-red-700 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
-                onclick="removeCommentImage(${index})"
+                data-action="remove-comment-image" data-image-index="${index}"
                 title="Remove image">
                 <span class="material-symbols-outlined text-[14px]">close</span>
             </button>
@@ -2427,12 +2322,6 @@ function renderCommentImages() {
 function removeCommentImage(index) {
     currentCommentImages.splice(index, 1);
     renderCommentImages();
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 function saveTaskFromPanel() {
@@ -2533,7 +2422,7 @@ async function addTask(title, description, priority, status, labelIds = []) {
         const newTask = await response.json();
         tasks.push(newTask);
         renderBoard();
-        showKafkaEvent('Task created: ' + newTask.title, 'success');
+        notifyKafkaEvent('Task created: ' + newTask.title, 'success');
 
         // Notification is handled by WebSocket now, but for immediate UI feedback:
         if (!elements.activityView.classList.contains('hidden')) renderActivityLog();
@@ -2573,7 +2462,7 @@ async function addTaskToColumn(title, description, priority, columnId, labelIds 
         const newTask = await response.json();
         tasks.push(newTask);
         renderBoard();
-        showKafkaEvent('Task created: ' + newTask.title, 'success');
+        notifyKafkaEvent('Task created: ' + newTask.title, 'success');
 
         // Notification is handled by WebSocket now, but for immediate UI feedback:
         if (!elements.activityView.classList.contains('hidden')) renderActivityLog();
@@ -2602,7 +2491,7 @@ async function updateTask(id, updates) {
 
         renderBoard();
         if (!elements.activityView.classList.contains('hidden')) renderActivityLog();
-        showKafkaEvent('Task updated: ' + updatedTask.title, 'success');
+        notifyKafkaEvent('Task updated: ' + updatedTask.title, 'success');
     } catch (e) {
         console.error('Error updating task:', e);
         showToast('Failed to update task', 'error');
@@ -2638,7 +2527,7 @@ async function deleteTask(id) {
         renderBoard();
         if (!elements.activityView.classList.contains('hidden')) renderActivityLog();
         closeTaskPanel();
-        showKafkaEvent('Task deleted: ' + task.title, 'success');
+        notifyKafkaEvent('Task deleted: ' + task.title, 'success');
     } catch (e) {
         console.error('Error deleting task:', e);
         showToast('Failed to delete task', 'error');
@@ -2670,7 +2559,7 @@ function moveTask(taskId, newStatus) {
         saveTasks();
         renderBoard();
         if (!elements.activityView.classList.contains('hidden')) renderActivityLog();
-        showKafkaEvent(`Task moved: ${task.title} (${statusLabels[oldStatus]} → ${statusLabels[newStatus]})`);
+        notifyKafkaEvent(`Task moved: ${task.title} (${statusLabels[oldStatus]} → ${statusLabels[newStatus]})`);
         sendKafkaEvent('TASK_MOVED', taskId, { from: oldStatus, to: newStatus });
 
         console.log('Kafka Event → task-moved:', { taskId, from: oldStatus, to: newStatus });
@@ -2687,12 +2576,7 @@ async function sendKafkaEvent(eventType, taskId, data = {}) {
     };
 
     try {
-        const response = await fetch(`${API_URL}/api/events`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(event)
-        });
-        const result = await response.json();
+        const result = await sendKafkaEventRequest(API_URL, event);
         console.log('Kafka API response:', result);
 
         if (result.status === 'sent') {
@@ -2786,61 +2670,9 @@ function updateKafkaStatusUI() {
     // The connection status is managed by the WebSocket connection itself
 }
 
-// ===== Toast Notifications =====
-function showToast(message, type = 'info') {
-    // Remove any existing toasts to prevent stacking
-    elements.toastContainer.innerHTML = '';
-
-    const toast = document.createElement('div');
-
-    const colors = {
-        info: 'bg-[#111418] dark:bg-[#1e2936] border-[#e5e7eb] dark:border-[#2a3645] text-white',
-        success: 'bg-emerald-600 border-emerald-500 text-white',
-        error: 'bg-red-600 border-red-500 text-white'
-    };
-
-    const icons = {
-        info: 'info',
-        success: 'check_circle',
-        error: 'error'
-    };
-
-    toast.className = `${colors[type]} px-4 py-3 rounded-lg border flex items-center gap-3 transform transition-all duration-300 translate-y-8 opacity-0 pointer-events-auto min-w-[300px] max-w-[400px]`;
-
-    toast.innerHTML = `
-        <span class="material-symbols-outlined text-[20px]">${icons[type]}</span>
-        <span class="text-sm font-medium flex-1">${escapeHtml(message)}</span>
-        <button class="text-white/70 hover:text-white transition-colors" onclick="this.parentElement.remove()">
-            <span class="material-symbols-outlined text-[16px]">close</span>
-        </button>
-    `;
-
-    elements.toastContainer.appendChild(toast);
-
-    // Animate in
-    requestAnimationFrame(() => {
-        toast.classList.remove('translate-y-8', 'opacity-0');
-    });
-
-    // Auto dismiss
-    setTimeout(() => {
-        toast.classList.add('translate-y-8', 'opacity-0');
-        setTimeout(() => toast.remove(), 300);
-    }, 3000);
-}
-
 // ===== Kafka Status Display =====
-function showKafkaEvent(message, type = 'info') {
-    // Only update status text if it's a connectivity message
-    if (message.includes('Connected') || message.includes('Disconnected')) {
-        elements.kafkaStatus.textContent = message;
-        setTimeout(() => {
-            updateKafkaStatusUI();
-        }, 2000);
-    }
-
-    // Show toast for event
-    showToast(message, type);
+function notifyKafkaEvent(message, type = 'info') {
+    showKafkaEvent(elements.kafkaStatus, updateKafkaStatusUI, elements.toastContainer, message, type);
 }
 
 // ===== Drag and Drop with Reordering =====
@@ -2848,8 +2680,6 @@ let draggedTask = null;
 let draggedTaskId = null;
 let isDragging = false;
 let isDragInProgress = false; // Prevents WebSocket re-renders during active drag
-
-const TASK_DRAG_KEY = 'application/x-task-id';
 
 function cleanupDragState() {
     if (draggedTask) {
@@ -3039,7 +2869,7 @@ function handleDrop(e) {
     if (columnChanged) {
         persistTaskDrop(taskId, { column_id: newColumnId });
     } else {
-        showKafkaEvent(`Task reordered: ${task.title}`);
+        notifyKafkaEvent(`Task reordered: ${task.title}`);
     }
 }
 
@@ -3057,7 +2887,7 @@ async function persistTaskDrop(taskId, updates) {
             tasks[index] = { ...tasks[index], ...updatedTask };
         }
         if (!elements.activityView.classList.contains('hidden')) renderActivityLog();
-        showKafkaEvent('Task moved: ' + updatedTask.title, 'success');
+        notifyKafkaEvent('Task moved: ' + updatedTask.title, 'success');
     } catch (err) {
         console.error('Error persisting task drop:', err);
         showToast('Failed to save task move', 'error');
@@ -3343,6 +3173,120 @@ function initEventListeners() {
     elements.deleteTaskBtn.addEventListener('click', () => {
         if (currentEditingTask) {
             showDeleteModal(currentEditingTask);
+        }
+    });
+
+    document.addEventListener('click', (event) => {
+        const actionElement = event.target.closest('[data-action]');
+        if (!actionElement) return;
+
+        const { action } = actionElement.dataset;
+
+        if (action === 'open-create-board') {
+            const createBoardButton = document.getElementById('createBoardBtn');
+            if (createBoardButton) {
+                createBoardButton.click();
+            }
+            return;
+        }
+
+        if (action === 'open-create-list') {
+            showCreateListModal();
+            return;
+        }
+
+        if (action === 'switch-board') {
+            event.preventDefault();
+            switchBoard(actionElement.dataset.boardId);
+            return;
+        }
+
+        if (action === 'delete-board') {
+            event.preventDefault();
+            event.stopPropagation();
+            showDeleteBoardModal(actionElement.dataset.boardId, actionElement.dataset.boardName || '');
+            return;
+        }
+
+        if (action === 'toggle-boards-popout') {
+            event.preventDefault();
+            toggleBoardsPopout(event);
+            return;
+        }
+
+        if (action === 'column-add-card') {
+            scrollToAddCard(actionElement.dataset.columnId);
+            return;
+        }
+
+        if (action === 'column-move-left') {
+            if (!actionElement.disabled) {
+                moveColumnLeft(actionElement.dataset.columnId);
+            }
+            return;
+        }
+
+        if (action === 'column-move-right') {
+            if (!actionElement.disabled) {
+                moveColumnRight(actionElement.dataset.columnId);
+            }
+            return;
+        }
+
+        if (action === 'column-rename') {
+            editColumnTitle(actionElement.dataset.columnId);
+            return;
+        }
+
+        if (action === 'column-delete') {
+            deleteColumn(actionElement.dataset.columnId);
+            return;
+        }
+
+        if (action === 'open-image-modal') {
+            const imageUrl = actionElement.dataset.imageUrl;
+            if (imageUrl) {
+                openImageModal(imageUrl);
+            }
+            return;
+        }
+
+        if (action === 'remove-task-image') {
+            removeTaskImage(Number(actionElement.dataset.imageIndex));
+            return;
+        }
+
+        if (action === 'delete-comment') {
+            deleteComment(actionElement.dataset.commentId);
+            return;
+        }
+
+        if (action === 'remove-comment-image') {
+            removeCommentImage(Number(actionElement.dataset.imageIndex));
+            return;
+        }
+
+        if (action === 'label-delete') {
+            deleteLabel(actionElement.dataset.labelId);
+            return;
+        }
+
+        if (action === 'dismiss-toast') {
+            const toast = actionElement.closest('div');
+            if (toast) {
+                toast.remove();
+            }
+        }
+    });
+
+    document.addEventListener('contextmenu', (event) => {
+        const boardItem = event.target.closest('[data-board-context="1"]');
+        if (!boardItem) return;
+
+        event.preventDefault();
+        const boardId = boardItem.dataset.boardId;
+        if (boardId) {
+            showBoardContextMenu(event, boardId);
         }
     });
 
@@ -3977,43 +3921,12 @@ function attachBoardEventListeners() {
 }
 // ===== End of Event Listeners =====
 
-// ===== Utility Functions =====
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-function formatEventData(data) {
-    if (!data) return '';
-    if (typeof data === 'string') return escapeHtml(data);
-
-    // Handle specific fields to make them more readable
-    const parts = [];
-    if (data.title) parts.push(`Title: "${data.title}"`);
-    if (data.status) parts.push(`Status: ${statusLabels[data.status] || data.status}`);
-    if (data.priority) parts.push(`Priority: ${data.priority}`);
-    if (data.from && data.to) parts.push(`Moved from ${statusLabels[data.from] || data.from} to ${statusLabels[data.to] || data.to}`);
-    if (data.description) parts.push(`Description updated`);
-    if (data.assignee_id) parts.push(`Assignee updated`);
-
-    // Fallback if generic object
-    if (parts.length === 0 && Object.keys(data).length > 0) {
-        return escapeHtml(JSON.stringify(data).substring(0, 100) + (JSON.stringify(data).length > 100 ? '...' : ''));
-    }
-
-    return escapeHtml(parts.join(', '));
-}
-
-function formatDate(dateString) {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    const options = { month: 'short', day: 'numeric' };
-    return date.toLocaleDateString('en-US', options);
-}
-
 // ===== Initialize Application =====
 async function init() {
+    bindStaticDomEvents({
+        openLabelManager,
+        closeLabelManager
+    });
     initTheme();
     loadSidebarState();
 
@@ -4065,6 +3978,5 @@ async function init() {
     }
 }
 
-// Start the application
-document.addEventListener('DOMContentLoaded', init);
+export { init };
 

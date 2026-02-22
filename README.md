@@ -1,113 +1,98 @@
 # Tulay Kanban
 
-A modern, real-time Kanban board application powered by **Apache Kafka** for event streaming. Built with a sleek UI, FastAPI backend, and PostgreSQL for reliable data persistence.
+Real-time Kanban board built with FastAPI, PostgreSQL, Kafka, and a modular vanilla-JS frontend.
 
-![Tulay Kanban Board](https://img.shields.io/badge/Status-Active-green) ![Kafka](https://img.shields.io/badge/Apache%20Kafka-Powered-red)
+## What it does
 
-## Features
+- Multi-board Kanban with list and task drag/drop
+- Live activity updates over WebSockets (Kafka-backed)
+- Task details panel (description, priority, due date, assignee, labels)
+- Comments + image attachments
+- Light/Dark theme and responsive layout
 
-### Real-Time Synchronization
-- **Kafka Event Streaming** - All actions (create, update, move, delete) are streamed via Kafka
-- **Live Updates** - Changes reflect instantly across connected clients using WebSockets
-- **Activity Log** - Real-time audit log of all actions
+## Tech stack
 
-### Board Management
-- **Multiple Boards** - Create and manage multiple project boards
-- **Empty States** - Helpful guides when starting new boards or lists
-- **Safe Deletion** - Confirmation dialogs for destructive actions
+- Frontend: Vanilla JavaScript ES modules + Tailwind CSS
+- Backend: FastAPI + SQLAlchemy
+- Data: PostgreSQL
+- Streaming: Kafka
+- Auth: JWT login (registration disabled)
+- Runtime: Docker Compose (Kafka/Postgres) + local Python app server
 
-### Task Management
-- **Drag & Drop** - Smooth task movement between lists and reordering within lists
-- **Rich Details** - Side panel editor for description, priority, labels, and due dates
-- **Due Dates** - proper management of task deadlines
-- **Multi-Label System** - categorise tasks with multiple labels (Global or Board-specific) with autoscrolling label marquees on cards
-- **Assignees & Avatars** - Assign tasks to workspace members with visual avatar indicators on cards
-- **Comments & Attachments** - Rich task discussion with threaded comments and image uploads
+## Quick start
 
-### User Experience
-- **Light/Dark Mode** - Full theme support
-- **Responsive Design** - Works great on different screen sizes
-- **Toast Notifications** - Non-intrusive feedback for interactions
-- **Dynamic Board Views** - Dedicated "My Tasks" view for personal assignment tracking
+### 1) Prerequisites
 
-## Tech Stack
-
-- **Frontend**: Vanilla JavaScript, Tailwind CSS, Material Symbols
-- **Backend**: FastAPI (Python), SQLAlchemy ORM
-- **Event Streaming**: Apache Kafka, Zookeeper
-- **Database**: PostgreSQL (via Docker)
-- **Authentication**: JWT-based (Registration currently disabled for demo)
-- **Containerization**: Docker Compose
-
-## Getting Started
-
-### 1. Prerequisites
-- Docker & Docker Compose
+- Docker + Docker Compose
 - Python 3.9+
 
-### 2. Setup Services
-Start PostgreSQL, Kafka, and Zookeeper using Docker:
+### 2) Start infrastructure
+
 ```bash
 docker compose up -d
 ```
-*Wait a few moments for Kafka to fully initialize.*
 
-### 3. Setup Python Backend
-Install dependencies and run the FastAPI server:
+Wait for Kafka/Postgres to be healthy before launching backend.
+
+### 3) Install Python dependencies
+
 ```bash
 pip install -r requirements.txt
+```
+
+### 4) Run backend
+
+```bash
 python main.py
 ```
 
-### 4. Open Application
-Visit `http://localhost:8000`.
+Open http://localhost:8000
 
-**Note**: Registration is currently **disabled**. Use the provided test credentials on the login page:
-- **Email**: `test@example.com`
-- **Password**: `password123`
+## Login
 
-## Project Structure
+Use demo credentials (registration is disabled):
 
-```
+- Email: `test@example.com`
+- Password: `password123`
+
+If you are not authenticated, the app redirects to `/login`.
+
+## Project layout
+
+```text
 tulay-kanban/
-├── main.py                 # FastAPI backend & Kafka producer/consumer
+├── main.py                # Root launcher (imports backend.main)
 ├── backend/
-│   ├── auth.py            # JWT authentication
-│   ├── database.py        # Database configuration
-│   └── models.py          # SQLAlchemy models
-├── app.js                 # Frontend logic, WebSocket, Drag & Drop
-├── index.html             # Main dashboard UI
-├── login.html             # Login page
-├── docker-compose.yml     # Kafka, Zookeeper, & PostgreSQL config
-├── requirements.txt       # Python dependencies
-└── README.md
+│   ├── main.py
+│   ├── auth.py
+│   ├── database.py
+│   ├── models.py
+│   └── storage.py
+├── frontend/
+│   ├── app.js             # Frontend bootstrap entrypoint
+│   ├── events.js          # Main app orchestration + event wiring
+│   ├── dom-events.js      # Static DOM-only event hooks
+│   ├── api.js             # Frontend HTTP/Kafka transport helpers
+│   ├── state.js           # Frontend constants/shared primitives
+│   ├── ui.js              # Frontend UI/format helpers
+│   ├── index.html         # Main app shell
+│   └── login.html         # Login page
+├── scripts/
+│   └── clean_db.py
+├── clean_db.py            # Root launcher for scripts/clean_db.py
+├── docker-compose.yml
+├── requirements.txt
+└── docs/
 ```
-
 
 ## Documentation
 
-- [Known Issues & Technical Debt](docs/KNOWN_ISSUES.md)
+- [Known Issues](docs/KNOWN_ISSUES.md)
 - [Storage Architecture](docs/STORAGE_ARCHITECTURE.md)
-- [Storage Migration Guide](docs/STORAGE_MIGRATION.md)
+- [Storage Migration](docs/STORAGE_MIGRATION.md)
 - [Storage Quick Reference](docs/STORAGE_QUICK_REF.md)
-
-## Future Roadmap
-
-- [x] Multiple boards and workspace management
-- [x] Drag & drop for tasks and lists
-- [x] User authentication (Login)
-- [x] Activity logging via Kafka
-- [x] List reordering
-- [x] Task due dates
-- [x] Real-time updates via WebSockets
-- [x] Task comments and attachments
-- [x] Team collaboration features (Assignees)
-- [x] Custom labels system
-- [ ] Advanced filtering and search
-- [ ] Real-time cursor presence
-- [ ] Workspace invitation system
 
 ## License
 
-MIT License - Feel free to use and modify.
+MIT
 

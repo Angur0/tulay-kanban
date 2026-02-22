@@ -402,7 +402,7 @@
                 </a>
                 <a id="labelManagerBtn"
                     class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors group justify-start sidebar-item"
-                    href="#" onclick="openLabelManager('global'); return false;" data-sidebar-tooltip="Labels">
+                    href="#" data-action="open-label-manager" data-sidebar-tooltip="Labels">
                     <span
                         class="material-symbols-outlined group-hover:text-primary transition-colors flex-shrink-0">label</span>
                     <span class="text-sm font-medium sidebar-text whitespace-nowrap">Labels</span>
@@ -579,8 +579,8 @@
                         <div class="grid grid-cols-[100px_1fr] gap-x-4 items-start">
                             <div class="text-sm text-[#5c6b7f] dark:text-gray-400 py-1">Due Date</div>
                             <div class="flex items-center gap-2">
-                                <input type="text" id="panelDueDate" placeholder="-" onfocus="this.type='date'"
-                                    onblur="if(!this.value)this.type='text'" min="2020-01-01" max="2099-12-31"
+                                <input type="text" id="panelDueDate" placeholder="-"
+                                    min="2020-01-01" max="2099-12-31"
                                     class="w-[140px] px-3 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/50">
                                 <button type="button" id="clearDueDateBtn"
                                     class="text-[#8a98a8] hover:text-red-500 transition-colors hidden"
@@ -940,7 +940,7 @@
     <!-- Label Manager Modal -->
     <div id="labelManagerModal" class="fixed inset-0 z-[9999] hidden" role="dialog" aria-modal="true"
         style="display: none;">
-        <div class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm transition-opacity" onclick="closeLabelManager()">
+        <div class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm transition-opacity" data-action="close-label-manager">
         </div>
         <div class="fixed inset-0 flex items-center justify-center p-4 pointer-events-none">
             <div
@@ -1317,7 +1317,7 @@
     <!-- Toast Container -->
     <div id="toastContainer" class="fixed top-6 right-6 z-[60] flex flex-col gap-3 pointer-events-none"></div>
 
-    <script src="app.js?v=1.5"></script>
+    <script type="module" src="/static/app.js?v=1.6"></script>
 </body>
 
 </html>

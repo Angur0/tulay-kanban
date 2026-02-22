@@ -34,7 +34,9 @@ That's it! 🎉
 
 | File | Purpose |
 |------|---------|
+| `backend/main.py` | FastAPI app entry implementation |
 | `backend/storage.py` | Storage abstraction layer |
+| `frontend/events.js` | Frontend orchestration for upload flows |
 | `.env.example` | Configuration template |
 | `STORAGE_MIGRATION.md` | Full migration guide |
 | `STORAGE_ARCHITECTURE.md` | Technical details |

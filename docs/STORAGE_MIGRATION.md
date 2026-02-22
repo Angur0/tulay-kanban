@@ -80,7 +80,7 @@ R2_PUBLIC_URL=https://pub-xxxxxxxxxxxxx.r2.dev
 
 ### 6. Update Application to Load Environment Variables
 
-If not already done, ensure your application loads the `.env` file. Add this near the top of `main.py`:
+If not already done, ensure your application loads the `.env` file. Add this near the top of `backend/main.py`:
 
 ```python
 from dotenv import load_dotenv
