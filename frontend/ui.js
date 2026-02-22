@@ -1,5 +1,16 @@
 import { statusLabels } from './state.js';
 
+const shortDateFormatter = new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric'
+});
+
+const fullDateFormatter = new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+});
+
 export function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
@@ -29,8 +40,13 @@ export function formatEventData(data) {
 export function formatDate(dateString) {
     if (!dateString) return '';
     const date = new Date(dateString);
-    const options = { month: 'short', day: 'numeric' };
-    return date.toLocaleDateString('en-US', options);
+    return shortDateFormatter.format(date);
+}
+
+export function formatDateWithYear(dateString) {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return fullDateFormatter.format(date);
 }
 
 export function showToast(toastContainer, message, type = 'info') {

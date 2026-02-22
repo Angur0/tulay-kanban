@@ -18,6 +18,7 @@ Real-time Kanban board built with FastAPI, PostgreSQL, Kafka, and a modular vani
 - Backend monolith routing was decomposed into feature routers in `backend/routers/*`.
 - Shared backend cross-cutting logic was isolated in `backend/core/*`.
 - Board ordering now supports batched reorder via `POST /api/workspaces/{ws_id}/boards/reorder`.
+- Modal UX flow was hardened: create/delete/edit modals now close reliably on outside click and support Enter-to-confirm in relevant inputs/buttons.
 
 ## Tech stack
 

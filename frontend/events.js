@@ -14,7 +14,7 @@ import {
     TASK_DRAG_KEY
 } from './state.js';
 import { authFetch, sendKafkaEventRequest } from './api.js';
-import { escapeHtml, formatEventData, formatDate, showToast, showKafkaEvent } from './ui.js';
+import { escapeHtml, formatEventData, formatDate, formatDateWithYear, showToast, showKafkaEvent } from './ui.js';
 import { bindStaticDomEvents } from './dom-events.js';
 import { bindBoardListeners } from './listeners/board.js';
 import { bindTaskListeners } from './listeners/task.js';
@@ -220,29 +220,6 @@ let taskToDeleteId = null;
 let currentContextTask = null; // Track task for context menu
 let currentContextColumnId = null; // Track column for context menu
 
-// ===== Column Color Classes =====
-// ===== Column Color Classes =====
-
-// ===== Task Data Model =====
-class Task {
-    constructor(title, description = '', priority = 'medium', status = 'todo', label = 'frontend') {
-        this.id = this.generateId();
-        this.title = title;
-        this.description = description;
-        this.priority = priority;
-        this.status = status;
-        this.label = label;
-        this.dueDate = '';
-        this.createdAt = new Date().toISOString();
-        this.updatedAt = new Date().toISOString();
-        this.events = [];
-    }
-
-    generateId() {
-        return 'TASK-' + Date.now().toString(36).toUpperCase();
-    }
-}
-
 // ===== Storage Functions =====
 async function loadTasks() {
     if (!activeBoardId) return;
@@ -271,77 +248,6 @@ function saveTasks() {
     } catch (e) {
         console.error('Error saving tasks:', e);
     }
-}
-
-function getDefaultTasks() {
-    return [
-        {
-            id: 'TASK-001',
-            title: 'Implement Kafka producer service',
-            description: 'Create a producer to publish task events to Kafka topics',
-            priority: 'high',
-            status: 'todo',
-            label: 'backend',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            events: []
-        },
-        {
-            id: 'TASK-002',
-            title: 'Design event schema',
-            description: 'Define JSON schema for task-created, task-updated events',
-            priority: 'medium',
-            status: 'todo',
-            label: 'design',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            events: []
-        },
-        {
-            id: 'TASK-003',
-            title: 'Setup Kafka consumer',
-            description: 'Implement consumer to process real-time task updates',
-            priority: 'high',
-            status: 'todo',
-            label: 'backend',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            events: []
-        },
-        {
-            id: 'TASK-004',
-            title: 'Refactor drag-and-drop logic',
-            description: 'Improve drag-and-drop with visual feedback and animations',
-            priority: 'medium',
-            status: 'inprogress',
-            label: 'frontend',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            events: []
-        },
-        {
-            id: 'TASK-005',
-            title: 'Create Kanban UI layout',
-            description: 'Build the visual Kanban board with columns',
-            priority: 'high',
-            status: 'done',
-            label: 'frontend',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            events: []
-        },
-        {
-            id: 'TASK-006',
-            title: 'Docker Compose setup',
-            description: 'Configure Kafka broker with KRaft mode in Docker',
-            priority: 'medium',
-            status: 'done',
-            label: 'devops',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            events: []
-        }
-    ];
 }
 
 // ===== Render Functions =====
@@ -2061,7 +1967,7 @@ function renderComments(comments) {
 
     elements.commentsContainer.innerHTML = comments.map(comment => {
         const commentDate = new Date(comment.created_at);
-        const formattedDate = commentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const formattedDate = formatDateWithYear(comment.timestamp);
         const formattedTime = commentDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
         const isOwner = currentUser && comment.user_id === currentUser.id;
