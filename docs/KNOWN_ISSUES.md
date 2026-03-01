@@ -11,6 +11,7 @@ This document tracks remaining issues, active refactors, and recently completed 
 ### Frontend & UI Safety
 - **Template bloat in JS**: Large HTML strings are still hardcoded in orchestration/rendering paths. Migrate to HTML `<template>` tags or a lightweight component approach.
 - **Manual escaping dependency**: Widespread `innerHTML` rendering still depends on `escapeHtml`. Prefer DOM-first rendering with `.textContent` (or Sanitizer API where appropriate).
+-**Add validation popups for forms**: Some modals do not have tooltips to notify users about invalid inputs/ lacking required fields.
 
 ### Performance
 - **Layout thrashing risk**: Sidebar overflow handling still relies on manual offset-style calculations; replace with CSS-first layout (including Container Queries where suitable).
