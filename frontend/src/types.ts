@@ -58,6 +58,16 @@ export interface KafkaEvent {
     timestamp?: string;
 }
 
+export interface TaskComment {
+    id: string;
+    task_id?: string;
+    user_id: string;
+    content: string;
+    created_at: string;
+    timestamp?: string;
+    images?: string[];
+}
+
 // ================================
 // AppElements — all DOM handles as HTMLElement | null
 // for compatibility with document.getElementById()

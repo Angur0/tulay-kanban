@@ -38,7 +38,7 @@ import {
     handleColumnDragStartService, handleColumnDragEndService,
     handleColumnDragOverService, handleColumnDropService
 } from './services/dragdrop-service.ts';
-import type { Task, Board, Column, Label, WorkspaceMember, KafkaEvent, AppElements } from './types.ts';
+import type { Task, Board, Column, Label, WorkspaceMember, KafkaEvent, AppElements, TaskComment } from './types.ts';
 
 // ===== State =====
 let tasks: Task[] = [];
@@ -532,7 +532,7 @@ async function loadBoards(): Promise<void> {
 }
 
 function renderBoardList(): void {
-    boards.sort((a, b) => ((a as any).position || 0) - ((b as any).position || 0));
+    boards.sort((a, b) => (a.position || 0) - (b.position || 0));
     const isCollapsed = elements.sidebar!.classList.contains('collapsed');
     let displayBoards = boards, overflowBoards: Board[] = [];
     if (isCollapsed) {
@@ -544,9 +544,8 @@ function renderBoardList(): void {
     }
     if (boards.length === 0) { (elements.boardList as HTMLElement).innerHTML = '<div class="board-list-empty px-3 py-4 text-center text-xs text-[#8a98a8]">No boards yet</div>'; return; }
     const renderItem = (board: Board, isOverflow = false) => {
-        const b = board as any;
         const isActive = board.id === activeBoardId, isDraggable = !isCollapsed && !isOverflow;
-        return `<div class="flex items-center gap-1 group/board board-item ${isDraggable ? 'cursor-move' : ''}" data-board-id="${board.id}" ${isDraggable ? 'draggable="true"' : ''}><a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg flex-1 sidebar-item ${isActive ? 'bg-[#eff1f3] dark:bg-[#1e2936] text-[#111418] dark:text-white' : 'text-[#5c6b7f] dark:text-gray-400 hover:bg-[#eff1f3] dark:hover:bg-[#1e2936]'} transition-colors" data-action="switch-board" data-board-id="${board.id}" data-sidebar-tooltip="${escapeHtml(board.name)}"><span class="material-symbols-outlined flex-shrink-0" style="color: ${b.icon_color || '#3b82f6'}">${escapeHtml(normalizeBoardIcon(b.icon))}</span><span class="text-sm font-medium truncate sidebar-text">${escapeHtml(board.name)}</span></a><button data-action="delete-board" data-board-id="${board.id}" data-board-name="${escapeHtml(board.name)}" class="opacity-0 group-hover/board:opacity-100 p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-[#8a98a8] hover:text-red-600 transition-all sidebar-text" title="Delete board"><span class="material-symbols-outlined text-[16px]">delete</span></button></div>`;
+        return `<div class="flex items-center gap-1 group/board board-item ${isDraggable ? 'cursor-move' : ''}" data-board-id="${board.id}" ${isDraggable ? 'draggable="true"' : ''}><a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg flex-1 sidebar-item ${isActive ? 'bg-[#eff1f3] dark:bg-[#1e2936] text-[#111418] dark:text-white' : 'text-[#5c6b7f] dark:text-gray-400 hover:bg-[#eff1f3] dark:hover:bg-[#1e2936]'} transition-colors" data-action="switch-board" data-board-id="${board.id}" data-sidebar-tooltip="${escapeHtml(board.name)}"><span class="material-symbols-outlined flex-shrink-0" style="color: ${board.icon_color || '#3b82f6'}">${escapeHtml(normalizeBoardIcon(board.icon))}</span><span class="text-sm font-medium truncate sidebar-text">${escapeHtml(board.name)}</span></a><button data-action="delete-board" data-board-id="${board.id}" data-board-name="${escapeHtml(board.name)}" class="opacity-0 group-hover/board:opacity-100 p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-[#8a98a8] hover:text-red-600 transition-all sidebar-text" title="Delete board"><span class="material-symbols-outlined text-[16px]">delete</span></button></div>`;
     };
     let html = displayBoards.map(b => renderItem(b)).join('');
     if (overflowBoards.length > 0) {
@@ -561,21 +560,21 @@ function renderBoardList(): void {
 let draggedBoardItem: HTMLElement | null = null;
 function setupBoardDragAndDrop(): void {
     (elements.boardList as HTMLElement).querySelectorAll<HTMLElement>('.board-item[draggable="true"]').forEach(item => {
-        item.addEventListener('dragstart', function(this: HTMLElement, e: DragEvent) { draggedBoardItem = this; e.dataTransfer!.effectAllowed = 'move'; this.classList.add('dragging'); });
-        item.addEventListener('dragover', function(this: HTMLElement, e: DragEvent) { e.preventDefault(); if (this === draggedBoardItem) return; this.classList.remove('drag-over-top','drag-over-bottom'); const r = this.getBoundingClientRect(); this.classList.add(e.clientY < r.top + r.height/2 ? 'drag-over-top' : 'drag-over-bottom'); });
-        item.addEventListener('dragleave', function(this: HTMLElement) { this.classList.remove('drag-over-top','drag-over-bottom'); });
-        item.addEventListener('drop', async function(this: HTMLElement, e: DragEvent) {
-            e.preventDefault(); this.classList.remove('drag-over-top','drag-over-bottom','dragging');
+        item.addEventListener('dragstart', function (this: HTMLElement, e: DragEvent) { draggedBoardItem = this; e.dataTransfer!.effectAllowed = 'move'; this.classList.add('dragging'); });
+        item.addEventListener('dragover', function (this: HTMLElement, e: DragEvent) { e.preventDefault(); if (this === draggedBoardItem) return; this.classList.remove('drag-over-top', 'drag-over-bottom'); const r = this.getBoundingClientRect(); this.classList.add(e.clientY < r.top + r.height / 2 ? 'drag-over-top' : 'drag-over-bottom'); });
+        item.addEventListener('dragleave', function (this: HTMLElement) { this.classList.remove('drag-over-top', 'drag-over-bottom'); });
+        item.addEventListener('drop', async function (this: HTMLElement, e: DragEvent) {
+            e.preventDefault(); this.classList.remove('drag-over-top', 'drag-over-bottom', 'dragging');
             if (!draggedBoardItem || this === draggedBoardItem) return;
             const [movedBoard] = boards.splice(boards.findIndex(b => b.id === draggedBoardItem!.dataset.boardId), 1);
             const targetId = this.dataset.boardId, r = this.getBoundingClientRect();
             const ti = boards.findIndex(b => b.id === targetId);
-            boards.splice(e.clientY >= r.top + r.height/2 ? ti + 1 : ti, 0, movedBoard);
-            boards.forEach((b, i) => { (b as any).position = i; });
+            boards.splice(e.clientY >= r.top + r.height / 2 ? ti + 1 : ti, 0, movedBoard);
+            boards.forEach((b, i) => { b.position = i; });
             renderBoardList();
-            try { await authFetch(`${API_URL}/api/workspaces/${activeWorkspaceId}/boards/reorder`, { method: 'POST', body: JSON.stringify(boards.map((b, i) => ({ id: b.id, position: i }))) }); } catch(e) { console.error(e); }
+            try { await authFetch(`${API_URL}/api/workspaces/${activeWorkspaceId}/boards/reorder`, { method: 'POST', body: JSON.stringify(boards.map((b, i) => ({ id: b.id, position: i }))) }); } catch (e) { console.error(e); }
         });
-        item.addEventListener('dragend', function(this: HTMLElement) { this.classList.remove('dragging'); document.querySelectorAll('.board-item').forEach(i => i.classList.remove('drag-over-top','drag-over-bottom')); draggedBoardItem = null; });
+        item.addEventListener('dragend', function (this: HTMLElement) { this.classList.remove('dragging'); document.querySelectorAll('.board-item').forEach(i => i.classList.remove('drag-over-top', 'drag-over-bottom')); draggedBoardItem = null; });
     });
 }
 
@@ -589,17 +588,17 @@ function toggleBoardsPopout(e: Event): void {
 }
 window.addEventListener('click', (e) => { const p = document.getElementById('boardsPopout'); if (p?.style.display === 'block' && !p.contains(e.target as Node)) p.style.display = 'none'; });
 
-const st = (m: string, t: 'info'|'success'|'error' = 'info') => showToast(elements.toastContainer, m, t);
+const st = (m: string, t: 'info' | 'success' | 'error' = 'info') => showToast(elements.toastContainer, m, t);
 
 async function createBoard(name: string, icon = 'dashboard', iconColor = '#3b82f6'): Promise<void> {
-    await createBoardService({ activeWorkspaceId, normalizeBoardIcon, authFetch, API_URL, setActiveBoardId: (v: string|null) => { activeBoardId = v; }, loadBoards, renderBoardList, loadColumns, loadTasks, loadActivities, loadLabels, switchView, showToast: st, hideCreateBoardModal }, name, icon, iconColor);
+    await createBoardService({ activeWorkspaceId, normalizeBoardIcon, authFetch, API_URL, setActiveBoardId: (v: string | null) => { activeBoardId = v; }, loadBoards, renderBoardList, loadColumns, loadTasks, loadActivities, loadLabels, switchView, showToast: st, hideCreateBoardModal }, name, icon, iconColor);
 }
 async function deleteBoard(boardId: string): Promise<void> {
-    await deleteBoardService({ authFetch, API_URL, getBoards: () => boards, setBoards: (v: Board[]) => { boards = v; }, getActiveBoardId: () => activeBoardId, closeTaskPanel, switchBoard, getWebsocket: () => websocket, setWebsocket: (v: WebSocket|null) => { websocket = v; }, setActiveBoardId: (v: string|null) => { activeBoardId = v; }, setTasks: (v: unknown[]) => { tasks = v as Task[]; }, setColumns: (v: unknown[]) => { columns = v as Column[]; }, setKafkaConnected: (v: boolean) => { kafkaConnected = v; }, updateKafkaStatusUI, renderBoard, renderBoardList, showToast: st, hideDeleteBoardModal }, boardId);
+    await deleteBoardService({ authFetch, API_URL, getBoards: () => boards, setBoards: (v: Board[]) => { boards = v; }, getActiveBoardId: () => activeBoardId, closeTaskPanel, switchBoard, getWebsocket: () => websocket, setWebsocket: (v: WebSocket | null) => { websocket = v; }, setActiveBoardId: (v: string | null) => { activeBoardId = v; }, setTasks: (v: unknown[]) => { tasks = v as Task[]; }, setColumns: (v: unknown[]) => { columns = v as Column[]; }, setKafkaConnected: (v: boolean) => { kafkaConnected = v; }, updateKafkaStatusUI, renderBoard, renderBoardList, showToast: st, hideDeleteBoardModal }, boardId);
 }
-function showDeleteBoardModal(boardId: string, boardName: string): void { showDeleteBoardModalService({ elements, setBoardToDeleteId: (v: string|null) => { boardToDeleteId = v; } }, boardId, boardName); }
-function hideDeleteBoardModal(): void { hideDeleteBoardModalService({ elements, setBoardToDeleteId: (v: string|null) => { boardToDeleteId = v; } }); }
-function switchBoard(boardId: string): void { switchBoardService({ getActiveBoardId: () => activeBoardId, setActiveBoardId: (v: string|null) => { activeBoardId = v; }, renderBoardList, loadColumns, loadTasks, loadActivities, loadLabels, switchView }, boardId); }
+function showDeleteBoardModal(boardId: string, boardName: string): void { showDeleteBoardModalService({ elements, setBoardToDeleteId: (v: string | null) => { boardToDeleteId = v; } }, boardId, boardName); }
+function hideDeleteBoardModal(): void { hideDeleteBoardModalService({ elements, setBoardToDeleteId: (v: string | null) => { boardToDeleteId = v; } }); }
+function switchBoard(boardId: string): void { switchBoardService({ getActiveBoardId: () => activeBoardId, setActiveBoardId: (v: string | null) => { activeBoardId = v; }, renderBoardList, loadColumns, loadTasks, loadActivities, loadLabels, switchView }, boardId); }
 function showCreateBoardModal(): void { showCreateBoardModalService({ elements }); }
 function hideCreateBoardModal(): void { hideCreateBoardModalService({ elements }); }
 function showBoardContextMenu(e: MouseEvent, boardId: string): void {
@@ -608,14 +607,14 @@ function showBoardContextMenu(e: MouseEvent, boardId: string): void {
     menu.style.display = 'block'; menu.classList.remove('hidden');
     let x = e.pageX, y = e.pageY;
     if (x + 192 > window.innerWidth + window.scrollX) x = window.innerWidth + window.scrollX - 202;
-    if (y + (menu.offsetHeight||100) > window.innerHeight + window.scrollY) y = window.innerHeight + window.scrollY - (menu.offsetHeight||100) - 10;
+    if (y + (menu.offsetHeight || 100) > window.innerHeight + window.scrollY) y = window.innerHeight + window.scrollY - (menu.offsetHeight || 100) - 10;
     menu.style.left = `${x}px`; menu.style.top = `${y}px`;
 }
 function hideBoardContextMenu(): void { if (elements.boardContextMenu) { (elements.boardContextMenu as HTMLElement).style.display = 'none'; elements.boardContextMenu.classList.add('hidden'); } currentContextBoardId = null; }
 function showEditBoardModal(boardId: string): void { showEditBoardModalService({ elements, getBoards: () => boards, normalizeBoardIcon }, boardId); }
 function hideEditBoardModal(): void { hideEditBoardModalService({ elements }); }
-async function updateBoard(boardId: string, data: Record<string,unknown>): Promise<void> { await updateBoardService({ authFetch, API_URL, getBoards: () => boards, setBoards: (v: Board[]) => { boards = v; }, renderBoardList, getActiveBoardId: () => activeBoardId, renderBoard, showToast: st }, boardId, data); }
-async function loadWorkspaceMembers(): Promise<void> { if (!activeWorkspaceId) return; try { const r = await authFetch(`${API_URL}/api/workspaces/${activeWorkspaceId}/members`); if (!r) return; workspaceMembers = await r.json() as WorkspaceMember[]; } catch(e) { console.error(e); } }
+async function updateBoard(boardId: string, data: Record<string, unknown>): Promise<void> { await updateBoardService({ authFetch, API_URL, getBoards: () => boards, setBoards: (v: Board[]) => { boards = v; }, renderBoardList, getActiveBoardId: () => activeBoardId, renderBoard, showToast: st }, boardId, data); }
+async function loadWorkspaceMembers(): Promise<void> { if (!activeWorkspaceId) return; try { const r = await authFetch(`${API_URL}/api/workspaces/${activeWorkspaceId}/members`); if (!r) return; workspaceMembers = await r.json() as WorkspaceMember[]; } catch (e) { console.error(e); } }
 
 // ===== Task Card =====
 function createTaskCard(task: Task): HTMLElement {
@@ -623,16 +622,29 @@ function createTaskCard(task: Task): HTMLElement {
     const isDone = task.status === 'done';
     card.className = `task-card group flex flex-col gap-2 p-3 bg-white dark:bg-[#151e29] rounded-lg border border-[#e5e7eb] dark:border-[#1e2936] hover:border-primary/50 shadow-sm cursor-pointer transition-all ${isDone ? 'opacity-60 hover:opacity-100' : ''}`;
     card.id = task.id; card.draggable = true; card.dataset.taskId = task.id;
-    const pbc: Record<string,string> = { low: '#22c55e', medium: '#f97316', high: '#ef4444' };
+    const pbc: Record<string, string> = { low: '#22c55e', medium: '#f97316', high: '#ef4444' };
     card.style.borderLeftWidth = '4px'; card.style.borderLeftColor = pbc[task.priority] || pbc.medium;
     let labelsHTML = '';
     if (task.labels?.length) { labelsHTML = task.labels.map(l => `<span class="inline-flex items-center flex-shrink-0 rounded px-1.5 py-0.5 text-xs font-medium text-white" style="background-color: ${l.color || '#93c5fd'}">${escapeHtml(l.name)}</span>`).join(''); }
-    else if ((task as any).label) { const ls = labelColors[(task as any).label] || labelColors.frontend; labelsHTML = `<span class="inline-flex items-center rounded-md ${ls.bg} px-1.5 py-0.5 text-xs font-medium ${ls.text} ring-1 ring-inset ${ls.ring} capitalize">${(task as any).label}</span>`; }
+    else if (task.label) { const label = task.label as string; const ls = labelColors[label] || labelColors.frontend; labelsHTML = `<span class="inline-flex items-center rounded-md ${ls.bg} px-1.5 py-0.5 text-xs font-medium ${ls.text} ring-1 ring-inset ${ls.ring} capitalize">${label}</span>`; }
     const assignee = task.assignee_id ? workspaceMembers.find(m => m.id === task.assignee_id) : null;
-    const initials = assignee ? (assignee.full_name || assignee.email || '').split(/[\s@]+/).filter(Boolean).slice(0,2).map((p:string) => p[0].toUpperCase()).join('') : '';
-    card.innerHTML = `<div class="flex justify-between items-start gap-2"><span class="text-sm font-medium text-[#111418] dark:text-gray-200 leading-snug ${isDone ? 'line-through decoration-gray-400' : ''}">${escapeHtml(task.title)}</span>${task.due_date ? `<span class="text-[10px] text-[#5c6b7f] dark:text-gray-400 flex-shrink-0">${formatDate(task.due_date)}</span>` : ''}</div>${task.description ? `<p class="text-xs text-[#5c6b7f] dark:text-gray-400 line-clamp-2 mt-1">${escapeHtml(task.description)}</p>` : ''}<div class="mt-1 flex items-center justify-between gap-2"><div class="relative flex items-center min-h-[24px] flex-1 overflow-hidden"><div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><button class="task-comment-btn p-1 hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] rounded" title="Add comment"><span class="material-symbols-outlined text-[16px] text-[#5c6b7f] dark:text-gray-400 hover:text-primary">comment</span></button><button class="task-image-btn p-1 hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] rounded" title="Add image"><span class="material-symbols-outlined text-[16px] text-[#5c6b7f] dark:text-gray-400 hover:text-primary">add_photo_alternate</span></button></div><div class="task-labels-row absolute left-0 right-0 overflow-hidden transition-all duration-200 group-hover:translate-x-16 group-hover:opacity-0"><div class="task-labels-inner flex gap-1 items-center">${labelsHTML}</div></div></div>${assignee ? `<div class="flex-shrink-0 w-6 h-6 rounded-full bg-primary flex items-center justify-center text-white text-[10px] font-bold" title="${escapeHtml(assignee.full_name || assignee.email || '')}">${initials}</div>` : ''}</div>`;
+    const initials = assignee ? (assignee.full_name || assignee.email || '').split(/[\s@]+/).filter(Boolean).slice(0, 2).map((p: string) => p[0].toUpperCase()).join('') : '';
+    // Image thumbnail strip
+    let imagesHTML = '';
+    if (task.images?.length) {
+        const visible = task.images.slice(0, 3);
+        const overflow = task.images.length - visible.length;
+        imagesHTML = `<div class="flex gap-1 mt-2">${visible.map(url => `<div class="w-12 h-12 rounded-md overflow-hidden border border-[#e5e7eb] dark:border-[#1e2936] flex-shrink-0"><img src="${url}" class="card-thumb w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity" draggable="false"></div>`).join('')}${overflow > 0 ? `<div class="w-12 h-12 rounded-md bg-[#eff1f3] dark:bg-[#1e2936] border border-[#e5e7eb] dark:border-[#1e2936] flex-shrink-0 flex items-center justify-center text-xs font-semibold text-[#5c6b7f] dark:text-gray-400">+${overflow}</div>` : ''}</div>`;
+    }
+    card.innerHTML = `<div class="flex justify-between items-start gap-2"><span class="text-sm font-medium text-[#111418] dark:text-gray-200 leading-snug ${isDone ? 'line-through decoration-gray-400' : ''}">${escapeHtml(task.title)}</span>${task.due_date ? `<span class="text-[10px] text-[#5c6b7f] dark:text-gray-400 flex-shrink-0">${formatDate(task.due_date)}</span>` : ''}</div>${task.description ? `<p class="text-xs text-[#5c6b7f] dark:text-gray-400 line-clamp-2 mt-1">${escapeHtml(task.description)}</p>` : ''}${imagesHTML}<div class="mt-1 flex items-center justify-between gap-2"><div class="relative flex items-center min-h-[24px] flex-1 overflow-hidden"><div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><button class="task-comment-btn p-1 hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] rounded" title="Add comment"><span class="material-symbols-outlined text-[16px] text-[#5c6b7f] dark:text-gray-400 hover:text-primary">comment</span></button><button class="task-image-btn p-1 hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] rounded" title="Add image"><span class="material-symbols-outlined text-[16px] text-[#5c6b7f] dark:text-gray-400 hover:text-primary">add_photo_alternate</span></button></div><div class="task-labels-row absolute left-0 right-0 overflow-hidden transition-all duration-200 group-hover:translate-x-16 group-hover:opacity-0"><div class="task-labels-inner flex gap-1 items-center">${labelsHTML}</div></div></div>${assignee ? `<div class="flex-shrink-0 w-6 h-6 rounded-full bg-primary flex items-center justify-center text-white text-[10px] font-bold" title="${escapeHtml(assignee.full_name || assignee.email || '')}">${initials}</div>` : ''}</div>`;
     card.querySelector('.task-comment-btn')?.addEventListener('click', (e) => { e.stopPropagation(); openTaskPanel(task, true); });
     card.querySelector('.task-image-btn')?.addEventListener('click', (e) => { e.stopPropagation(); openTaskPanel(task); setTimeout(() => (elements.panelImageUpload as HTMLInputElement)?.click(), 300); });
+    // Thumbnail click → open image modal (no task panel)
+    if (task.images?.length) {
+        card.querySelectorAll<HTMLImageElement>('.card-thumb').forEach((img, i) => {
+            img.addEventListener('click', (e) => { e.stopPropagation(); openImageModal(task.images![i]); });
+        });
+    }
     card.addEventListener('click', () => { if (!card.classList.contains('dragging')) openTaskPanel(task); });
     card.addEventListener('contextmenu', (e) => { if (!card.classList.contains('dragging')) showTaskContextMenu(e as MouseEvent, task); });
     card.addEventListener('dragstart', (e) => handleDragStart(e as DragEvent));
@@ -645,7 +657,7 @@ function showInlineAddForm(columnId: string): void {
     hideInlineAddForm();
     const column = document.querySelector<HTMLElement>(`.column[data-column-id="${columnId}"]`); if (!column) return;
     const formContainer = column.querySelector<HTMLElement>('.inline-add-form')!, addBtn = column.querySelector<HTMLElement>('.add-card-btn')!;
-    const labelCBs = labels.length === 0 ? '<p class="text-xs text-gray-400 py-2 text-center">No labels available</p>' : labels.map(l => `<label class="flex items-center gap-2 cursor-pointer hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] px-2 py-1.5 rounded transition-colors"><input type="checkbox" value="${l.id}" class="inline-label-checkbox rounded border-gray-300 w-3.5 h-3.5"><span class="w-3 h-3 rounded" style="background-color: ${l.color||'#93c5fd'}"></span><span class="text-xs text-[#111418] dark:text-white">${escapeHtml(l.name)}</span></label>`).join('');
+    const labelCBs = labels.length === 0 ? '<p class="text-xs text-gray-400 py-2 text-center">No labels available</p>' : labels.map(l => `<label class="flex items-center gap-2 cursor-pointer hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] px-2 py-1.5 rounded transition-colors"><input type="checkbox" value="${l.id}" class="inline-label-checkbox rounded border-gray-300 w-3.5 h-3.5"><span class="w-3 h-3 rounded" style="background-color: ${l.color || '#93c5fd'}"></span><span class="text-xs text-[#111418] dark:text-white">${escapeHtml(l.name)}</span></label>`).join('');
     formContainer.innerHTML = `<div class="flex flex-col gap-3 p-4 bg-white dark:bg-[#151e29] rounded-lg border-2 border-primary ring-4 ring-primary/20 shadow-xl mb-3 min-w-[320px]"><input type="text" class="inline-title-input w-full text-sm font-semibold text-[#111418] dark:text-white bg-transparent border-none p-0 focus:ring-0 placeholder-gray-400" placeholder="Task title..." autofocus><textarea class="inline-description-input w-full text-xs text-[#5c6b7f] dark:text-gray-300 bg-[#fbfcfd] dark:bg-[#0d141c] border border-[#e5e7eb] dark:border-[#1e2936] rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none placeholder-gray-400 custom-scrollbar" rows="2" placeholder="Add a description (optional)..."></textarea><div class="flex gap-3"><div class="flex-shrink-0"><label class="block text-[10px] font-semibold text-[#5c6b7f] dark:text-gray-400 uppercase mb-1.5">Priority</label><select class="inline-priority-select text-xs bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded px-2.5 py-1.5 focus:ring-2 focus:ring-primary/50 focus:outline-none"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option></select></div><div class="flex-1 min-w-0"><label class="block text-[10px] font-semibold text-[#5c6b7f] dark:text-gray-400 uppercase mb-1.5">Labels</label><div class="inline-label-container flex flex-col gap-0.5 p-2 bg-[#fbfcfd] dark:bg-[#0d141c] border border-[#e5e7eb] dark:border-[#1e2936] rounded-lg max-h-[140px] overflow-y-auto custom-scrollbar">${labelCBs}</div></div></div><div class="flex items-center justify-end gap-2 pt-2 border-t border-[#e5e7eb] dark:border-[#1e2936]"><button class="inline-cancel-btn text-xs text-[#5c6b7f] hover:text-[#111418] px-3 py-2 rounded-lg hover:bg-[#eff1f3] transition-colors">Cancel</button><button class="inline-create-btn flex items-center gap-1.5 bg-primary hover:bg-blue-600 text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-sm transition-colors"><span class="material-symbols-outlined text-[16px]">add</span>Create Task</button></div></div>`;
     formContainer.classList.remove('hidden'); addBtn.classList.add('hidden');
     const titleInput = formContainer.querySelector<HTMLInputElement>('.inline-title-input')!, descInput = formContainer.querySelector<HTMLTextAreaElement>('.inline-description-input')!, prioritySel = formContainer.querySelector<HTMLSelectElement>('.inline-priority-select')!, labelInputs = formContainer.querySelectorAll<HTMLInputElement>('.inline-label-checkbox');
@@ -691,13 +703,13 @@ function closeTaskPanel(): void { elements.panelContent!.classList.add('translat
 // ===== Images =====
 function renderTaskImages(images: string[]): void {
     if (!images?.length) { (elements.panelImagesContainer as HTMLElement).innerHTML = '<div class="col-span-3 text-xs text-[#8a98a8] p-2">No images added yet</div>'; return; }
-    (elements.panelImagesContainer as HTMLElement).innerHTML = images.map((url, i) => `<div class="relative group aspect-square rounded-lg overflow-hidden border border-[#e5e7eb] dark:border-[#1e2936] bg-gray-100 dark:bg-gray-800"><img src="${url}" alt="Task image ${i+1}" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" data-action="open-image-modal" data-image-url="${url}"><button type="button" class="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity" data-action="remove-task-image" data-image-index="${i}"><span class="material-symbols-outlined text-[16px]">close</span></button></div>`).join('');
+    (elements.panelImagesContainer as HTMLElement).innerHTML = images.map((url, i) => `<div class="relative group aspect-square rounded-lg overflow-hidden border border-[#e5e7eb] dark:border-[#1e2936] bg-gray-100 dark:bg-gray-800"><img src="${url}" alt="Task image ${i + 1}" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" data-action="open-image-modal" data-image-url="${url}"><button type="button" class="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity" data-action="remove-task-image" data-image-index="${i}"><span class="material-symbols-outlined text-[16px]">close</span></button></div>`).join('');
 }
-async function uploadTaskImage(file: File): Promise<string|null> {
+async function uploadTaskImage(file: File): Promise<string | null> {
     const fd = new FormData(); fd.append('file', file);
     (elements.imageUploadStatus as HTMLElement).textContent = 'Uploading...'; (elements.imageUploadStatus as HTMLElement).classList.remove('hidden');
     try { const r = await fetch(`${API_URL}/api/upload-image`, { method: 'POST', headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }, body: fd }); if (!r.ok) throw new Error('Upload failed'); const d = await r.json() as { url: string }; (elements.imageUploadStatus as HTMLElement).classList.add('hidden'); return d.url; }
-    catch(e) { console.error(e); (elements.imageUploadStatus as HTMLElement).textContent = 'Upload failed'; setTimeout(() => (elements.imageUploadStatus as HTMLElement).classList.add('hidden'), 3000); showToast(elements.toastContainer, 'Failed to upload image', 'error'); return null; }
+    catch (e) { console.error(e); (elements.imageUploadStatus as HTMLElement).textContent = 'Upload failed'; setTimeout(() => (elements.imageUploadStatus as HTMLElement).classList.add('hidden'), 3000); showToast(elements.toastContainer, 'Failed to upload image', 'error'); return null; }
 }
 function removeTaskImage(index: number): void { if (!currentEditingTask?.images) return; currentEditingTask.images.splice(index, 1); renderTaskImages(currentEditingTask.images); }
 function openImageModal(url: string): void {
@@ -708,14 +720,14 @@ function openImageModal(url: string): void {
 }
 
 // ===== Comments =====
-async function loadComments(taskId: string): Promise<void> { try { const r = await authFetch(`${API_URL}/api/tasks/${taskId}/comments`); if (!r) return; renderComments(await r.json()); } catch(e) { console.error(e); } }
-function renderComments(comments: any[]): void {
+async function loadComments(taskId: string): Promise<void> { try { const r = await authFetch(`${API_URL}/api/tasks/${taskId}/comments`); if (!r) return; renderComments(await r.json()); } catch (e) { console.error(e); } }
+function renderComments(comments: TaskComment[]): void {
     if (!comments?.length) { (elements.commentsContainer as HTMLElement).innerHTML = '<div class="text-xs text-[#8a98a8] text-center py-4">No comments yet. Be the first to comment!</div>'; return; }
     (elements.commentsContainer as HTMLElement).innerHTML = comments.map(c => {
         const d = new Date(c.created_at);
         const imgsHtml = c.images?.length ? `<div class="grid grid-cols-3 gap-2 mt-2">${c.images.map((url: string) => `<div class="aspect-square rounded-lg overflow-hidden border border-[#e5e7eb] dark:border-[#1e2936]"><img src="${url}" class="w-full h-full object-cover cursor-pointer hover:opacity-90" data-action="open-image-modal" data-image-url="${url}"></div>`).join('')}</div>` : '';
         const isOwner = currentUser && c.user_id === currentUser.id;
-        return `<div class="bg-white dark:bg-[#151e29] rounded-lg p-4 border border-[#e5e7eb] dark:border-[#1e2936]"><div class="flex items-start justify-between mb-2"><div class="flex items-center gap-2"><div class="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center text-white text-sm font-semibold">${c.user_id ? String(c.user_id).substring(0,2).toUpperCase() : 'U'}</div><div><div class="text-sm font-medium text-[#111418] dark:text-white">User</div><div class="text-xs text-[#5c6b7f] dark:text-gray-400">${formatDateWithYear(c.timestamp)} at ${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</div></div></div>${isOwner ? `<button data-action="delete-comment" data-comment-id="${c.id}" class="p-1 text-[#5c6b7f] hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors"><span class="material-symbols-outlined text-[18px]">delete</span></button>` : ''}</div><div class="text-sm text-[#111418] dark:text-gray-200 whitespace-pre-wrap">${escapeHtml(c.content)}</div>${imgsHtml}</div>`;
+        return `<div class="bg-white dark:bg-[#151e29] rounded-lg p-4 border border-[#e5e7eb] dark:border-[#1e2936]"><div class="flex items-start justify-between mb-2"><div class="flex items-center gap-2"><div class="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center text-white text-sm font-semibold">${c.user_id ? String(c.user_id).substring(0, 2).toUpperCase() : 'U'}</div><div><div class="text-sm font-medium text-[#111418] dark:text-white">User</div><div class="text-xs text-[#5c6b7f] dark:text-gray-400">${formatDateWithYear(c.timestamp)} at ${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</div></div></div>${isOwner ? `<button data-action="delete-comment" data-comment-id="${c.id}" class="p-1 text-[#5c6b7f] hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors"><span class="material-symbols-outlined text-[18px]">delete</span></button>` : ''}</div><div class="text-sm text-[#111418] dark:text-gray-200 whitespace-pre-wrap">${escapeHtml(c.content)}</div>${imgsHtml}</div>`;
     }).join('');
 }
 async function postComment(): Promise<void> {
@@ -723,17 +735,17 @@ async function postComment(): Promise<void> {
     const content = (elements.commentInput as HTMLTextAreaElement).value.trim();
     if (!content && !currentCommentImages.length) { showToast(elements.toastContainer, 'Comment cannot be empty', 'error'); return; }
     try { const r = await authFetch(`${API_URL}/api/tasks/${currentEditingTask.id}/comments`, { method: 'POST', body: JSON.stringify({ content, images: currentCommentImages }) }); if (!r) return; (elements.commentInput as HTMLTextAreaElement).value = ''; currentCommentImages = []; (elements.commentImagesContainer as HTMLElement).innerHTML = ''; (elements.commentImagesContainer as HTMLElement).classList.add('hidden'); await loadComments(currentEditingTask.id); showToast(elements.toastContainer, 'Comment added', 'success'); }
-    catch(e) { console.error(e); showToast(elements.toastContainer, 'Failed to post comment', 'error'); }
+    catch (e) { console.error(e); showToast(elements.toastContainer, 'Failed to post comment', 'error'); }
 }
 async function deleteComment(commentId: string): Promise<void> {
     if (!confirm('Delete this comment?')) return;
     try { const r = await authFetch(`${API_URL}/api/comments/${commentId}`, { method: 'DELETE' }); if (!r) return; if (currentEditingTask) await loadComments(currentEditingTask.id); showToast(elements.toastContainer, 'Comment deleted', 'success'); }
-    catch(e) { console.error(e); showToast(elements.toastContainer, 'Failed to delete comment', 'error'); }
+    catch (e) { console.error(e); showToast(elements.toastContainer, 'Failed to delete comment', 'error'); }
 }
-async function uploadCommentImage(file: File): Promise<string|null> {
+async function uploadCommentImage(file: File): Promise<string | null> {
     (elements.commentImageStatus as HTMLElement).textContent = 'Uploading...'; (elements.commentImageStatus as HTMLElement).classList.remove('hidden');
     try { const url = await uploadTaskImage(file); (elements.commentImageStatus as HTMLElement).classList.add('hidden'); return url; }
-    catch(e) { (elements.commentImageStatus as HTMLElement).textContent = 'Upload failed'; setTimeout(() => (elements.commentImageStatus as HTMLElement).classList.add('hidden'), 3000); return null; }
+    catch (e) { (elements.commentImageStatus as HTMLElement).textContent = 'Upload failed'; setTimeout(() => (elements.commentImageStatus as HTMLElement).classList.add('hidden'), 3000); return null; }
 }
 function renderCommentImages(): void {
     if (!currentCommentImages.length) { (elements.commentImagesContainer as HTMLElement).innerHTML = ''; (elements.commentImagesContainer as HTMLElement).classList.add('hidden'); return; }
@@ -746,26 +758,26 @@ function saveTaskFromPanel(): void { saveTaskFromPanelService({ getCurrentEditin
 function renderEventLog(task: Task): void {
     const evts = globalEvents.filter(e => e.originalTaskId === task.id || e.taskId === task.id);
     if (!evts.length) { (elements.panelEventLog as HTMLElement).innerHTML = '<div class="px-4 py-3 text-center text-gray-400 text-xs">No Kafka events recorded for this task</div>'; return; }
-    (elements.panelEventLog as HTMLElement).innerHTML = evts.slice(0,5).map(e => `<div class="px-4 py-3 border-b border-[#e5e7eb] dark:border-[#1e2936] flex gap-4"><span class="text-[#94a3b8] shrink-0 w-20">${e.time}</span><div class="flex-1 overflow-hidden"><div class="text-blue-600 dark:text-blue-400 font-bold mb-1">${escapeHtml(e.type)}</div><span class="text-[#334155] dark:text-gray-400 block truncate">${e.type === 'TASK_CREATED' ? 'Task created' : formatEventData(e.data)}</span></div></div>`).join('');
+    (elements.panelEventLog as HTMLElement).innerHTML = evts.slice(0, 5).map(e => `<div class="px-4 py-3 border-b border-[#e5e7eb] dark:border-[#1e2936] flex gap-4"><span class="text-[#94a3b8] shrink-0 w-20">${e.time}</span><div class="flex-1 overflow-hidden"><div class="text-blue-600 dark:text-blue-400 font-bold mb-1">${escapeHtml(e.type)}</div><span class="text-[#334155] dark:text-gray-400 block truncate">${e.type === 'TASK_CREATED' ? 'Task created' : formatEventData(e.data)}</span></div></div>`).join('');
 }
 
 // ===== Task CRUD =====
 async function addTask(title: string, description: string, priority: string, status: string, labelIds: string[] = []): Promise<void> { await addTaskService({ activeBoardId, authFetch, API_URL, tasks, setTasks: (v: Task[]) => { tasks = v; }, renderBoard, notifyKafkaEvent, elements, renderActivityLog, showToast: st }, title, description, priority, status, labelIds); }
 async function addTaskToColumn(title: string, description: string, priority: string, columnId: string, labelIds: string[] = []): Promise<void> { await addTaskToColumnService({ activeBoardId, authFetch, API_URL, tasks, setTasks: (v: Task[]) => { tasks = v; }, renderBoard, notifyKafkaEvent, elements, renderActivityLog, showToast: st }, title, description, priority, columnId, labelIds); }
 async function updateTask(id: string, updates: Partial<Task>): Promise<void> { await updateTaskService({ authFetch, API_URL, tasks, setTasks: (v: Task[]) => { tasks = v; }, renderBoard, elements, renderActivityLog, notifyKafkaEvent, showToast: st }, id, updates); }
-function showDeleteModal(task: Task): void { showDeleteModalService({ elements, setTaskToDeleteId: (v: string|null) => { taskToDeleteId = v; } }, task); }
-function hideDeleteModal(): void { hideDeleteModalService({ elements, setTaskToDeleteId: (v: string|null) => { taskToDeleteId = v; } }); }
+function showDeleteModal(task: Task): void { showDeleteModalService({ elements, setTaskToDeleteId: (v: string | null) => { taskToDeleteId = v; } }, task); }
+function hideDeleteModal(): void { hideDeleteModalService({ elements, setTaskToDeleteId: (v: string | null) => { taskToDeleteId = v; } }); }
 async function deleteTask(id: string): Promise<void> { await deleteTaskService({ tasks, setTasks: (v: Task[]) => { tasks = v; }, authFetch, API_URL, renderBoard, elements, renderActivityLog, closeTaskPanel, notifyKafkaEvent, showToast: st }, id); }
 
 // ===== Kafka =====
-async function sendKafkaEvent(eventType: string, taskId: string, data: Record<string,unknown> = {}): Promise<void> { await sendKafkaEventService({ sendKafkaEventRequest, API_URL, setKafkaConnected: (v:boolean) => { kafkaConnected = v; }, updateKafkaStatusUI }, eventType, taskId, data); }
-function connectWebSocket(): void { connectWebSocketService({ getActiveBoardId: () => activeBoardId, getWsUrl, setWebsocket: (v:WebSocket|null) => { websocket = v; }, setKafkaConnected: (v:boolean) => { kafkaConnected = v; }, updateKafkaStatusUI, handleIncomingKafkaEvent, reconnect: connectWebSocket }); }
-function handleIncomingKafkaEvent(kafkaEvent: Record<string,unknown>): void { handleIncomingKafkaEventService({ globalEvents, renderActivityLog, elements, currentUser, isDragInProgress: dragDropState.isDragInProgress, loadColumns, loadTasks, currentEditingTask, loadComments }, kafkaEvent); }
+async function sendKafkaEvent(eventType: string, taskId: string, data: Record<string, unknown> = {}): Promise<void> { await sendKafkaEventService({ sendKafkaEventRequest, API_URL, setKafkaConnected: (v: boolean) => { kafkaConnected = v; }, updateKafkaStatusUI }, eventType, taskId, data); }
+function connectWebSocket(): void { connectWebSocketService({ getActiveBoardId: () => activeBoardId, getWsUrl, setWebsocket: (v: WebSocket | null) => { websocket = v; }, setKafkaConnected: (v: boolean) => { kafkaConnected = v; }, updateKafkaStatusUI, handleIncomingKafkaEvent, reconnect: connectWebSocket }); }
+function handleIncomingKafkaEvent(kafkaEvent: Record<string, unknown>): void { handleIncomingKafkaEventService({ globalEvents, renderActivityLog, elements, currentUser, isDragInProgress: dragDropState.isDragInProgress, loadColumns, loadTasks, currentEditingTask, loadComments }, kafkaEvent); }
 function updateKafkaStatusUI(): void { /* visual only */ }
-function notifyKafkaEvent(message: string, type: 'info'|'success'|'error' = 'info'): void { notifyKafkaEventService({ showKafkaEvent, elements, updateKafkaStatusUI }, message, type); }
+function notifyKafkaEvent(message: string, type: 'info' | 'success' | 'error' = 'info'): void { notifyKafkaEventService({ showKafkaEvent, elements, updateKafkaStatusUI }, message, type); }
 
 // ===== Drag and Drop =====
-const dragDropState = { draggedTask: null as HTMLElement|null, draggedTaskId: null as string|null, isDragging: false, isDragInProgress: false, draggedColumn: null as HTMLElement|null };
+const dragDropState = { draggedTask: null as HTMLElement | null, draggedTaskId: null as string | null, isDragging: false, isDragInProgress: false, draggedColumn: null as HTMLElement | null };
 const COLUMN_DRAG_KEY = 'application/x-column-id';
 function handleDragStart(e: DragEvent): void { handleDragStartService({ state: dragDropState, TASK_DRAG_KEY }, e); }
 function handleDragEnd(): void { handleDragEndService(dragDropState); }
@@ -789,7 +801,7 @@ function showTaskContextMenu(e: MouseEvent, task: Task): void {
     const menu = elements.taskContextMenu as HTMLElement; menu.style.display = 'block'; menu.classList.remove('hidden');
     let x = e.pageX, y = e.pageY;
     if (x + 224 > window.innerWidth + window.scrollX) x = window.innerWidth + window.scrollX - 234;
-    if (y + (menu.offsetHeight||400) > window.innerHeight + window.scrollY) y = window.innerHeight + window.scrollY - (menu.offsetHeight||400) - 10;
+    if (y + (menu.offsetHeight || 400) > window.innerHeight + window.scrollY) y = window.innerHeight + window.scrollY - (menu.offsetHeight || 400) - 10;
     menu.style.left = `${x}px`; menu.style.top = `${y}px`;
 }
 function hideTaskContextMenu(): void { if (elements.taskContextMenu) { (elements.taskContextMenu as HTMLElement).style.display = 'none'; elements.taskContextMenu.classList.add('hidden'); } currentContextTask = null; }
@@ -801,7 +813,7 @@ function showColumnContextMenu(e: MouseEvent, columnId: string): void {
     const menu = elements.columnContextMenu as HTMLElement; menu.style.display = 'block'; menu.classList.remove('hidden');
     let x = e.pageX, y = e.pageY;
     if (x + 208 > window.innerWidth + window.scrollX) x = window.innerWidth + window.scrollX - 218;
-    if (y + (menu.offsetHeight||200) > window.innerHeight + window.scrollY) y = window.innerHeight + window.scrollY - (menu.offsetHeight||200) - 10;
+    if (y + (menu.offsetHeight || 200) > window.innerHeight + window.scrollY) y = window.innerHeight + window.scrollY - (menu.offsetHeight || 200) - 10;
     menu.style.left = `${x}px`; menu.style.top = `${y}px`;
 }
 function hideColumnContextMenu(): void { if (elements.columnContextMenu) { (elements.columnContextMenu as HTMLElement).style.display = 'none'; elements.columnContextMenu.classList.add('hidden'); } currentContextColumnId = null; }
@@ -816,7 +828,7 @@ function loadSidebarState(): void { if (localStorage.getItem('kafka-kanban-sideb
 // ===== Event Listener Binding =====
 function initEventListeners(): void {
     bindBoardListeners({ elements, showCreateListModal, switchBoard, showDeleteBoardModal, toggleBoardsPopout, scrollToAddCard, moveColumnLeft, moveColumnRight, editColumnTitle, deleteColumn, openImageModal, removeTaskImage, deleteComment, removeCommentImage, deleteLabel, showBoardContextMenu, switchView, toggleTheme, toggleSidebar, openLabelManager, closeLabelManager, createLabel });
-    bindTaskListeners({ elements, closeTaskPanel, saveTaskFromPanel, getCurrentEditingTask: () => currentEditingTask, showDeleteModal, showToast: st, uploadTaskImage, renderTaskImages, postComment, uploadCommentImage, getCurrentCommentImages: () => currentCommentImages, renderCommentImages, getTaskToDeleteId: () => taskToDeleteId, deleteTask, hideDeleteModal, getActiveInlineForm: () => activeInlineForm as any, hideInlineAddForm, closeAllColumnMenus, hideTaskContextMenu, hideBoardContextMenu, hideColumnContextMenu, getCurrentContextTask: () => currentContextTask, openTaskPanel, updateTask });
+    bindTaskListeners({ elements, closeTaskPanel, saveTaskFromPanel, getCurrentEditingTask: () => currentEditingTask, showDeleteModal, showToast: st, uploadTaskImage, renderTaskImages, postComment, uploadCommentImage, getCurrentCommentImages: () => currentCommentImages, renderCommentImages, getTaskToDeleteId: () => taskToDeleteId, deleteTask, hideDeleteModal, getActiveInlineForm: () => activeInlineForm?.formContainer || null, hideInlineAddForm, closeAllColumnMenus, hideTaskContextMenu, hideBoardContextMenu, hideColumnContextMenu, getCurrentContextTask: () => currentContextTask, openTaskPanel, updateTask });
     bindModalListeners({ elements, showCreateBoardModal, hideCreateBoardModal, createBoard, hideCreateListModal, showCreateListModal, createColumn, hideEditBoardModal, updateBoard, getCurrentContextBoardId: () => currentContextBoardId, showEditBoardModal, hideBoardContextMenu, getBoards: () => boards, showDeleteBoardModal, hideColumnContextMenu, getCurrentContextColumnId: () => currentContextColumnId, scrollToAddCard, editColumnTitle, moveColumnLeft, moveColumnRight, deleteColumn, hideDeleteBoardModal, getBoardToDeleteId: () => boardToDeleteId, deleteBoard, hideDeleteListModal, hideTaskContextMenu, closeTaskPanel, hideDeleteModal, closeLabelManager, hideInlineAddForm });
 }
 function attachBoardEventListeners(): void {
@@ -828,6 +840,8 @@ async function init(): Promise<void> {
     bindStaticDomEvents({ openLabelManager, closeLabelManager });
     initTheme(); loadSidebarState();
     if (!localStorage.getItem('access_token')) { window.location.href = '/login'; return; }
+    // Auth confirmed — reveal the page now
+    document.body.style.visibility = 'visible';
     try {
         const userRes = await authFetch(`${API_URL}/api/auth/me`); if (!userRes) return;
         currentUser = await userRes.json() as { id: string; full_name?: string };
@@ -839,7 +853,7 @@ async function init(): Promise<void> {
         initEventListeners();
         window.addEventListener('resize', () => { if (elements.sidebar!.classList.contains('collapsed')) renderBoardList(); });
         console.log('Kafka Kanban Board initialized');
-    } catch(e) { console.error('Initialization error:', e); }
+    } catch (e) { console.error('Initialization error:', e); }
 }
 
 export { init };
