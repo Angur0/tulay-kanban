@@ -1,165 +1,133 @@
 # Tulay Kanban
 
-Real-time Kanban board built with FastAPI, PostgreSQL, Kafka, and a modular vanilla-JS frontend.
+Real-time Kanban board built with FastAPI, PostgreSQL, Kafka, and a modular TypeScript frontend.
 
-## What it does
+## Features
 
-- Multi-board Kanban with list and task drag/drop
-- Live activity updates over WebSockets (Kafka-backed)
-- Task details panel (description, priority, due date, assignee, labels)
-- Comments + image attachments
-- Light/Dark theme and responsive layout
+- Multi-workspace, multi-board Kanban flow
+- Drag-and-drop for columns and tasks
+- Live updates via WebSockets (Kafka-backed when available)
+- Task detail panel (description, priority, due date, assignee, labels, comments)
+- Image attachment upload support
+- Light/Dark theme
 
-## Current changes (2026-02-22)
+## Tech Stack
 
-- Frontend bootstrap was simplified: `frontend/app.js` now initializes and delegates to modular ES modules.
-- Frontend orchestration was split into focused listener modules in `frontend/listeners/*`.
-- Non-listener runtime handlers were extracted to `frontend/services/*` for board/task/modal/realtime/drag-drop flows.
-- Backend monolith routing was decomposed into feature routers in `backend/routers/*`.
-- Shared backend cross-cutting logic was isolated in `backend/core/*`.
-- Board ordering now supports batched reorder via `POST /api/workspaces/{ws_id}/boards/reorder`.
-- Modal UX flow was hardened: create/delete/edit modals now close reliably on outside click and support Enter-to-confirm in relevant inputs/buttons.
-
-## Tech stack
-
-- Frontend: Vanilla JavaScript ES modules + Tailwind CSS
 - Backend: FastAPI + SQLAlchemy
+- Frontend: TypeScript + Vite + modular browser code
 - Data: PostgreSQL
-- Streaming: Kafka
+- Event streaming: Kafka (graceful offline fallback)
 - Auth: JWT login (registration disabled)
-- Runtime: Docker Compose (Kafka/Postgres) + local Python app server
 
-## Quick start
+## Prerequisites
 
-### 1) Prerequisites
-
-- Docker + Docker Compose
 - Python 3.9+
+- Docker + Docker Compose
+- Node.js 18+ (only needed for Vite frontend development)
 
-### 2) Start infrastructure
+## Quick Start (Backend-served UI)
+
+1) Start infrastructure:
 
 ```bash
 docker compose up -d
 ```
 
-Wait for Kafka/Postgres to be healthy before launching backend.
-
-### 3) Install Python dependencies
+2) Install Python dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Optional (Cloudflare R2 storage only):
-
-```bash
-pip install boto3
-```
-
-### 3.1) Configure environment (optional)
-
-The app runs with defaults, but you can set optional environment variables:
-
-- `STORAGE_BACKEND` (`local` or `r2`, default: `local`)
-- `BASE_URL` (default: empty string; use `http://localhost:8000` for absolute upload URLs)
-- `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL` (required only for `STORAGE_BACKEND=r2`)
-
-You can copy `.env.example` as reference, but note this project does **not** auto-load `.env` at runtime. Export variables in your shell (or Docker/host environment) before starting the app.
-
-### 4) Run backend
+3) Run the app:
 
 ```bash
 python main.py
 ```
 
-Open http://localhost:8000
+4) Open:
 
-## Troubleshooting startup (`python main.py` exits with code 1)
+- App: http://localhost:5173
+- Login: http://localhost:5173/login.html
 
-Most startup failures are one of these:
+## Frontend Dev Mode (Optional)
 
-1. **PostgreSQL is not running on `localhost:5432`**
-	- Start infra first: `docker compose up -d`
-	- Verify container health/logs with `docker compose ps` and `docker compose logs db`
+Use this if you want HMR and local frontend iteration.
 
-2. **Dependencies are missing**
-	- Reinstall: `pip install -r requirements.txt`
+1) Keep backend running at `http://localhost:8000`
+2) In `frontend/`:
 
-3. **Kafka is unavailable**
-	- Kafka connection failures are non-fatal in this project (it falls back to websocket-only broadcast), but ensure `kafka` container is up if you need Kafka-backed fan-out.
+```bash
+npm install
+npm run dev
+```
 
-4. **Python version/runtime mismatch**
-	- Use Python `3.9+`.
+3) Open Vite dev server: http://localhost:5173
 
-## Login
+`vite.config.ts` proxies `/api`, `/ws`, and `/uploads` to the backend.
 
-Use demo credentials (registration is disabled):
+## Environment Variables (Optional)
+
+- `STORAGE_BACKEND`: `local` (default) or `r2`
+- `BASE_URL`: for absolute file URLs (example: `http://localhost:8000`)
+- `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL`: required only when `STORAGE_BACKEND=r2`
+
+Notes:
+
+- The app does not auto-load `.env`; export variables in your shell/runtime environment.
+- `boto3` is only required for R2 storage.
+
+## Demo Login
 
 - Email: `test@example.com`
 - Password: `password123`
 
-If you are not authenticated, the app redirects to `/login`.
+## Troubleshooting
 
-## Project layout
+- PostgreSQL unavailable on `localhost:5432`: run `docker compose up -d` and check `docker compose ps`
+- Missing Python packages: re-run `pip install -r requirements.txt`
+- Kafka unavailable: app still runs and falls back to direct WebSocket broadcast
+
+## Project Layout
 
 ```text
 tulay-kanban/
-├── main.py                # Root launcher (imports backend.main)
+├── main.py
 ├── backend/
-│   ├── main.py            # Backend composition root
+│   ├── main.py
 │   ├── core/
-│   │   ├── auth.py
-│   │   ├── deps.py
-│   │   ├── realtime.py
-│   │   └── setup.py
+│   ├── routers/
 │   ├── database.py
 │   ├── models.py
 │   ├── schemas.py
-│   ├── routers/
-│   │   ├── auth.py
-│   │   ├── boards.py
-│   │   ├── labels.py
-│   │   ├── misc.py
-│   │   ├── tasks.py
-│   │   └── workspaces.py
 │   └── storage.py
 ├── frontend/
-│   ├── app.js             # Frontend bootstrap entrypoint
-│   ├── dom-events.js      # Static DOM-only event hooks
-│   ├── api.js             # Frontend HTTP/Kafka transport helpers
-│   ├── state.js           # Frontend constants/shared primitives
-│   ├── ui.js              # Frontend UI/format helpers
-│   ├── events.js          # Frontend composition/orchestration root
-│   ├── listeners/
-│   │   ├── board.js
-│   │   ├── task.js
-│   │   ├── modal.js
-│   │   └── dragdrop.js
-│   ├── services/
-│   │   ├── board-service.js
-│   │   ├── task-service.js
-│   │   ├── modal-service.js
-│   │   ├── realtime-service.js
-│   │   └── dragdrop-service.js
-│   ├── index.html         # Main app shell
-│   └── login.html         # Login page
+│   ├── index.html
+│   ├── login.html
+│   ├── package.json
+│   ├── vite.config.ts
+│   └── src/
+│       ├── main.ts
+│       ├── events.ts
+│       ├── api.ts
+│       ├── state.ts
+│       ├── ui.ts
+│       ├── dom-events.ts
+│       ├── listeners/
+│       └── services/
 ├── scripts/
-│   └── clean_db.py
-├── clean_db.py            # Root launcher for scripts/clean_db.py
+├── docs/
 ├── docker-compose.yml
-├── requirements.txt
-└── docs/
+└── requirements.txt
 ```
 
-## Documentation
+## Docs
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [Known Issues](docs/KNOWN_ISSUES.md)
 - [Storage Architecture](docs/STORAGE_ARCHITECTURE.md)
 - [Storage Migration](docs/STORAGE_MIGRATION.md)
 - [Storage Quick Reference](docs/STORAGE_QUICK_REF.md)
-
-For known technical debt and pending refactors, see [Known Issues](docs/KNOWN_ISSUES.md).
 
 ## License
 
