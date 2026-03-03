@@ -61,15 +61,28 @@ async def lifespan(app: FastAPI):
         print("Kafka consumer task cancelled")
 
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(title="Tulay Kanban API", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://localhost:4173", "http://127.0.0.1:4173", "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = PROJECT_ROOT / "frontend"
 UPLOAD_DIR = PROJECT_ROOT / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 
+FRONTEND_DIST = FRONTEND_DIR / "dist"
+
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
-app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
+app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
+app.mount("/static", StaticFiles(directory=str(FRONTEND_DIST)), name="static")
 
 app.include_router(auth.router)
 app.include_router(workspaces.router)

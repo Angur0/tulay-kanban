@@ -26,6 +26,7 @@ interface BoardListenerCtx {
     openLabelManager: (scope: string) => void;
     closeLabelManager: () => void;
     createLabel: () => void;
+    addMember: () => void;
 }
 export function bindBoardListeners(ctx: BoardListenerCtx): void {
     const {
@@ -34,6 +35,7 @@ export function bindBoardListeners(ctx: BoardListenerCtx): void {
         editColumnTitle, deleteColumn, openImageModal, removeTaskImage, deleteComment,
         removeCommentImage, deleteLabel, showBoardContextMenu, switchView,
         toggleTheme, toggleSidebar, openLabelManager, closeLabelManager, createLabel,
+        addMember,
     } = ctx;
 
     document.addEventListener('click', (event) => {
@@ -58,6 +60,16 @@ export function bindBoardListeners(ctx: BoardListenerCtx): void {
         if (action === 'remove-comment-image') { removeCommentImage(Number(actionElement.dataset.imageIndex)); return; }
         if (action === 'label-delete') { deleteLabel(actionElement.dataset.labelId!); return; }
         if (action === 'dismiss-toast') { const toast = actionElement.closest('div'); if (toast) toast.remove(); }
+        if (action === 'open-members-modal') {
+            const modal = document.getElementById('manageMembersModal') as HTMLElement | null;
+            if (modal) modal.style.display = 'block';
+            return;
+        }
+        if (action === 'close-members-modal') {
+            const modal = document.getElementById('manageMembersModal') as HTMLElement | null;
+            if (modal) modal.style.display = 'none';
+            return;
+        }
     });
 
     document.addEventListener('contextmenu', (event) => {
@@ -87,12 +99,20 @@ export function bindBoardListeners(ctx: BoardListenerCtx): void {
     const labelCreateBtn = document.getElementById('labelCreateBtn');
     if (labelCreateBtn) labelCreateBtn.addEventListener('click', createLabel);
 
+    const addMemberBtn = document.getElementById('addMemberBtn');
+    if (addMemberBtn) addMemberBtn.addEventListener('click', addMember);
+
     document.addEventListener('click', (e) => {
         const target = e.target as Node;
         const popout = document.getElementById('boardsPopout');
         const moreBtn = document.getElementById('boardsMoreBtn');
         if (popout && popout.style.display === 'block' && !popout.contains(target) && (!moreBtn || !moreBtn.contains(target))) {
             popout.style.display = 'none';
+        }
+        // Close members modal when clicking backdrop
+        if ((target as HTMLElement).id === 'manageMembersBackdrop') {
+            const modal = document.getElementById('manageMembersModal') as HTMLElement | null;
+            if (modal) modal.style.display = 'none';
         }
     });
 

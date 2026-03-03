@@ -52,14 +52,14 @@
         <!-- Card -->
         <div
             class="bg-white dark:bg-[#151e29] rounded-xl border border-[#e5e7eb] dark:border-[#1e2936] overflow-hidden">
-            <!-- Card Header -->
-            <div class="px-8 pt-8 pb-6 border-b border-[#e5e7eb] dark:border-[#1e2936]">
-                <div class="flex items-center gap-3">
-                    <div class="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-primary">
-                        <span class="material-symbols-outlined">login</span>
-                    </div>
-                    <h2 class="text-lg font-bold text-[#111418] dark:text-white">Sign In</h2>
-                </div>
+            <!-- Card Header SubNav -->
+            <div class="flex border-b border-[#e5e7eb] dark:border-[#1e2936]">
+                <button id="tabSignIn"
+                    class="flex-1 py-4 text-sm font-semibold text-primary border-b-2 border-primary transition-colors">Sign
+                    In</button>
+                <button id="tabSignUp"
+                    class="flex-1 py-4 text-sm font-medium text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white border-b-2 border-transparent transition-colors">Sign
+                    Up</button>
             </div>
 
             <!-- Login Form -->
@@ -89,6 +89,49 @@
                 <button type="submit"
                     class="w-full py-3 px-4 bg-primary hover:bg-blue-600 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2 group">
                     <span>Sign In</span>
+                    <span
+                        class="material-symbols-outlined text-[18px] group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
+                </button>
+            </form>
+
+            <!-- Sign Up Form -->
+            <form id="signupForm" class="p-8 space-y-5 hidden">
+                <div>
+                    <label class="block text-sm font-medium text-[#5c6b7f] dark:text-gray-400 mb-2">Full Name</label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-[#8a98a8]">
+                            <span class="material-symbols-outlined text-[18px]">person</span>
+                        </span>
+                        <input type="text" id="signupName" required
+                            class="w-full pl-10 pr-4 py-3 bg-[#fbfcfd] dark:bg-[#0d141c] border border-[#e5e7eb] dark:border-[#1e2936] rounded-lg text-[#111418] dark:text-white placeholder-[#8a98a8] focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                            placeholder="John Doe">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-[#5c6b7f] dark:text-gray-400 mb-2">Email</label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-[#8a98a8]">
+                            <span class="material-symbols-outlined text-[18px]">mail</span>
+                        </span>
+                        <input type="email" id="signupEmail" required
+                            class="w-full pl-10 pr-4 py-3 bg-[#fbfcfd] dark:bg-[#0d141c] border border-[#e5e7eb] dark:border-[#1e2936] rounded-lg text-[#111418] dark:text-white placeholder-[#8a98a8] focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                            placeholder="you@example.com">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-[#5c6b7f] dark:text-gray-400 mb-2">Password</label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-[#8a98a8]">
+                            <span class="material-symbols-outlined text-[18px]">lock</span>
+                        </span>
+                        <input type="password" id="signupPassword" required
+                            class="w-full pl-10 pr-4 py-3 bg-[#fbfcfd] dark:bg-[#0d141c] border border-[#e5e7eb] dark:border-[#1e2936] rounded-lg text-[#111418] dark:text-white placeholder-[#8a98a8] focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                            placeholder="••••••••">
+                    </div>
+                </div>
+                <button type="submit"
+                    class="w-full py-3 px-4 bg-primary hover:bg-blue-600 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2 group">
+                    <span>Create Account</span>
                     <span
                         class="material-symbols-outlined text-[18px] group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
                 </button>
@@ -192,6 +235,38 @@
             document.getElementById('successMessage').classList.add('hidden');
         }
 
+        // Tab Management
+        const tabSignIn = document.getElementById('tabSignIn');
+        const tabSignUp = document.getElementById('tabSignUp');
+        const loginForm = document.getElementById('loginForm');
+        const signupForm = document.getElementById('signupForm');
+
+        function switchTab(tab) {
+            hideMessages();
+            if (tab === 'signin') {
+                tabSignIn.classList.add('text-primary', 'border-b-2', 'border-primary', 'font-semibold');
+                tabSignIn.classList.remove('text-[#5c6b7f]', 'dark:text-gray-400', 'hover:text-[#111418]', 'dark:hover:text-white', 'border-transparent', 'font-medium');
+
+                tabSignUp.classList.add('text-[#5c6b7f]', 'dark:text-gray-400', 'hover:text-[#111418]', 'dark:hover:text-white', 'border-transparent', 'font-medium');
+                tabSignUp.classList.remove('text-primary', 'border-b-2', 'border-primary', 'font-semibold');
+
+                loginForm.classList.remove('hidden');
+                signupForm.classList.add('hidden');
+            } else {
+                tabSignUp.classList.add('text-primary', 'border-b-2', 'border-primary', 'font-semibold');
+                tabSignUp.classList.remove('text-[#5c6b7f]', 'dark:text-gray-400', 'hover:text-[#111418]', 'dark:hover:text-white', 'border-transparent', 'font-medium');
+
+                tabSignIn.classList.add('text-[#5c6b7f]', 'dark:text-gray-400', 'hover:text-[#111418]', 'dark:hover:text-white', 'border-transparent', 'font-medium');
+                tabSignIn.classList.remove('text-primary', 'border-b-2', 'border-primary', 'font-semibold');
+
+                signupForm.classList.remove('hidden');
+                loginForm.classList.add('hidden');
+            }
+        }
+
+        tabSignIn.addEventListener('click', () => switchTab('signin'));
+        tabSignUp.addEventListener('click', () => switchTab('signup'));
+
         // Login Form
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -215,6 +290,35 @@
                 const data = await response.json();
                 localStorage.setItem('access_token', data.access_token);
                 window.location.href = '/';
+            } catch (error) {
+                showError(error.message);
+            }
+        });
+
+        // Sign Up Form
+        document.getElementById('signupForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideMessages();
+
+            const name = document.getElementById('signupName').value;
+            const email = document.getElementById('signupEmail').value;
+            const password = document.getElementById('signupPassword').value;
+
+            try {
+                const response = await fetch(`${API_URL}/api/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: email, password: password, full_name: name })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Registration failed');
+                }
+
+                showSuccess('Account created successfully! You can now sign in.');
+                switchTab('signin');
+                document.getElementById('loginEmail').value = email;
             } catch (error) {
                 showError(error.message);
             }

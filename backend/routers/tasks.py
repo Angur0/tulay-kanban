@@ -6,19 +6,11 @@ from sqlalchemy.orm import Session
 from backend import models
 from backend.core import realtime
 from backend.core.deps import get_current_user
+from backend.core.rbac import ensure_board_access
 from backend.database import get_db
 from backend.schemas import CommentCreate, CommentResponse, TaskCreate, TaskResponse
 
 router = APIRouter(tags=["tasks"])
-
-
-def _assert_workspace_permission(ws: models.Workspace | None, current_user: models.User, message: str):
-    if ws is None:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    owner_matches = str(ws.owner_id) == str(current_user.id)
-    member_matches = any(str(m.id) == str(current_user.id) for m in ws.members)
-    if not owner_matches and not member_matches:
-        raise HTTPException(status_code=403, detail=message)
 
 
 def _get_task_workspace(task: models.Task, db: Session) -> models.Workspace | None:
@@ -30,12 +22,18 @@ def _get_task_workspace(task: models.Task, db: Session) -> models.Workspace | No
 
 @router.get("/api/tasks/my", response_model=list[TaskResponse])
 def get_my_tasks(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    tasks = db.query(models.Task).filter(models.Task.assignee_id == current_user.id).all()
+    tasks = db.query(models.Task).join(
+        models.board_members, models.Task.board_id == models.board_members.c.board_id
+    ).filter(
+        models.Task.assignee_id == current_user.id,
+        models.board_members.c.user_id == current_user.id
+    ).all()
     return tasks
 
 
 @router.get("/api/boards/{board_id}/tasks", response_model=list[TaskResponse])
-def get_board_tasks(board_id: str, db: Session = Depends(get_db)):
+def get_board_tasks(board_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    ensure_board_access(db, board_id, current_user)
     try:
         tasks = db.query(models.Task).filter(models.Task.board_id == board_id).all()
         return tasks
@@ -48,6 +46,8 @@ def get_board_tasks(board_id: str, db: Session = Depends(get_db)):
 
 @router.post("/api/tasks", response_model=TaskResponse)
 async def create_task(task_in: TaskCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    ensure_board_access(db, task_in.board_id, current_user, ["owner", "moderator", "member"])
+    
     task_data = task_in.model_dump(exclude={"label_ids"})
     new_task = models.Task(**task_data)
 
@@ -87,8 +87,7 @@ async def update_task(task_id: str, updates: dict, current_user: models.User = D
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    ws = _get_task_workspace(task, db)
-    _assert_workspace_permission(ws, current_user, "Not authorized to update this task")
+    ensure_board_access(db, task.board_id, current_user, ["owner", "moderator", "member"])
 
     old_status = task.status
     label_ids = updates.pop("label_ids", None)
@@ -135,8 +134,7 @@ async def delete_task(task_id: str, current_user: models.User = Depends(get_curr
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    ws = _get_task_workspace(task, db)
-    _assert_workspace_permission(ws, current_user, "Not authorized to delete this task")
+    ensure_board_access(db, task.board_id, current_user, ["owner", "moderator", "member"])
 
     task_title = task.title
     board_id = task.board_id
@@ -172,8 +170,7 @@ async def get_task_comments(task_id: str, current_user: models.User = Depends(ge
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    ws = _get_task_workspace(task, db)
-    _assert_workspace_permission(ws, current_user, "Not authorized to view this task")
+    ensure_board_access(db, task.board_id, current_user)
 
     comments = db.query(models.Comment).filter(models.Comment.task_id == task_id).order_by(models.Comment.created_at.desc()).all()
     return comments
@@ -185,8 +182,7 @@ async def create_comment(task_id: str, comment_in: CommentCreate, current_user: 
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    ws = _get_task_workspace(task, db)
-    _assert_workspace_permission(ws, current_user, "Not authorized to comment on this task")
+    ensure_board_access(db, task.board_id, current_user, ["owner", "moderator", "member"])
 
     new_comment = models.Comment(
         task_id=task_id,
@@ -277,7 +273,8 @@ async def delete_comment(comment_id: str, current_user: models.User = Depends(ge
 
 
 @router.get("/api/boards/{board_id}/activities")
-def get_board_activities(board_id: str, db: Session = Depends(get_db)):
+def get_board_activities(board_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    ensure_board_access(db, board_id, current_user)
     activities = db.query(models.Activity).filter(
         models.Activity.board_id == board_id
     ).order_by(models.Activity.timestamp.desc()).limit(100).all()

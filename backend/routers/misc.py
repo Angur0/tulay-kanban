@@ -80,19 +80,19 @@ async def websocket_endpoint(websocket: WebSocket, board_id: str):
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-FRONTEND_DIR = PROJECT_ROOT / "frontend"
+FRONTEND_DIST = PROJECT_ROOT / "frontend" / "dist"
 
 
 @router.get("/")
 async def serve_index():
-    return FileResponse(FRONTEND_DIR / "index.html")
+    return FileResponse(FRONTEND_DIST / "index.html")
 
 
 @router.get("/login")
 async def serve_login():
-    return FileResponse(FRONTEND_DIR / "login.html")
+    return FileResponse(FRONTEND_DIST / "login.html")
 
 
 @router.get("/app.js")
 async def serve_app_js():
-    return FileResponse(FRONTEND_DIR / "app.js")
+    return FileResponse(FRONTEND_DIST / "app.js")

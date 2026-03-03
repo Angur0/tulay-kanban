@@ -4,7 +4,8 @@
 
 import {
     STORAGE_KEY, API_URL, getWsUrl, normalizeBoardIcon,
-    columnColorClasses, labelColors, statusLabels, TASK_DRAG_KEY
+    columnColorClasses, statusLabels, TASK_DRAG_KEY,
+    currentUser, setCurrentUser, currentBoardRole, setCurrentBoardRole
 } from './state.ts';
 import { authFetch, sendKafkaEventRequest } from './api.ts';
 import { escapeHtml, formatEventData, formatDate, formatDateWithYear, showToast, showKafkaEvent } from './ui.ts';
@@ -21,7 +22,8 @@ import {
     loadBoardsService, createBoardService, deleteBoardService,
     showDeleteBoardModalService, hideDeleteBoardModalService, switchBoardService,
     showCreateBoardModalService, hideCreateBoardModalService,
-    showEditBoardModalService, hideEditBoardModalService, updateBoardService
+    showEditBoardModalService, hideEditBoardModalService, updateBoardService,
+    addMemberService
 } from './services/board-service.ts';
 import {
     saveTaskFromPanelService, addTaskService, addTaskToColumnService,
@@ -43,7 +45,6 @@ import type { Task, Board, Column, Label, WorkspaceMember, KafkaEvent, AppElemen
 // ===== State =====
 let tasks: Task[] = [];
 let globalEvents: KafkaEvent[] = [];
-let currentUser: { id: string; full_name?: string } | null = null;
 let activeBoardId: string | null = null;
 let currentEditingTask: Task | null = null;
 let activeInlineForm: { columnId: string; formContainer: HTMLElement; addBtn: HTMLElement } | null = null;
@@ -62,6 +63,7 @@ let currentContextColumnId: string | null = null;
 let currentContextBoardId: string | null = null;
 let boardToDeleteId: string | null = null;
 let currentCommentImages: string[] = [];
+let boardMembers: any[] = [];
 
 // ===== DOM Elements =====
 const elements: AppElements = {
@@ -166,6 +168,9 @@ const elements: AppElements = {
     editSelectedIconPreview: document.getElementById('editSelectedIconPreview'),
     cancelEditBoardBtn: document.getElementById('cancelEditBoardBtn'),
     confirmEditBoardBtn: document.getElementById('confirmEditBoardBtn'),
+    manageMembersBtn: document.getElementById('manageMembersBtn'),
+    manageMembersModal: document.getElementById('manageMembersModal'),
+    closeManageMembersBtn: document.getElementById('closeManageMembersBtn'),
 };
 
 // ===== Storage =====
@@ -205,13 +210,13 @@ function renderBoard(): void {
     if (columns.length === 0) { boardEl.innerHTML = `<div class="flex flex-col items-center justify-center w-full h-full text-[#8a98a8]"><span class="material-symbols-outlined text-5xl mb-4 opacity-30">view_week</span><p class="text-base font-medium mb-2">No lists yet</p><button data-action="open-create-list" class="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-blue-600 text-white text-sm font-medium rounded-lg shadow-sm transition-colors"><span class="material-symbols-outlined text-[18px]">add</span>Create List</button></div>`; return; }
     boardEl.innerHTML = columns.map((col, index) => `
         <div class="column flex flex-col w-80 flex-shrink-0 h-full rounded-xl transition-colors" data-column-id="${col.id}">
-            <div class="column-drag-handle flex items-center justify-between mb-3 px-1" draggable="true">
-                <div class="flex items-center gap-2 cursor-grab active:cursor-grabbing">
-                    <span class="material-symbols-outlined text-[#8a98a8] text-[18px]">drag_indicator</span>
+            <div class="column-drag-handle flex items-center justify-between mb-3 px-1" ${['owner', 'moderator'].includes(currentBoardRole) ? 'draggable="true"' : ''}>
+                <div class="flex items-center gap-2 ${['owner', 'moderator'].includes(currentBoardRole) ? 'cursor-grab active:cursor-grabbing' : ''}">
+                    ${['owner', 'moderator'].includes(currentBoardRole) ? '<span class="material-symbols-outlined text-[#8a98a8] text-[18px]">drag_indicator</span>' : ''}
                     <span class="flex items-center justify-center size-5 rounded text-[10px] font-bold text-white ${columnColorClasses[index % columnColorClasses.length]}" id="count-${col.id}">0</span>
-                    <h3 class="text-sm font-semibold text-[#111418] dark:text-white editable-title" data-column-id="${col.id}" contenteditable="false">${escapeHtml(col.title)}</h3>
+                    <h3 class="text-sm font-semibold text-[#111418] dark:text-white ${['owner', 'moderator'].includes(currentBoardRole) ? 'editable-title' : ''}" data-column-id="${col.id}" contenteditable="false">${escapeHtml(col.title)}</h3>
                 </div>
-                <div class="flex items-center gap-1 relative">
+                <div class="flex items-center gap-1 relative" ${['owner', 'moderator', 'member'].includes(currentBoardRole) ? '' : 'style="display:none;"'}>
                     <button class="column-menu-btn text-[#8a98a8] hover:text-[#111418] dark:hover:text-white" data-column-id="${col.id}"><span class="material-symbols-outlined text-[18px]">more_horiz</span></button>
                     <div class="column-menu hidden absolute right-0 top-8 bg-white dark:bg-[#151e29] rounded-lg shadow-xl border border-[#e5e7eb] dark:border-[#1e2936] py-1 w-48 z-10" data-column-id="${col.id}">
                         <button data-action="column-add-card" data-column-id="${col.id}" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-[#111418] dark:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] transition-colors text-left"><span class="material-symbols-outlined text-[18px]">add</span>Add card</button>
@@ -219,18 +224,27 @@ function renderBoard(): void {
                         <button data-action="column-move-left" data-column-id="${col.id}" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-[#111418] dark:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] transition-colors text-left" ${index === 0 ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}><span class="material-symbols-outlined text-[18px]">arrow_back</span>Move left</button>
                         <button data-action="column-move-right" data-column-id="${col.id}" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-[#111418] dark:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] transition-colors text-left" ${index === columns.length - 1 ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}><span class="material-symbols-outlined text-[18px]">arrow_forward</span>Move right</button>
                         <div class="border-t border-[#e5e7eb] dark:border-[#1e2936] my-1"></div>
-                        <button data-action="column-rename" data-column-id="${col.id}" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-[#111418] dark:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] transition-colors text-left"><span class="material-symbols-outlined text-[18px]">edit</span>Rename list</button>
-                        <button data-action="column-delete" data-column-id="${col.id}" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left"><span class="material-symbols-outlined text-[18px]">delete</span>Delete list</button>
+                        <button data-action="column-rename" data-column-id="${col.id}" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-[#111418] dark:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] transition-colors text-left" ${['owner', 'moderator'].includes(currentBoardRole) ? '' : 'style="display:none;"'}><span class="material-symbols-outlined text-[18px]">edit</span>Rename list</button>
+                        <button data-action="column-delete" data-column-id="${col.id}" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left" ${['owner', 'moderator'].includes(currentBoardRole) ? '' : 'style="display:none;"'}><span class="material-symbols-outlined text-[18px]">delete</span>Delete list</button>
                     </div>
                 </div>
             </div>
             <div class="task-list flex-1 flex flex-col gap-3 overflow-y-auto custom-scrollbar pb-4 pr-1" id="list-${col.id}" data-column-id="${col.id}"></div>
             <div class="inline-add-form hidden" data-column-id="${col.id}"></div>
-            <button class="add-card-btn flex items-center justify-center px-2 py-2 mt-2 text-[#5c6b7f] dark:text-gray-400 hover:text-primary hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" data-column-id="${col.id}" title="Add Card"><span class="material-symbols-outlined text-[20px]">add</span></button>
+            <button class="add-card-btn flex items-center justify-center px-2 py-2 mt-2 text-[#5c6b7f] dark:text-gray-400 hover:text-primary hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" data-column-id="${col.id}" title="Add Card" ${['owner', 'moderator', 'member'].includes(currentBoardRole) ? '' : 'style="display:none;"'}><span class="material-symbols-outlined text-[20px]">add</span></button>
         </div>
-    `).join('') + `<div class="flex-shrink-0 h-full flex items-stretch"><button id="addListBtn" class="flex flex-col items-center justify-center px-4 w-16 bg-[#f1f3f5] dark:bg-[#1a232e] hover:bg-[#e6e8eb] dark:hover:bg-[#253040] rounded-xl text-[#5c6b7f] dark:text-gray-400 font-medium transition-all shadow-sm"><span class="material-symbols-outlined text-2xl">add</span></button></div>`;
+    `).join('') + `<div class="flex-shrink-0 h-full flex items-stretch"><button id="addListBtn" class="flex flex-col items-center justify-center px-4 w-16 bg-[#f1f3f5] dark:bg-[#1a232e] hover:bg-[#e6e8eb] dark:hover:bg-[#253040] rounded-xl text-[#5c6b7f] dark:text-gray-400 font-medium transition-all shadow-sm" ${['owner', 'moderator', 'member'].includes(currentBoardRole) ? '' : 'style="display:none;"'}><span class="material-symbols-outlined text-2xl">add</span></button></div>`;
     const addListBtn = document.getElementById('addListBtn');
     if (addListBtn) addListBtn.addEventListener('click', showCreateListModal);
+
+    // Manage Members UI toggles
+    if (elements.manageMembersBtn) {
+        elements.manageMembersBtn.classList.remove('hidden');
+        elements.manageMembersBtn.classList.add('flex');
+    }
+    const addMemberSection = document.getElementById('addMemberSection');
+    if (addMemberSection) addMemberSection.style.display = ['owner', 'moderator'].includes(currentBoardRole) ? '' : 'none';
+
     attachBoardEventListeners();
     columns.forEach(col => {
         const colTasks = tasks.filter(t => t.column_id === col.id);
@@ -248,6 +262,98 @@ function updateHeaderStats(): void {
         const count = tasks.filter(t => t.column_id === col.id).length;
         return `<div class="flex items-center gap-1.5"><span class="size-2 rounded-full ${columnColorClasses[index % columnColorClasses.length]}"></span><span class="text-[#5c6b7f] dark:text-gray-400">${escapeHtml(col.title)}: <span class="font-semibold text-[#111418] dark:text-white">${count}</span></span></div>`;
     }).join('');
+}
+
+async function loadBoardMembers(): Promise<void> {
+    if (!activeBoardId) return;
+    try {
+        const response = await authFetch(`${API_URL}/api/boards/${activeBoardId}/members`);
+        if (!response) return;
+        boardMembers = await response.json();
+        const myMembership = boardMembers.find(m => m.user_id === currentUser?.id);
+        setCurrentBoardRole(myMembership ? myMembership.role : 'viewer');
+        renderMembersList();
+    } catch (e) { console.error(e); }
+}
+
+function renderMembersList(): void {
+    const list = document.getElementById('membersList');
+    if (!list) return;
+    if (boardMembers.length === 0) {
+        list.innerHTML = '<div class="text-xs text-[#8a98a8] text-center p-4">No members found</div>';
+        return;
+    }
+    list.innerHTML = boardMembers.map(m => {
+        const isMe = m.user_id === currentUser?.id;
+        const canEditRoles = currentBoardRole === 'owner' && !isMe;
+        const roleHtml = canEditRoles
+            ? `<select data-user-id="${m.user_id}" class="update-member-role text-xs bg-gray-50 dark:bg-gray-800 border-none px-2 py-1 rounded focus:ring-0">
+                <option value="owner" ${m.role === 'owner' ? 'selected' : ''}>Owner</option>
+                <option value="moderator" ${m.role === 'moderator' ? 'selected' : ''}>Moderator</option>
+                <option value="member" ${m.role === 'member' ? 'selected' : ''}>Member</option>
+                <option value="viewer" ${m.role === 'viewer' ? 'selected' : ''}>Viewer</option>
+               </select>`
+            : `<span class="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded capitalize">${m.role}</span>`;
+
+        const removeHtml = canEditRoles || (currentBoardRole === 'moderator' && !isMe && m.role !== 'owner' && m.role !== 'moderator')
+            ? `<button data-action="remove-member" data-user-id="${m.user_id}" class="text-red-500 hover:text-red-700 p-1"><span class="material-symbols-outlined text-[16px]">close</span></button>`
+            : '';
+
+        return `<div class="flex items-center justify-between p-2 hover:bg-gray-50 dark:hover:bg-[#1e2936] rounded-lg transition-colors border border-transparent hover:border-gray-200 dark:hover:border-gray-700">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center text-white text-xs font-semibold">${m.user_full_name ? m.user_full_name.substring(0, 2).toUpperCase() : m.user_email.substring(0, 2).toUpperCase()}</div>
+                <div>
+                    <div class="text-sm font-medium text-[#111418] dark:text-white">${escapeHtml(m.user_full_name || m.user_email)} ${isMe ? '(You)' : ''}</div>
+                    <div class="text-xs text-[#5c6b7f] dark:text-gray-400">${escapeHtml(m.user_email)}</div>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                ${roleHtml}
+                ${removeHtml}
+            </div>
+        </div>`;
+    }).join('');
+
+    // Attach listener for role update
+    list.querySelectorAll('.update-member-role').forEach(select => {
+        select.addEventListener('change', async (e) => {
+            const target = e.target as HTMLSelectElement;
+            const userId = target.dataset.userId;
+            const newRole = target.value;
+            if (!userId) return;
+            try {
+                const response = await authFetch(`${API_URL}/api/boards/${activeBoardId}/members/${userId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ role: newRole })
+                });
+                if (!response?.ok) throw new Error();
+                showToast(elements.toastContainer, 'Role updated', 'success');
+                await loadBoardMembers();
+            } catch (err) {
+                showToast(elements.toastContainer, 'Failed to update role', 'error');
+                await loadBoardMembers();
+            }
+        });
+    });
+
+    // Attach listener for member removal
+    list.querySelectorAll('button[data-action="remove-member"]').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            const target = e.currentTarget as HTMLButtonElement;
+            const userId = target.dataset.userId;
+            if (!userId || !confirm('Remove this member?')) return;
+            try {
+                const response = await authFetch(`${API_URL}/api/boards/${activeBoardId}/members/${userId}`, {
+                    method: 'DELETE'
+                });
+                if (!response?.ok) throw new Error();
+                showToast(elements.toastContainer, 'Member removed', 'success');
+                await loadBoardMembers();
+            } catch (err) {
+                showToast(elements.toastContainer, 'Failed to remove member', 'error');
+            }
+        });
+    });
 }
 
 function switchView(viewName: string): void {
@@ -598,7 +704,7 @@ async function deleteBoard(boardId: string): Promise<void> {
 }
 function showDeleteBoardModal(boardId: string, boardName: string): void { showDeleteBoardModalService({ elements, setBoardToDeleteId: (v: string | null) => { boardToDeleteId = v; } }, boardId, boardName); }
 function hideDeleteBoardModal(): void { hideDeleteBoardModalService({ elements, setBoardToDeleteId: (v: string | null) => { boardToDeleteId = v; } }); }
-function switchBoard(boardId: string): void { switchBoardService({ getActiveBoardId: () => activeBoardId, setActiveBoardId: (v: string | null) => { activeBoardId = v; }, renderBoardList, loadColumns, loadTasks, loadActivities, loadLabels, switchView }, boardId); }
+function switchBoard(boardId: string): void { switchBoardService({ getActiveBoardId: () => activeBoardId, setActiveBoardId: (v: string | null) => { activeBoardId = v; }, renderBoardList, loadColumns: async () => { await Promise.all([loadColumns(), loadBoardMembers()]); }, loadTasks, loadActivities, loadLabels, switchView }, boardId); }
 function showCreateBoardModal(): void { showCreateBoardModalService({ elements }); }
 function hideCreateBoardModal(): void { hideCreateBoardModalService({ elements }); }
 function showBoardContextMenu(e: MouseEvent, boardId: string): void {
@@ -621,12 +727,13 @@ function createTaskCard(task: Task): HTMLElement {
     const card = document.createElement('div');
     const isDone = task.status === 'done';
     card.className = `task-card group flex flex-col gap-2 p-3 bg-white dark:bg-[#151e29] rounded-lg border border-[#e5e7eb] dark:border-[#1e2936] hover:border-primary/50 shadow-sm cursor-pointer transition-all ${isDone ? 'opacity-60 hover:opacity-100' : ''}`;
-    card.id = task.id; card.draggable = true; card.dataset.taskId = task.id;
+    card.id = task.id;
+    if (['owner', 'moderator', 'member'].includes(currentBoardRole)) card.draggable = true;
+    card.dataset.taskId = task.id;
     const pbc: Record<string, string> = { low: '#22c55e', medium: '#f97316', high: '#ef4444' };
     card.style.borderLeftWidth = '4px'; card.style.borderLeftColor = pbc[task.priority] || pbc.medium;
     let labelsHTML = '';
     if (task.labels?.length) { labelsHTML = task.labels.map(l => `<span class="inline-flex items-center flex-shrink-0 rounded px-1.5 py-0.5 text-xs font-medium text-white" style="background-color: ${l.color || '#93c5fd'}">${escapeHtml(l.name)}</span>`).join(''); }
-    else if (task.label) { const label = task.label as string; const ls = labelColors[label] || labelColors.frontend; labelsHTML = `<span class="inline-flex items-center rounded-md ${ls.bg} px-1.5 py-0.5 text-xs font-medium ${ls.text} ring-1 ring-inset ${ls.ring} capitalize">${label}</span>`; }
     const assignee = task.assignee_id ? workspaceMembers.find(m => m.id === task.assignee_id) : null;
     const initials = assignee ? (assignee.full_name || assignee.email || '').split(/[\s@]+/).filter(Boolean).slice(0, 2).map((p: string) => p[0].toUpperCase()).join('') : '';
     // Image thumbnail strip
@@ -827,9 +934,28 @@ function loadSidebarState(): void { if (localStorage.getItem('kafka-kanban-sideb
 
 // ===== Event Listener Binding =====
 function initEventListeners(): void {
-    bindBoardListeners({ elements, showCreateListModal, switchBoard, showDeleteBoardModal, toggleBoardsPopout, scrollToAddCard, moveColumnLeft, moveColumnRight, editColumnTitle, deleteColumn, openImageModal, removeTaskImage, deleteComment, removeCommentImage, deleteLabel, showBoardContextMenu, switchView, toggleTheme, toggleSidebar, openLabelManager, closeLabelManager, createLabel });
+    const addMember = async () => {
+        const emailInput = document.getElementById('newMemberEmail') as HTMLInputElement;
+        const roleSelect = document.getElementById('newMemberRole') as HTMLSelectElement;
+        const errorSpan = document.getElementById('addMemberError') as HTMLElement;
+        const email = emailInput.value.trim();
+        if (!email) { errorSpan.textContent = "Please enter an email"; errorSpan.classList.remove('hidden'); return; }
+
+        const result = await addMemberService({ authFetch, API_URL, getActiveBoardId: () => activeBoardId, loadBoardMembers, showToast: st }, email, roleSelect.value);
+        if (!result.success) {
+            errorSpan.textContent = result.error || "Error adding member"; errorSpan.classList.remove('hidden');
+        } else {
+            errorSpan.classList.add('hidden'); emailInput.value = ''; roleSelect.value = 'member';
+        }
+    };
+
+    bindBoardListeners({ elements, showCreateListModal, switchBoard, showDeleteBoardModal, toggleBoardsPopout, scrollToAddCard, moveColumnLeft, moveColumnRight, editColumnTitle, deleteColumn, openImageModal, removeTaskImage, deleteComment, removeCommentImage, deleteLabel, showBoardContextMenu, switchView, toggleTheme, toggleSidebar, openLabelManager, closeLabelManager, createLabel, addMember });
     bindTaskListeners({ elements, closeTaskPanel, saveTaskFromPanel, getCurrentEditingTask: () => currentEditingTask, showDeleteModal, showToast: st, uploadTaskImage, renderTaskImages, postComment, uploadCommentImage, getCurrentCommentImages: () => currentCommentImages, renderCommentImages, getTaskToDeleteId: () => taskToDeleteId, deleteTask, hideDeleteModal, getActiveInlineForm: () => activeInlineForm?.formContainer || null, hideInlineAddForm, closeAllColumnMenus, hideTaskContextMenu, hideBoardContextMenu, hideColumnContextMenu, getCurrentContextTask: () => currentContextTask, openTaskPanel, updateTask });
-    bindModalListeners({ elements, showCreateBoardModal, hideCreateBoardModal, createBoard, hideCreateListModal, showCreateListModal, createColumn, hideEditBoardModal, updateBoard, getCurrentContextBoardId: () => currentContextBoardId, showEditBoardModal, hideBoardContextMenu, getBoards: () => boards, showDeleteBoardModal, hideColumnContextMenu, getCurrentContextColumnId: () => currentContextColumnId, scrollToAddCard, editColumnTitle, moveColumnLeft, moveColumnRight, deleteColumn, hideDeleteBoardModal, getBoardToDeleteId: () => boardToDeleteId, deleteBoard, hideDeleteListModal, hideTaskContextMenu, closeTaskPanel, hideDeleteModal, closeLabelManager, hideInlineAddForm });
+    try {
+        bindModalListeners({ elements, showCreateBoardModal, hideCreateBoardModal, createBoard, hideCreateListModal, showCreateListModal, createColumn, hideEditBoardModal, updateBoard, getCurrentContextBoardId: () => currentContextBoardId, showEditBoardModal, hideBoardContextMenu, getBoards: () => boards, showDeleteBoardModal, hideColumnContextMenu, getCurrentContextColumnId: () => currentContextColumnId, scrollToAddCard, editColumnTitle, moveColumnLeft, moveColumnRight, deleteColumn, hideDeleteBoardModal, getBoardToDeleteId: () => boardToDeleteId, deleteBoard, hideDeleteListModal, hideTaskContextMenu, closeTaskPanel, hideDeleteModal, closeLabelManager, hideInlineAddForm });
+    } catch (e) {
+        console.error("Error in bindModalListeners", e);
+    }
 }
 function attachBoardEventListeners(): void {
     bindDragDropListeners({ showInlineAddForm, isTaskDragging: () => dragDropState.isDragging, isColumnDragging: () => Boolean(dragDropState.draggedColumn), handleDragOver, handleColumnDragOver, handleDragEnter, handleDragLeave, handleDrop, handleColumnDrop, showColumnContextMenu, handleColumnDragStart, handleColumnDragEnd });
@@ -844,12 +970,12 @@ async function init(): Promise<void> {
     document.body.style.visibility = 'visible';
     try {
         const userRes = await authFetch(`${API_URL}/api/auth/me`); if (!userRes) return;
-        currentUser = await userRes.json() as { id: string; full_name?: string };
+        setCurrentUser(await userRes.json() as { id: string; email: string; full_name: string });
         const wsRes = await authFetch(`${API_URL}/api/workspaces`);
         const workspaces = await wsRes!.json() as { id: string }[];
         if (workspaces.length > 0) activeWorkspaceId = workspaces[0].id;
         await loadWorkspaceMembers(); await loadBoards(); await loadLabels();
-        if (activeBoardId) { await loadColumns().then(loadTasks); connectWebSocket(); } else { renderBoard(); }
+        if (activeBoardId) { await Promise.all([loadColumns(), loadBoardMembers()]); await loadTasks(); connectWebSocket(); } else { renderBoard(); }
         initEventListeners();
         window.addEventListener('resize', () => { if (elements.sidebar!.classList.contains('collapsed')) renderBoardList(); });
         console.log('Kafka Kanban Board initialized');
