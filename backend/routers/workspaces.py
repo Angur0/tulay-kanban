@@ -11,7 +11,15 @@ router = APIRouter(prefix="/api/workspaces", tags=["workspaces"])
 
 @router.get("")
 def get_workspaces(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    return db.query(models.Workspace).filter(models.Workspace.owner_id == current_user.id).all()
+    workspaces = db.query(models.Workspace).filter(models.Workspace.owner_id == current_user.id).all()
+    if not workspaces:
+        ws_name = f"{current_user.full_name.split(' ')[0]}'s Workspace" if current_user.full_name else "My Workspace"
+        default_ws = models.Workspace(name=ws_name, owner_id=current_user.id)
+        db.add(default_ws)
+        db.commit()
+        db.refresh(default_ws)
+        workspaces = [default_ws]
+    return workspaces
 
 
 @router.post("")

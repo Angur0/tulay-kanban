@@ -16,6 +16,15 @@ workspace_members = Table(
     Column("role", String, default="member")
 )
 
+# Association table for Board Members (RBAC)
+board_members = Table(
+    "board_members",
+    Base.metadata,
+    Column("user_id", String, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column("board_id", String, ForeignKey("boards.id", ondelete="CASCADE"), primary_key=True),
+    Column("role", String, default="viewer") # roles: owner, moderator, member, viewer
+)
+
 class User(Base):
     __tablename__ = "users"
 
@@ -27,6 +36,7 @@ class User(Base):
 
     owned_workspaces = relationship("Workspace", back_populates="owner")
     workspaces = relationship("Workspace", secondary=workspace_members, back_populates="members")
+    board_memberships = relationship("Board", secondary=board_members, back_populates="members")
     tasks = relationship("Task", back_populates="assignee")
 
 class Workspace(Base):
@@ -54,6 +64,7 @@ class Board(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     workspace = relationship("Workspace", back_populates="boards")
+    members = relationship("User", secondary=board_members, back_populates="board_memberships")
     tasks = relationship("Task", back_populates="board", cascade="all, delete-orphan")
     columns = relationship("BoardColumn", back_populates="board", cascade="all, delete-orphan")
     activities = relationship("Activity", back_populates="board")

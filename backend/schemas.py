@@ -64,6 +64,23 @@ class BoardReorderItem(BaseModel):
     position: int
 
 
+class BoardMemberCreate(BaseModel):
+    user_email: str
+    role: str = "viewer"
+
+
+class BoardMemberUpdate(BaseModel):
+    role: str
+
+
+class BoardMemberResponse(BaseModel):
+    user_id: str
+    board_id: str
+    role: str
+    user_email: str
+    user_full_name: str
+
+
 class BoardColumnCreate(BaseModel):
     title: str
     position: int

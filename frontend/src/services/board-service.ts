@@ -279,3 +279,28 @@ export async function updateBoardService(ctx: UpdateBoardCtx, boardId: string, d
         showToast('Failed to update board', 'error');
     }
 }
+
+interface AddMemberCtx {
+    authFetch: AnyFn;
+    API_URL: string;
+    getActiveBoardId: () => string | null;
+    loadBoardMembers: () => Promise<void>;
+    showToast: AnyFn;
+}
+export async function addMemberService(ctx: AddMemberCtx, email: string, role: string): Promise<{ success: boolean, error?: string }> {
+    const { authFetch, API_URL, getActiveBoardId, loadBoardMembers, showToast } = ctx;
+    const activeBoardId = getActiveBoardId();
+    if (!activeBoardId) return { success: false, error: "No active board" };
+    try {
+        const response = await authFetch(`${API_URL}/api/boards/${activeBoardId}/members`, { method: 'POST', body: JSON.stringify({ user_email: email, role }) });
+        if (!response?.ok) {
+            const err = await response?.json().catch(() => ({}));
+            return { success: false, error: err?.detail || "Failed to add member" };
+        }
+        showToast('Member added', 'success');
+        await loadBoardMembers();
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: "Error adding member" };
+    }
+}
