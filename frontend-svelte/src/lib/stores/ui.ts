@@ -2,7 +2,17 @@ import { writable } from 'svelte/store';
 
 // UI State
 export const isSidebarCollapsed = writable(false);
-export const isDarkMode = writable(false);
+function getInitialDarkMode(): boolean {
+    if (typeof window === 'undefined') return false;
+
+    const saved = localStorage.getItem('theme');
+    if (saved === 'dark') return true;
+    if (saved === 'light') return false;
+
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+export const isDarkMode = writable(getInitialDarkMode());
 export const activeView = writable<'board' | 'activity' | 'my-tasks'>('board');
 
 // Modals
@@ -14,6 +24,14 @@ export function toggleSidebar() {
 
 export function toggleTheme() {
     isDarkMode.update(v => !v);
+}
+
+if (typeof window !== 'undefined') {
+    isDarkMode.subscribe((isDark) => {
+        document.documentElement.classList.toggle('dark', isDark);
+        document.documentElement.classList.toggle('light', !isDark);
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    });
 }
 
 export function switchView(view: 'board' | 'activity' | 'my-tasks') {

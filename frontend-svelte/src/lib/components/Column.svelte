@@ -1,15 +1,46 @@
 <script lang="ts">
     import type { Column } from "$lib/types";
-    import { tasksByColumn } from "$lib/stores/board";
+    import {
+        columns,
+        labels,
+        setColumns,
+        setDeleteListTarget,
+        tasksByColumn,
+    } from "$lib/stores/board";
     import { currentBoardRole } from "$lib/stores/user";
     import { columnColorClasses } from "$lib/constants";
     import TaskCard from "./TaskCard.svelte";
     import { openModal } from "$lib/stores/ui";
+    import { updateColumn } from "$lib/api/listsApi";
+    import { createTask } from "$lib/api/tasksApi";
+    import { openContextMenu } from "$lib/stores/context-menu";
+    import { createEventDispatcher } from "svelte";
+
+    const dispatch = createEventDispatcher<{
+        taskDrop: {
+            taskId: string;
+            fromColumnId: string | null;
+            toColumnId: string;
+            beforeTaskId: string | null;
+        };
+        columnDragStart: { columnId: string };
+        columnDragEnd: undefined;
+    }>();
 
     export let column: Column;
     export let index: number;
 
     let isMenuOpen = false;
+    let showInlineAddForm = false;
+    let newTaskTitle = "";
+    let newTaskDescription = "";
+    let newTaskPriority: "low" | "medium" | "high" = "medium";
+    let selectedLabelIds: string[] = [];
+    let isTaskDragOver = false;
+    let taskDropIndex: number | null = null;
+    let isRenaming = false;
+    let editingTitle = "";
+    let menuContainerEl: HTMLElement | null = null;
 
     $: columnTasks = $tasksByColumn[column.id] || [];
     $: colorClass = columnColorClasses[index % columnColorClasses.length];
@@ -20,29 +51,294 @@
         isMenuOpen = !isMenuOpen;
     }
 
-    // Handlers
-    function moveLeft() {
-        /* Implement */
+    $: orderedColumns = [...$columns].sort((a, b) => {
+        const aPos = typeof a.position === "number" ? a.position : a.order ?? 0;
+        const bPos = typeof b.position === "number" ? b.position : b.order ?? 0;
+        return aPos - bPos;
+    });
+
+    async function persistColumnOrder(nextColumns: Column[]) {
+        const normalized = nextColumns.map((col, idx) => ({
+            ...col,
+            position: idx,
+            order: idx,
+        }));
+
+        setColumns(normalized);
+        try {
+            await Promise.all(
+                normalized.map((col, idx) =>
+                    updateColumn(col.id, { position: idx }, { reload: false })
+                )
+            );
+        } catch (e) {
+            console.error("Failed to persist column order", e);
+        }
     }
-    function moveRight() {
-        /* Implement */
+
+    async function moveLeft() {
+        if (!canManage) return;
+
+        const index = orderedColumns.findIndex((col) => col.id === column.id);
+        if (index <= 0) return;
+
+        const nextColumns = [...orderedColumns];
+        [nextColumns[index - 1], nextColumns[index]] = [
+            nextColumns[index],
+            nextColumns[index - 1],
+        ];
+
+        await persistColumnOrder(nextColumns);
+        isMenuOpen = false;
     }
-    function rename() {
-        /* Implement */
+
+    async function moveRight() {
+        if (!canManage) return;
+
+        const index = orderedColumns.findIndex((col) => col.id === column.id);
+        if (index < 0 || index >= orderedColumns.length - 1) return;
+
+        const nextColumns = [...orderedColumns];
+        [nextColumns[index], nextColumns[index + 1]] = [
+            nextColumns[index + 1],
+            nextColumns[index],
+        ];
+
+        await persistColumnOrder(nextColumns);
+        isMenuOpen = false;
     }
-    function requestDelete() {
-        // Implementation logic
+
+    function startRename() {
+        if (!canManage) return;
+
+        editingTitle = column.title;
+        isRenaming = true;
+        isMenuOpen = false;
+    }
+
+    function cancelRename() {
+        isRenaming = false;
+        editingTitle = "";
+    }
+
+    async function commitRename() {
+        if (!isRenaming) return;
+
+        const nextTitle = editingTitle.trim();
+        if (!nextTitle) {
+            cancelRename();
+            return;
+        }
+
+        if (nextTitle === column.title) {
+            cancelRename();
+            return;
+        }
+
+        try {
+            await updateColumn(column.id, { title: nextTitle }, { reload: false });
+            setColumns(
+                $columns.map((col) =>
+                    col.id === column.id ? { ...col, title: nextTitle } : col
+                )
+            );
+        } catch (e) {
+            console.error("Failed to rename column", e);
+        }
+
+        cancelRename();
+    }
+
+    async function requestDelete() {
+        if (!canManage) return;
+
+        setDeleteListTarget({ id: column.id, title: column.title });
         openModal("deleteListModal");
+
+        isMenuOpen = false;
+    }
+
+    function handleAddCard() {
+        if (!canAdd) return;
+        showInlineAddForm = true;
+        newTaskTitle = "";
+        newTaskDescription = "";
+        newTaskPriority = "medium";
+        selectedLabelIds = [];
+        isMenuOpen = false;
+    }
+
+    function hideInlineAddForm() {
+        showInlineAddForm = false;
+        newTaskTitle = "";
+        newTaskDescription = "";
+        newTaskPriority = "medium";
+        selectedLabelIds = [];
+    }
+
+    async function handleCreateInlineTask() {
+        const title = newTaskTitle.trim();
+        if (!title) return;
+
+        try {
+            await createTask(column.id, title, {
+                description: newTaskDescription.trim(),
+                priority: newTaskPriority,
+                labelIds: selectedLabelIds,
+            });
+            hideInlineAddForm();
+        } catch (e) {
+            console.error("Failed to create task", e);
+        }
+    }
+
+    function toggleLabel(labelId: string, checked: boolean) {
+        if (checked) {
+            selectedLabelIds = [...selectedLabelIds, labelId];
+        } else {
+            selectedLabelIds = selectedLabelIds.filter((id) => id !== labelId);
+        }
+    }
+
+    function handleColumnContextMenu(event: MouseEvent) {
+        event.preventDefault();
+        event.stopPropagation();
+        openContextMenu({
+            type: "column",
+            x: event.clientX,
+            y: event.clientY,
+            columnId: column.id,
+        });
+        isMenuOpen = false;
+    }
+
+    function getDragTypes(event: DragEvent): string[] {
+        return event.dataTransfer ? Array.from(event.dataTransfer.types || []) : [];
+    }
+
+    function isColumnDrag(event: DragEvent): boolean {
+        return getDragTypes(event).includes("application/x-column-id");
+    }
+
+    function isTaskDrag(event: DragEvent): boolean {
+        return getDragTypes(event).includes("application/x-task-id");
+    }
+
+    function handleTaskDragOver(event: DragEvent) {
+        if (isColumnDrag(event)) return;
+        event.preventDefault();
+        if (event.dataTransfer) {
+            event.dataTransfer.dropEffect = "move";
+        }
+        isTaskDragOver = true;
+
+        const target = event.target as Element;
+        const card = target.closest(".task-card") as HTMLElement | null;
+
+        if (!card) {
+            taskDropIndex = columnTasks.length;
+            return;
+        }
+
+        const targetTaskId = card.dataset.taskId;
+        const cardIndex = targetTaskId
+            ? columnTasks.findIndex((task) => task.id === targetTaskId)
+            : -1;
+
+        if (cardIndex < 0) {
+            taskDropIndex = columnTasks.length;
+            return;
+        }
+
+        const rect = card.getBoundingClientRect();
+        const isBefore = event.clientY < rect.top + rect.height / 2;
+        taskDropIndex = isBefore ? cardIndex : cardIndex + 1;
+    }
+
+    function handleTaskDragLeave(event: DragEvent) {
+        const relatedTarget = event.relatedTarget as Node | null;
+        const currentTarget = event.currentTarget as HTMLElement;
+        if (!relatedTarget || !currentTarget.contains(relatedTarget)) {
+            isTaskDragOver = false;
+            taskDropIndex = null;
+        }
+    }
+
+    function handleTaskDrop(event: DragEvent) {
+        if (isColumnDrag(event) || !isTaskDrag(event)) {
+            isTaskDragOver = false;
+            taskDropIndex = null;
+            return;
+        }
+
+        const taskId =
+            event.dataTransfer?.getData("application/x-task-id") ||
+            event.dataTransfer?.getData("text/plain");
+        const fromColumnId = event.dataTransfer?.getData("application/x-source-column-id") || null;
+        if (!taskId) return;
+
+        const beforeTaskId =
+            taskDropIndex !== null && taskDropIndex >= 0 && taskDropIndex < columnTasks.length
+                ? columnTasks[taskDropIndex].id
+                : null;
+
+        event.preventDefault();
+        event.stopPropagation();
+        isTaskDragOver = false;
+        taskDropIndex = null;
+        dispatch("taskDrop", {
+            taskId,
+            fromColumnId,
+            toColumnId: column.id,
+            beforeTaskId,
+        });
+    }
+
+    function handleColumnDragStart(event: DragEvent) {
+        if (!canManage || !event.dataTransfer) {
+            event.preventDefault();
+            return;
+        }
+
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("application/x-column-id", column.id);
+        event.dataTransfer.setData("text/plain", column.id);
+        dispatch("columnDragStart", { columnId: column.id });
+    }
+
+    function handleColumnDragEnd() {
+        dispatch("columnDragEnd", undefined);
     }
 </script>
+
+<svelte:window
+    on:mousedown={(event) => {
+        if (!isMenuOpen) return;
+        const target = event.target as Node;
+        if (menuContainerEl && !menuContainerEl.contains(target)) {
+            isMenuOpen = false;
+        }
+    }}
+    on:keydown={(event) => {
+        if (event.key === "Escape") {
+            isMenuOpen = false;
+        }
+    }}
+/>
 
 <div
     class="column flex flex-col w-80 flex-shrink-0 h-full rounded-xl transition-colors"
     data-column-id={column.id}
+    on:contextmenu={handleColumnContextMenu}
+    on:dragover={handleTaskDragOver}
+    on:dragleave={handleTaskDragLeave}
+    on:drop={handleTaskDrop}
 >
     <div
         class="column-drag-handle flex items-center justify-between mb-3 px-1"
-        draggable={canManage}
+        draggable={canManage && !isRenaming}
+        on:dragstart={handleColumnDragStart}
+        on:dragend={handleColumnDragEnd}
     >
         <div
             class="flex items-center gap-2 {canManage
@@ -59,17 +355,38 @@
                 class="flex items-center justify-center size-5 rounded text-[10px] font-bold text-white {colorClass}"
                 >{columnTasks.length}</span
             >
-            <h3
-                class="text-sm font-semibold text-[#111418] dark:text-white {canManage
-                    ? 'editable-title'
-                    : ''}"
-            >
-                {column.title}
-            </h3>
+            {#if isRenaming}
+                <input
+                    type="text"
+                    bind:value={editingTitle}
+                    class="text-sm font-semibold text-[#111418] dark:text-white bg-transparent border border-primary/40 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    autofocus
+                    on:click|stopPropagation
+                    on:keydown={(e) => {
+                        if (e.key === "Enter") {
+                            e.preventDefault();
+                            commitRename();
+                        }
+                        if (e.key === "Escape") {
+                            e.preventDefault();
+                            cancelRename();
+                        }
+                    }}
+                    on:blur={commitRename}
+                />
+            {:else}
+                <h3
+                    class="text-sm font-semibold text-[#111418] dark:text-white {canManage
+                        ? 'editable-title'
+                        : ''}"
+                >
+                    {column.title}
+                </h3>
+            {/if}
         </div>
 
         {#if canAdd}
-            <div class="flex items-center gap-1 relative">
+            <div class="flex items-center gap-1 relative" bind:this={menuContainerEl}>
                 <button
                     on:click={toggleMenu}
                     class="column-menu-btn text-[#8a98a8] hover:text-[#111418] dark:hover:text-white"
@@ -85,6 +402,7 @@
                         class="absolute right-0 top-8 bg-white dark:bg-[#151e29] rounded-lg shadow-xl border border-[#e5e7eb] dark:border-[#1e2936] py-1 w-48 z-10"
                     >
                         <button
+                            on:click={handleAddCard}
                             class="w-full flex items-center gap-3 px-4 py-2 text-sm text-[#111418] dark:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] transition-colors text-left"
                         >
                             <span class="material-symbols-outlined text-[18px]"
@@ -115,7 +433,7 @@
                                 class="border-t border-[#e5e7eb] dark:border-[#1e2936] my-1"
                             ></div>
                             <button
-                                on:click={rename}
+                                on:click={startRename}
                                 class="w-full flex items-center gap-3 px-4 py-2 text-sm text-[#111418] dark:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] transition-colors text-left"
                             >
                                 <span
@@ -143,13 +461,123 @@
     <div
         class="flex-1 flex flex-col gap-3 overflow-y-auto custom-scrollbar pb-4 pr-1"
     >
-        {#each columnTasks as task (task.id)}
+        {#each columnTasks as task, taskIndex (task.id)}
+            {#if isTaskDragOver && taskDropIndex === taskIndex}
+                <div class="h-1 bg-primary rounded-full my-1"></div>
+            {/if}
             <TaskCard {task} />
         {/each}
+
+        {#if isTaskDragOver && taskDropIndex === columnTasks.length}
+            <div class="h-1 bg-primary rounded-full my-1"></div>
+        {/if}
+
+        {#if showInlineAddForm && canAdd}
+            <div
+                class="flex flex-col gap-3 p-4 bg-white dark:bg-[#151e29] rounded-lg border-2 border-primary ring-4 ring-primary/20 shadow-xl mb-1 min-w-[320px]"
+            >
+                <input
+                    type="text"
+                    bind:value={newTaskTitle}
+                    class="w-full text-sm font-semibold text-[#111418] dark:text-white bg-transparent border-none p-0 focus:ring-0 placeholder-gray-400"
+                    placeholder="Task title..."
+                    autofocus
+                    on:keydown={(e) => {
+                        if (e.key === "Escape") hideInlineAddForm();
+                    }}
+                />
+                <textarea
+                    bind:value={newTaskDescription}
+                    class="w-full text-xs text-[#5c6b7f] dark:text-gray-300 bg-[#fbfcfd] dark:bg-[#0d141c] border border-[#e5e7eb] dark:border-[#1e2936] rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none placeholder-gray-400 custom-scrollbar"
+                    rows="2"
+                    placeholder="Add a description (optional)..."
+                    on:keydown={(e) => {
+                        if (e.key === "Escape") hideInlineAddForm();
+                    }}
+                ></textarea>
+
+                <div class="flex gap-3">
+                    <div class="flex-shrink-0">
+                        <label
+                            class="block text-[10px] font-semibold text-[#5c6b7f] dark:text-gray-400 uppercase mb-1.5"
+                            >Priority</label
+                        >
+                        <select
+                            bind:value={newTaskPriority}
+                            class="text-xs bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded px-2.5 py-1.5 focus:ring-2 focus:ring-primary/50 focus:outline-none"
+                        >
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                        </select>
+                    </div>
+
+                    <div class="flex-1 min-w-0">
+                        <label
+                            class="block text-[10px] font-semibold text-[#5c6b7f] dark:text-gray-400 uppercase mb-1.5"
+                            >Labels</label
+                        >
+                        <div
+                            class="flex flex-col gap-0.5 p-2 bg-[#fbfcfd] dark:bg-[#0d141c] border border-[#e5e7eb] dark:border-[#1e2936] rounded-lg max-h-[140px] overflow-y-auto custom-scrollbar"
+                        >
+                            {#if $labels.length === 0}
+                                <p class="text-xs text-gray-400 py-2 text-center">
+                                    No labels available
+                                </p>
+                            {:else}
+                                {#each $labels as label}
+                                    <label
+                                        class="flex items-center gap-2 cursor-pointer hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] px-2 py-1.5 rounded transition-colors"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            class="rounded border-gray-300 w-3.5 h-3.5"
+                                            checked={selectedLabelIds.includes(label.id)}
+                                            on:change={(e) =>
+                                                toggleLabel(
+                                                    label.id,
+                                                    (e.currentTarget as HTMLInputElement).checked
+                                                )}
+                                        />
+                                        <span
+                                            class="w-3 h-3 rounded"
+                                            style="background-color: {label.color || '#93c5fd'}"
+                                        ></span>
+                                        <span class="text-xs text-[#111418] dark:text-white"
+                                            >{label.name}</span
+                                        >
+                                    </label>
+                                {/each}
+                            {/if}
+                        </div>
+                    </div>
+                </div>
+
+                <div
+                    class="flex items-center justify-end gap-2 pt-2 border-t border-[#e5e7eb] dark:border-[#1e2936]"
+                >
+                    <button
+                        on:click={hideInlineAddForm}
+                        class="text-xs text-[#5c6b7f] hover:text-[#111418] px-3 py-2 rounded-lg hover:bg-[#eff1f3] transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        on:click={handleCreateInlineTask}
+                        class="flex items-center gap-1.5 bg-primary hover:bg-blue-600 text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-sm transition-colors"
+                        disabled={!newTaskTitle.trim()}
+                    >
+                        <span class="material-symbols-outlined text-[16px]">add</span>
+                        Create Task
+                    </button>
+                </div>
+            </div>
+        {/if}
     </div>
 
     {#if canAdd}
         <button
+            on:click={handleAddCard}
             class="add-card-btn flex items-center justify-center px-2 py-2 mt-2 text-[#5c6b7f] dark:text-gray-400 hover:text-primary hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
             title="Add Card"
         >

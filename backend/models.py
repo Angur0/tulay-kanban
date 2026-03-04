@@ -104,6 +104,7 @@ class Task(Base):
     label = Column(String)
     assignee_id = Column(String, ForeignKey("users.id"), nullable=True)
     due_date = Column(DateTime, nullable=True)
+    order = Column(Integer, default=0)
     events = Column(JSON, default=[])
     images = Column(JSON, default=[])
     created_at = Column(DateTime, default=datetime.datetime.utcnow)

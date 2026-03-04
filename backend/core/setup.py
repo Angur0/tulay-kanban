@@ -42,6 +42,39 @@ def ensure_board_icon_column():
     print("Board icon/icon_color/position columns ensured with default values")
 
 
+def ensure_task_order_column():
+    """Ensure the order column exists on tasks and initialize it deterministically."""
+    inspector = inspect(engine)
+    task_columns = {col["name"] for col in inspector.get_columns("tasks")}
+
+    if "order" not in task_columns:
+        print("Adding order column to tasks table...")
+        with engine.begin() as conn:
+            conn.execute(text('ALTER TABLE tasks ADD COLUMN "order" INTEGER DEFAULT 0'))
+            conn.execute(
+                text(
+                    """
+                UPDATE tasks
+                SET "order" = (
+                    SELECT COUNT(*)
+                    FROM tasks t2
+                    WHERE t2.board_id = tasks.board_id
+                      AND COALESCE(t2.column_id, '') = COALESCE(tasks.column_id, '')
+                      AND (
+                            t2.created_at < tasks.created_at
+                            OR (t2.created_at = tasks.created_at AND t2.id <= tasks.id)
+                      )
+                ) - 1
+            """
+                )
+            )
+
+    with engine.begin() as conn:
+        conn.execute(text('UPDATE tasks SET "order" = 0 WHERE "order" IS NULL'))
+
+    print("Task order column ensured with default values")
+
+
 def seed_db():
     db = SessionLocal()
     try:
