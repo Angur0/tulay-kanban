@@ -15,7 +15,7 @@
 </script>
 
 <header
-    class="flex-shrink-0 h-8 px-8 border-b border-[#e5e7eb] dark:border-[#1e2936] flex items-center justify-between bg-[#fbfcfd] dark:bg-[#151e29]"
+    class="flex-shrink-0 h-8 px-8 flex items-center justify-between bg-[#fbfcfd] dark:bg-[#151e29]"
 >
     <div class="flex items-center gap-3">
         <div

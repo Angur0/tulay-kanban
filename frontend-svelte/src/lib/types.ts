@@ -21,6 +21,8 @@ export interface Task {
     label_ids?: string[];
     images?: string[];
     labels?: Label[];
+    order: number;
+    created_at?: string;
     updated_at?: string;
     [key: string]: unknown;
 }
@@ -38,7 +40,8 @@ export interface Column {
     id: string;
     title: string;
     board_id: string;
-    position: number;
+    order: number;
+    position?: number;
 }
 
 export interface WorkspaceMember {

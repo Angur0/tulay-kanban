@@ -8,10 +8,17 @@ export async function authFetch(
         return null;
     }
 
+    const incomingHeaders = (options.headers as Record<string, string>) || {};
+    const hasExplicitContentType = Object.keys(incomingHeaders).some(
+        (key) => key.toLowerCase() === 'content-type'
+    );
+
     const headers: Record<string, string> = {
         Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        ...(options.headers as Record<string, string>),
+        ...(options.body instanceof FormData || hasExplicitContentType
+            ? {}
+            : { 'Content-Type': 'application/json' }),
+        ...incomingHeaders,
     };
 
     const response = await fetch(url, { ...options, headers });

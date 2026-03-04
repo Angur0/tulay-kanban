@@ -1,9 +1,8 @@
 import { authFetch } from '$lib/api';
 import { API_URL, normalizeBoardIcon } from '$lib/constants';
-import { activeWorkspaceId } from '$lib/stores/user';
-import { boards, activeBoardId, setBoards, setActiveBoardId, boardMembers, setBoardMembers } from '$lib/stores/board';
+import { activeWorkspaceId, currentUser, setCurrentBoardRole } from '$lib/stores/user';
+import { boards, activeBoardId, setBoards, setActiveBoardId, setBoardMembers } from '$lib/stores/board';
 import { get } from 'svelte/store';
-import type { Board } from '$lib/types';
 
 export async function loadBoards() {
     const wsId = get(activeWorkspaceId);
@@ -70,18 +69,69 @@ export async function deleteBoard(boardId: string) {
     }
 }
 
+export async function updateBoard(
+    boardId: string,
+    updates: { name?: string; icon?: string; icon_color?: string; position?: number }
+) {
+    try {
+        const response = await authFetch(`${API_URL}/api/boards/${boardId}`, {
+            method: 'PUT',
+            body: JSON.stringify(updates),
+        });
+
+        if (!response?.ok) {
+            const err = await response?.json().catch(() => ({}));
+            throw new Error(err?.detail || 'Failed to update board');
+        }
+
+        await loadBoards();
+    } catch (e) {
+        console.error('Failed to update board', e);
+        throw e;
+    }
+}
+
 export async function loadBoardMembers() {
     const boardId = get(activeBoardId);
-    if (!boardId) return;
+    if (!boardId) {
+        setCurrentBoardRole('viewer');
+        setBoardMembers([]);
+        return;
+    }
 
     try {
         const response = await authFetch(`${API_URL}/api/boards/${boardId}/members`);
-        if (!response) return;
+        if (!response) {
+            setCurrentBoardRole('viewer');
+            return;
+        }
 
         const members = await response.json();
-        setBoardMembers(members);
+        const normalizedMembers = members.map((member: any) => ({
+            ...member,
+            user: {
+                id: member.user_id,
+                email: member.user_email,
+                full_name: member.user_full_name,
+            },
+        }));
+
+        setBoardMembers(normalizedMembers);
+
+        const me = get(currentUser);
+        const myMembership = me
+            ? members.find((member: any) => String(member.user_id) === String(me.id))
+            : null;
+
+        const role = myMembership?.role;
+        if (role === 'owner' || role === 'moderator' || role === 'member' || role === 'viewer') {
+            setCurrentBoardRole(role);
+        } else {
+            setCurrentBoardRole('viewer');
+        }
     } catch (e) {
         console.error('Failed to load board members', e);
+        setCurrentBoardRole('viewer');
     }
 }
 

@@ -9,18 +9,47 @@
         switchView,
         openModal,
     } from "$lib/stores/ui";
-    import { boards, activeBoardId, setActiveBoardId } from "$lib/stores/board";
+    import {
+        boards,
+        activeBoardId,
+        setActiveBoardId,
+        setDeleteBoardTarget,
+    } from "$lib/stores/board";
     import { normalizeBoardIcon } from "$lib/constants";
+    import { openContextMenu } from "$lib/stores/context-menu";
 
     function handleLogout() {
         localStorage.removeItem("access_token");
         window.location.href = "/login";
     }
+
+    function handleBoardContextMenu(event: MouseEvent, boardId: string, boardName: string) {
+        event.preventDefault();
+        event.stopPropagation();
+        openContextMenu({
+            type: "board",
+            x: event.clientX,
+            y: event.clientY,
+            boardId,
+            boardName,
+        });
+    }
+
+    function handleDeleteBoard(event: MouseEvent, boardId: string) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const board = $boards.find((item) => item.id === boardId);
+        if (!board) return;
+
+        setDeleteBoardTarget(board);
+        openModal("deleteBoardModal");
+    }
 </script>
 
 <aside
     id="sidebar"
-    class="w-[210px] flex-shrink-0 bg-[#fbfcfd] dark:bg-[#151e29] border-r border-[#e5e7eb] dark:border-[#1e2936] flex flex-col justify-between h-full z-20 transition-all duration-300 ease-in-out"
+    class="w-[210px] flex-shrink-0 bg-[#fbfcfd] dark:bg-[#151e29] flex flex-col justify-between h-full z-20 transition-all duration-300 ease-in-out"
     class:collapsed={$isSidebarCollapsed}
 >
     <div class="flex flex-col p-4 gap-6 flex-1 min-h-0">
@@ -78,6 +107,7 @@
                     <div
                         class="flex items-center gap-1 group/board board-item cursor-pointer"
                         on:click={() => setActiveBoardId(board.id)}
+                        on:contextmenu={(event) => handleBoardContextMenu(event, board.id, board.name)}
                     >
                         <a
                             href="#"
@@ -99,6 +129,7 @@
                         </a>
                         <!-- TODO: Delete board logic -->
                         <button
+                            on:click={(event) => handleDeleteBoard(event, board.id)}
                             class="opacity-0 group-hover/board:opacity-100 p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-[#8a98a8] hover:text-red-600 transition-all sidebar-text"
                             title="Delete board"
                         >

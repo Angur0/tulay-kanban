@@ -4,20 +4,75 @@
     import { isSidebarCollapsed } from "$lib/stores/ui";
     import CreateBoardModal from "./CreateBoardModal.svelte";
     import CreateListModal from "./CreateListModal.svelte";
+    import CreateTaskModal from "./CreateTaskModal.svelte";
     import TaskModal from "./TaskModal.svelte";
     import ManageMembersModal from "./ManageMembersModal.svelte";
+    import DeleteListModal from "./DeleteListModal.svelte";
+    import EditBoardModal from "./EditBoardModal.svelte";
+    import DeleteBoardModal from "./DeleteBoardModal.svelte";
+    import ContextMenus from "./ContextMenus.svelte";
     import { onMount, onDestroy } from "svelte";
-    import { loadColumnsAndTasks } from "$lib/api/taskApi";
+    import { createColumn } from "$lib/api/listsApi";
+    import { createTask } from "$lib/api/tasksApi";
+    import { loadColumnsAndTasks } from "$lib/api/boardDataApi";
+    import { activeBoardId, activeTask, setActiveTask } from "$lib/stores/board";
     import type { KafkaEvent } from "$lib/types";
     import { authFetch } from "$lib/api";
     import { API_URL } from "$lib/constants";
-    import { setCurrentUser, setActiveWorkspaceId } from "$lib/stores/user";
-    import { loadBoards } from "$lib/api/boardApi";
+    import { setCurrentUser, setActiveWorkspaceId, setCurrentBoardRole } from "$lib/stores/user";
+    import { createBoard, loadBoards, loadBoardMembers } from "$lib/api/boardApi";
+    import { getWorkspaces } from "$lib/api/workspaceApi";
 
     let { children } = $props();
     let kafkaListener: (e: any) => void;
+    let unsubscribeActiveBoard: (() => void) | null = null;
+
+    async function handleCreateBoard(event: CustomEvent<{ name: string; icon: string; color: string }>) {
+        const payload = event.detail;
+        if (!payload?.name?.trim()) return;
+
+        try {
+            await createBoard(payload.name, payload.icon, payload.color);
+        } catch (e) {
+            console.error("Failed to create board", e);
+        }
+    }
+
+    async function handleCreateList(event: CustomEvent<{ title: string }>) {
+        const title = event.detail?.title?.trim();
+        if (!title) return;
+
+        try {
+            await createColumn(title);
+            await loadColumnsAndTasks();
+        } catch (e) {
+            console.error("Failed to create list", e);
+        }
+    }
+
+    async function handleCreateTask(event: CustomEvent<{ title: string; columnId: string }>) {
+        const title = event.detail?.title?.trim();
+        const columnId = event.detail?.columnId;
+        if (!title || !columnId) return;
+
+        try {
+            await createTask(columnId, title);
+            await loadColumnsAndTasks();
+        } catch (e) {
+            console.error("Failed to create task", e);
+        }
+    }
 
     onMount(async () => {
+        unsubscribeActiveBoard = activeBoardId.subscribe((id) => {
+            if (id) {
+                loadColumnsAndTasks();
+                loadBoardMembers();
+            } else {
+                setCurrentBoardRole("viewer");
+            }
+        });
+
         // Initialize app data
         try {
             const userRes = await authFetch(`${API_URL}/api/auth/me`);
@@ -26,13 +81,10 @@
                 setCurrentUser(user);
             }
 
-            const wsRes = await authFetch(`${API_URL}/api/workspaces`);
-            if (wsRes && wsRes.ok) {
-                const workspaces = await wsRes.json();
-                if (workspaces.length > 0) {
-                    setActiveWorkspaceId(workspaces[0].id);
-                    await loadBoards();
-                }
+            const workspaces = await getWorkspaces();
+            if (workspaces.length > 0) {
+                setActiveWorkspaceId(workspaces[0].id);
+                await loadBoards();
             }
         } catch (e) {
             console.error("Failed to initialize app data", e);
@@ -58,9 +110,16 @@
     });
 
     onDestroy(() => {
+        if (unsubscribeActiveBoard) {
+            unsubscribeActiveBoard();
+            unsubscribeActiveBoard = null;
+        }
+
         if (typeof window !== "undefined" && kafkaListener) {
             window.removeEventListener("kafka-message", kafkaListener);
         }
+
+        setActiveTask(null);
     });
 </script>
 
@@ -69,13 +128,18 @@
 >
     <Sidebar />
     <main
-        class="flex-1 flex flex-col h-full overflow-hidden bg-white dark:bg-background-dark relative"
+        class="flex-1 flex flex-col h-full overflow-hidden bg-[#fbfcfd] dark:bg-[#151e29] relative"
     >
         <Header />
         {@render children()}
     </main>
-    <CreateBoardModal />
-    <CreateListModal />
-    <TaskModal />
+    <CreateBoardModal on:create={handleCreateBoard} />
+    <CreateListModal on:create={handleCreateList} />
+    <CreateTaskModal on:create={handleCreateTask} />
+    <DeleteListModal />
+    <EditBoardModal />
+    <DeleteBoardModal />
+    <TaskModal task={$activeTask} />
     <ManageMembersModal />
+    <ContextMenus />
 </div>

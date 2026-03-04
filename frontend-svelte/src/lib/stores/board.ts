@@ -8,6 +8,11 @@ export const columns = writable<Column[]>([]);
 export const tasks = writable<Task[]>([]);
 export const labels = writable<Label[]>([]);
 export const boardMembers = writable<any[]>([]);
+export const activeTask = writable<Task | null>(null);
+export const createTaskColumnId = writable<string | null>(null);
+export const deleteListTarget = writable<{ id: string; title: string } | null>(null);
+export const editBoardTarget = writable<Board | null>(null);
+export const deleteBoardTarget = writable<Board | null>(null);
 
 // Derived State
 export const activeBoard = derived(
@@ -54,4 +59,24 @@ export function setLabels(newLabels: Label[]) {
 
 export function setBoardMembers(members: any[]) {
     boardMembers.set(members);
+}
+
+export function setActiveTask(task: Task | null) {
+    activeTask.set(task);
+}
+
+export function setCreateTaskColumnId(columnId: string | null) {
+    createTaskColumnId.set(columnId);
+}
+
+export function setDeleteListTarget(target: { id: string; title: string } | null) {
+    deleteListTarget.set(target);
+}
+
+export function setEditBoardTarget(target: Board | null) {
+    editBoardTarget.set(target);
+}
+
+export function setDeleteBoardTarget(target: Board | null) {
+    deleteBoardTarget.set(target);
 }

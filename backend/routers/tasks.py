@@ -27,7 +27,7 @@ def get_my_tasks(current_user: models.User = Depends(get_current_user), db: Sess
     ).filter(
         models.Task.assignee_id == current_user.id,
         models.board_members.c.user_id == current_user.id
-    ).all()
+    ).order_by(models.Task.order, models.Task.created_at).all()
     return tasks
 
 
@@ -35,7 +35,7 @@ def get_my_tasks(current_user: models.User = Depends(get_current_user), db: Sess
 def get_board_tasks(board_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     ensure_board_access(db, board_id, current_user)
     try:
-        tasks = db.query(models.Task).filter(models.Task.board_id == board_id).all()
+        tasks = db.query(models.Task).filter(models.Task.board_id == board_id).order_by(models.Task.order, models.Task.created_at).all()
         return tasks
     except Exception as e:
         print(f"Error loading tasks: {e}")
@@ -48,7 +48,22 @@ def get_board_tasks(board_id: str, current_user: models.User = Depends(get_curre
 async def create_task(task_in: TaskCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     ensure_board_access(db, task_in.board_id, current_user, ["owner", "moderator", "member"])
     
-    task_data = task_in.model_dump(exclude={"label_ids"})
+    task_data = task_in.model_dump(exclude={"label_ids", "order"})
+
+    if task_in.order is None:
+        max_order = (
+            db.query(models.Task.order)
+            .filter(
+                models.Task.board_id == task_in.board_id,
+                models.Task.column_id == task_in.column_id,
+            )
+            .order_by(models.Task.order.desc())
+            .first()
+        )
+        task_data["order"] = (max_order[0] + 1) if max_order else 0
+    else:
+        task_data["order"] = task_in.order
+
     new_task = models.Task(**task_data)
 
     if task_in.label_ids:
