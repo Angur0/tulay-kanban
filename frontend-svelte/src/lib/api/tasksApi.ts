@@ -142,3 +142,9 @@ export async function uploadImage(file: File): Promise<string> {
     const data = (await response.json()) as { url: string };
     return resolveImageUrl(data.url);
 }
+
+export async function getMyTasks(): Promise<import('$lib/types').Task[]> {
+    const response = await authFetch(`${API_URL}/api/tasks/my`);
+    if (!response?.ok) return [];
+    return (await response.json()) as import('$lib/types').Task[];
+}

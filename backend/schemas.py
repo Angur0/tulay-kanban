@@ -114,6 +114,14 @@ class LabelResponse(BaseModel):
     created_at: datetime.datetime
 
 
+class LabelBulkCreate(BaseModel):
+    labels: List[LabelCreate]
+
+
+class LabelBulkDelete(BaseModel):
+    label_ids: List[str]
+
+
 class TaskCreate(BaseModel):
     title: str
     description: Optional[str] = None

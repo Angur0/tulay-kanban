@@ -7,6 +7,7 @@
     import CreateTaskModal from "./CreateTaskModal.svelte";
     import TaskModal from "./TaskModal.svelte";
     import ManageMembersModal from "./ManageMembersModal.svelte";
+    import ManageLabelsModal from "./ManageLabelsModal.svelte";
     import DeleteListModal from "./DeleteListModal.svelte";
     import EditBoardModal from "./EditBoardModal.svelte";
     import DeleteBoardModal from "./DeleteBoardModal.svelte";
@@ -15,19 +16,33 @@
     import { createColumn } from "$lib/api/listsApi";
     import { createTask } from "$lib/api/tasksApi";
     import { loadColumnsAndTasks } from "$lib/api/boardDataApi";
-    import { activeBoardId, activeTask, setActiveTask } from "$lib/stores/board";
+    import {
+        activeBoardId,
+        activeTask,
+        setActiveTask,
+    } from "$lib/stores/board";
     import type { KafkaEvent } from "$lib/types";
     import { authFetch } from "$lib/api";
     import { API_URL } from "$lib/constants";
-    import { setCurrentUser, setActiveWorkspaceId, setCurrentBoardRole } from "$lib/stores/user";
-    import { createBoard, loadBoards, loadBoardMembers } from "$lib/api/boardApi";
+    import {
+        setCurrentUser,
+        setActiveWorkspaceId,
+        setCurrentBoardRole,
+    } from "$lib/stores/user";
+    import {
+        createBoard,
+        loadBoards,
+        loadBoardMembers,
+    } from "$lib/api/boardApi";
     import { getWorkspaces } from "$lib/api/workspaceApi";
 
     let { children } = $props();
     let kafkaListener: (e: any) => void;
     let unsubscribeActiveBoard: (() => void) | null = null;
 
-    async function handleCreateBoard(event: CustomEvent<{ name: string; icon: string; color: string }>) {
+    async function handleCreateBoard(
+        event: CustomEvent<{ name: string; icon: string; color: string }>,
+    ) {
         const payload = event.detail;
         if (!payload?.name?.trim()) return;
 
@@ -50,7 +65,9 @@
         }
     }
 
-    async function handleCreateTask(event: CustomEvent<{ title: string; columnId: string }>) {
+    async function handleCreateTask(
+        event: CustomEvent<{ title: string; columnId: string }>,
+    ) {
         const title = event.detail?.title?.trim();
         const columnId = event.detail?.columnId;
         if (!title || !columnId) return;
@@ -141,5 +158,6 @@
     <DeleteBoardModal />
     <TaskModal task={$activeTask} />
     <ManageMembersModal />
+    <ManageLabelsModal />
     <ContextMenus />
 </div>

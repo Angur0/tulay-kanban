@@ -5,7 +5,7 @@
 
     import BoardView from "$lib/components/BoardView.svelte";
     // import ActivityView from '$lib/components/ActivityView.svelte';
-    // import MyTasksView from '$lib/components/MyTasksView.svelte';
+    import MyTasksView from "$lib/components/MyTasksView.svelte";
 </script>
 
 <AppLayout>
@@ -27,8 +27,6 @@
             Activity View Coming Soon
         </div>
     {:else if $activeView === "my-tasks"}
-        <div class="flex-1 flex items-center justify-center text-gray-400">
-            My Tasks View Coming Soon
-        </div>
+        <MyTasksView />
     {/if}
 </AppLayout>

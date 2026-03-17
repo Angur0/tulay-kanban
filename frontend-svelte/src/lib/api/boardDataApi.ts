@@ -11,13 +11,10 @@ export async function loadColumnsAndTasks() {
     if (!boardId) return;
 
     try {
-        const [colsRes, tasksRes, boardLabelsRes, workspaceLabelsRes] = await Promise.all([
+        const [colsRes, tasksRes, boardLabelsRes] = await Promise.all([
             authFetch(`${API_URL}/api/boards/${boardId}/columns`),
             authFetch(`${API_URL}/api/boards/${boardId}/tasks`),
-            authFetch(`${API_URL}/api/boards/${boardId}/labels`),
-            workspaceId
-                ? authFetch(`${API_URL}/api/workspaces/${workspaceId}/labels`)
-                : Promise.resolve(null),
+            authFetch(`${API_URL}/api/boards/${boardId}/labels`)
         ]);
 
         if (colsRes) {
@@ -47,23 +44,12 @@ export async function loadColumnsAndTasks() {
             );
         }
 
-        const mergedLabels: Label[] = [];
-        if (workspaceLabelsRes?.ok) {
-            mergedLabels.push(...((await workspaceLabelsRes.json()) as Label[]));
-        }
+        let mergedLabels: Label[] = [];
         if (boardLabelsRes?.ok) {
-            mergedLabels.push(...((await boardLabelsRes.json()) as Label[]));
+            mergedLabels = await boardLabelsRes.json() as Label[];
         }
 
-        if (mergedLabels.length > 0) {
-            const deduped = new Map<string, Label>();
-            for (const label of mergedLabels) {
-                deduped.set(label.id, label);
-            }
-            setLabels([...deduped.values()]);
-        } else {
-            setLabels([]);
-        }
+        setLabels(mergedLabels);
     } catch (e) {
         console.error('Failed to load columns/tasks', e);
     }
