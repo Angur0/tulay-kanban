@@ -60,21 +60,30 @@
             member.user_email,
     }));
     $: currentColumnName =
-        $columns.find((column) => column.id === selectedColumnId)?.title || "Unknown";
+        $columns.find((column) => column.id === selectedColumnId)?.title ||
+        "Unknown";
 
     $: if ($activeModal !== "taskPanel") {
         initializedTaskId = null;
     }
 
-    $: if ($activeModal === "taskPanel" && task && task.id !== initializedTaskId) {
+    $: if (
+        $activeModal === "taskPanel" &&
+        task &&
+        task.id !== initializedTaskId
+    ) {
         initializedTaskId = task.id;
         title = task.title || "";
         description = task.description || "";
         selectedColumnId = task.column_id || "";
-        selectedPriority = (task.priority as "low" | "medium" | "high") || "medium";
-        dueDateValue = task.due_date ? new Date(task.due_date).toISOString().split("T")[0] : "";
+        selectedPriority =
+            (task.priority as "low" | "medium" | "high") || "medium";
+        dueDateValue = task.due_date
+            ? new Date(task.due_date).toISOString().split("T")[0]
+            : "";
         selectedAssigneeId = task.assignee_id || "";
-        selectedLabelIds = task.labels?.map((label) => label.id) || task.label_ids || [];
+        selectedLabelIds =
+            task.labels?.map((label) => label.id) || task.label_ids || [];
         taskImages = [...(task.images || [])];
         comments = [];
         commentInput = "";
@@ -104,7 +113,9 @@
     }
 
     function buildStatus(columnId: string, fallback: string) {
-        const statusTitle = $columns.find((column) => column.id === columnId)?.title;
+        const statusTitle = $columns.find(
+            (column) => column.id === columnId,
+        )?.title;
         if (!statusTitle) return fallback;
         return statusTitle.toLowerCase().replace(/\s+/g, "");
     }
@@ -151,8 +162,8 @@
                               ...payload,
                               labels: selectedLabels,
                           }
-                        : taskItem
-                )
+                        : taskItem,
+                ),
             );
 
             setActiveTask({
@@ -200,7 +211,9 @@
 
         isUploadingTaskImage = true;
         try {
-            const uploadedUrls = await Promise.all(files.map((file) => uploadImage(file)));
+            const uploadedUrls = await Promise.all(
+                files.map((file) => uploadImage(file)),
+            );
             taskImages = [...taskImages, ...uploadedUrls];
         } catch (e: any) {
             saveError = e?.message || "Failed to upload image";
@@ -223,7 +236,9 @@
 
         isUploadingCommentImage = true;
         try {
-            const uploadedUrls = await Promise.all(files.map((file) => uploadImage(file)));
+            const uploadedUrls = await Promise.all(
+                files.map((file) => uploadImage(file)),
+            );
             commentImages = [...commentImages, ...uploadedUrls];
         } catch (e: any) {
             saveError = e?.message || "Failed to upload comment image";
@@ -242,7 +257,10 @@
 
         isPostingComment = true;
         try {
-            await createTaskComment(task.id, { content, images: commentImages });
+            await createTaskComment(task.id, {
+                content,
+                images: commentImages,
+            });
             commentInput = "";
             commentImages = [];
             await loadComments();
@@ -286,7 +304,8 @@
 
     function showPrevImage() {
         if (!lightboxImages.length) return;
-        lightboxIndex = (lightboxIndex - 1 + lightboxImages.length) % lightboxImages.length;
+        lightboxIndex =
+            (lightboxIndex - 1 + lightboxImages.length) % lightboxImages.length;
     }
 
     function showNextImage() {
@@ -296,8 +315,17 @@
 </script>
 
 <svelte:window
-    on:open-task-lightbox={(event: CustomEvent<{ taskId?: string; imageIndex: number; images?: string[] }>) => {
-        const { imageIndex, images = [] } = event.detail || { imageIndex: 0, images: [] };
+    on:open-task-lightbox={(
+        event: CustomEvent<{
+            taskId?: string;
+            imageIndex: number;
+            images?: string[];
+        }>,
+    ) => {
+        const { imageIndex, images = [] } = event.detail || {
+            imageIndex: 0,
+            images: [],
+        };
         if (!images.length) return;
         openLightbox(images, imageIndex ?? 0);
     }}
@@ -310,9 +338,13 @@
 />
 
 {#if $activeModal === "taskPanel" && task}
-    <div class="fixed inset-0 z-[60] flex justify-end" role="dialog" aria-modal="true">
+    <div
+        class="fixed inset-x-0 bottom-0 top-8 z-[60] flex justify-end"
+        role="dialog"
+        aria-modal="true"
+    >
         <div
-            class="fixed inset-0 bg-gray-900/20 backdrop-blur-sm transition-opacity"
+            class="fixed inset-x-0 bottom-0 top-8 bg-gray-900/20 transition-opacity"
             on:click={handleBackdropClick}
             on:keydown={(event) => {
                 if (event.key === "Escape") closePanel();
@@ -322,10 +354,19 @@
             aria-label="Close task panel"
         ></div>
 
-        <div class="relative w-full max-w-2xl h-full bg-white dark:bg-[#151e29] shadow-2xl border-l border-[#e5e7eb] dark:border-[#1e2936] flex flex-col pointer-events-auto">
-            <div class="flex items-center justify-between px-6 py-4 border-b border-[#e5e7eb] dark:border-[#1e2936]">
-                <div class="flex items-center gap-3 text-[#111418] dark:text-white">
-                    <span class="material-symbols-outlined text-2xl text-primary">view_timeline</span>
+        <div
+            class="relative w-full max-w-2xl h-full bg-white dark:bg-[#151e29] shadow-2xl border-l border-t border-[#e5e7eb] dark:border-[#1e2936] flex flex-col pointer-events-auto rounded-tl-2xl"
+        >
+            <div
+                class="flex items-center justify-between px-6 py-4 border-b border-[#e5e7eb] dark:border-[#1e2936]"
+            >
+                <div
+                    class="flex items-center gap-3 text-[#111418] dark:text-white"
+                >
+                    <span
+                        class="material-symbols-outlined text-2xl text-primary"
+                        >view_timeline</span
+                    >
                     <div>
                         <input
                             type="text"
@@ -333,7 +374,11 @@
                             class="text-xl font-bold bg-transparent border-none focus:outline-none focus:ring-0 p-0 text-[#111418] dark:text-white w-full"
                             readonly={!canManage}
                         />
-                        <p class="text-xs text-[#5c6b7f] dark:text-gray-400 mt-1">In {currentColumnName}</p>
+                        <p
+                            class="text-xs text-[#5c6b7f] dark:text-gray-400 mt-1"
+                        >
+                            In {currentColumnName}
+                        </p>
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
@@ -344,35 +389,48 @@
                             class="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md text-[#5c6b7f] dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
                             title="Delete task"
                         >
-                            <span class="material-symbols-outlined text-[20px]">delete</span>
+                            <span class="material-symbols-outlined text-[20px]"
+                                >delete</span
+                            >
                         </button>
                     {/if}
                     <button
                         on:click={closePanel}
                         class="p-2 text-[#5c6b7f] dark:text-gray-400 hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] rounded-lg transition-colors"
                     >
-                        <span class="material-symbols-outlined text-xl">close</span>
+                        <span class="material-symbols-outlined text-xl"
+                            >close</span
+                        >
                     </button>
                 </div>
             </div>
 
-            <div class="flex-1 overflow-y-auto px-6 py-6 custom-scrollbar space-y-6">
+            <div
+                class="flex-1 overflow-y-auto px-6 py-6 custom-scrollbar space-y-6"
+            >
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-xs font-semibold text-[#5c6b7f] dark:text-gray-400 uppercase tracking-wider mb-1">Status</label>
+                        <label
+                            class="block text-xs font-semibold text-[#5c6b7f] dark:text-gray-400 uppercase tracking-wider mb-1"
+                            >Status</label
+                        >
                         <select
                             bind:value={selectedColumnId}
                             disabled={!canManage}
                             class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"
                         >
                             {#each $columns as column}
-                                <option value={column.id}>{column.title}</option>
+                                <option value={column.id}>{column.title}</option
+                                >
                             {/each}
                         </select>
                     </div>
 
                     <div>
-                        <label class="block text-xs font-semibold text-[#5c6b7f] dark:text-gray-400 uppercase tracking-wider mb-1">Priority</label>
+                        <label
+                            class="block text-xs font-semibold text-[#5c6b7f] dark:text-gray-400 uppercase tracking-wider mb-1"
+                            >Priority</label
+                        >
                         <select
                             bind:value={selectedPriority}
                             disabled={!canManage}
@@ -385,7 +443,10 @@
                     </div>
 
                     <div>
-                        <label class="block text-xs font-semibold text-[#5c6b7f] dark:text-gray-400 uppercase tracking-wider mb-1">Due date</label>
+                        <label
+                            class="block text-xs font-semibold text-[#5c6b7f] dark:text-gray-400 uppercase tracking-wider mb-1"
+                            >Due date</label
+                        >
                         <input
                             type="date"
                             bind:value={dueDateValue}
@@ -396,7 +457,10 @@
                     </div>
 
                     <div>
-                        <label class="block text-xs font-semibold text-[#5c6b7f] dark:text-gray-400 uppercase tracking-wider mb-1">Assignee</label>
+                        <label
+                            class="block text-xs font-semibold text-[#5c6b7f] dark:text-gray-400 uppercase tracking-wider mb-1"
+                            >Assignee</label
+                        >
                         <select
                             bind:value={selectedAssigneeId}
                             disabled={!canManage}
@@ -404,37 +468,65 @@
                         >
                             <option value="">Unassigned</option>
                             {#each assigneeOptions as assignee}
-                                <option value={assignee.id}>{assignee.name}</option>
+                                <option value={assignee.id}
+                                    >{assignee.name}</option
+                                >
                             {/each}
                         </select>
                     </div>
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold text-[#5c6b7f] dark:text-gray-400 uppercase tracking-wider mb-1">Labels</label>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 bg-[#fbfcfd] dark:bg-[#0d141c] border border-[#e5e7eb] dark:border-[#1e2936] rounded-lg max-h-[160px] overflow-y-auto custom-scrollbar">
+                    <label
+                        class="block text-xs font-semibold text-[#5c6b7f] dark:text-gray-400 uppercase tracking-wider mb-1"
+                        >Labels</label
+                    >
+                    <div
+                        class="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 bg-[#fbfcfd] dark:bg-[#0d141c] border border-[#e5e7eb] dark:border-[#1e2936] rounded-lg max-h-[160px] overflow-y-auto custom-scrollbar"
+                    >
                         {#if $labels.length === 0}
-                            <p class="text-xs text-gray-400">No labels available</p>
+                            <p class="text-xs text-gray-400">
+                                No labels available
+                            </p>
                         {:else}
                             {#each $labels as label}
-                                <label class="flex items-center gap-2 p-1 hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] rounded cursor-pointer">
+                                <label
+                                    class="flex items-center gap-2 p-1 hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] rounded cursor-pointer"
+                                >
                                     <input
                                         type="checkbox"
                                         value={label.id}
-                                        checked={selectedLabelIds.includes(label.id)}
+                                        checked={selectedLabelIds.includes(
+                                            label.id,
+                                        )}
                                         disabled={!canManage}
                                         on:change={(event) => {
-                                            const isChecked = (event.currentTarget as HTMLInputElement).checked;
+                                            const isChecked = (
+                                                event.currentTarget as HTMLInputElement
+                                            ).checked;
                                             if (isChecked) {
-                                                selectedLabelIds = [...selectedLabelIds, label.id];
+                                                selectedLabelIds = [
+                                                    ...selectedLabelIds,
+                                                    label.id,
+                                                ];
                                             } else {
-                                                selectedLabelIds = selectedLabelIds.filter((id) => id !== label.id);
+                                                selectedLabelIds =
+                                                    selectedLabelIds.filter(
+                                                        (id) => id !== label.id,
+                                                    );
                                             }
                                         }}
                                         class="rounded border-gray-300 dark:border-gray-600"
                                     />
-                                    <span class="w-3 h-3 rounded" style="background-color: {label.color || '#93c5fd'}"></span>
-                                    <span class="text-xs text-[#111418] dark:text-white">{label.name}</span>
+                                    <span
+                                        class="w-3 h-3 rounded"
+                                        style="background-color: {label.color ||
+                                            '#93c5fd'}"
+                                    ></span>
+                                    <span
+                                        class="text-xs text-[#111418] dark:text-white"
+                                        >{label.name}</span
+                                    >
                                 </label>
                             {/each}
                         {/if}
@@ -442,7 +534,10 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold text-[#5c6b7f] dark:text-gray-400 uppercase tracking-wider mb-1">Description</label>
+                    <label
+                        class="block text-xs font-semibold text-[#5c6b7f] dark:text-gray-400 uppercase tracking-wider mb-1"
+                        >Description</label
+                    >
                     <textarea
                         rows="4"
                         bind:value={description}
@@ -454,7 +549,10 @@
 
                 <div>
                     <div class="flex items-center justify-between mb-2">
-                        <label class="block text-xs font-semibold text-[#5c6b7f] dark:text-gray-400 uppercase tracking-wider">Task images</label>
+                        <label
+                            class="block text-xs font-semibold text-[#5c6b7f] dark:text-gray-400 uppercase tracking-wider"
+                            >Task images</label
+                        >
                         {#if canManage}
                             <button
                                 type="button"
@@ -473,26 +571,41 @@
                         bind:this={taskImageUploadInput}
                         on:change={onTaskImageUpload}
                     />
-                    <div class="grid grid-cols-3 gap-2 p-2 border border-[#e5e7eb] dark:border-[#1e2936] rounded-lg bg-[#fbfcfd] dark:bg-[#0d141c]">
+                    <div
+                        class="grid grid-cols-3 gap-2 p-2 border border-[#e5e7eb] dark:border-[#1e2936] rounded-lg bg-[#fbfcfd] dark:bg-[#0d141c]"
+                    >
                         {#if taskImages.length === 0}
-                            <div class="col-span-3 text-xs text-[#8a98a8] p-2">No images added yet</div>
+                            <div class="col-span-3 text-xs text-[#8a98a8] p-2">
+                                No images added yet
+                            </div>
                         {:else}
                             {#each taskImages as imageUrl, idx}
-                                <div class="relative group aspect-square rounded-lg overflow-hidden border border-[#e5e7eb] dark:border-[#1e2936] bg-gray-100 dark:bg-gray-800">
+                                <div
+                                    class="relative group aspect-square rounded-lg overflow-hidden border border-[#e5e7eb] dark:border-[#1e2936] bg-gray-100 dark:bg-gray-800"
+                                >
                                     <button
                                         type="button"
                                         class="w-full h-full"
-                                        on:click={() => openLightbox(taskImages, idx)}
+                                        on:click={() =>
+                                            openLightbox(taskImages, idx)}
                                     >
-                                        <img src={resolveImageUrl(imageUrl)} alt="Task" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" />
+                                        <img
+                                            src={resolveImageUrl(imageUrl)}
+                                            alt="Task"
+                                            class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                        />
                                     </button>
                                     {#if canManage}
                                         <button
                                             type="button"
-                                            on:click={() => removeTaskImage(idx)}
+                                            on:click={() =>
+                                                removeTaskImage(idx)}
                                             class="absolute top-1 right-1 h-4 w-4 flex items-center justify-center bg-red-600/75 hover:bg-red-600 text-white rounded-sm opacity-0 group-hover:opacity-100 transition-colors"
                                         >
-                                            <span class="material-symbols-outlined text-[10px] leading-none">close</span>
+                                            <span
+                                                class="material-symbols-outlined text-[10px] leading-none"
+                                                >close</span
+                                            >
                                         </button>
                                     {/if}
                                 </div>
@@ -500,40 +613,83 @@
                         {/if}
                     </div>
                     {#if isUploadingTaskImage}
-                        <p class="text-xs text-[#5c6b7f] dark:text-gray-400 mt-1">Uploading image...</p>
+                        <p
+                            class="text-xs text-[#5c6b7f] dark:text-gray-400 mt-1"
+                        >
+                            Uploading image...
+                        </p>
                     {/if}
                 </div>
 
                 <div>
-                    <h3 class="text-sm font-semibold text-[#111418] dark:text-white mb-2">Comments</h3>
-                    <div class="space-y-3 mb-4 max-h-[320px] overflow-y-auto custom-scrollbar">
+                    <h3
+                        class="text-sm font-semibold text-[#111418] dark:text-white mb-2"
+                    >
+                        Comments
+                    </h3>
+                    <div
+                        class="space-y-3 mb-4 max-h-[320px] overflow-y-auto custom-scrollbar"
+                    >
                         {#if comments.length === 0}
-                            <div class="text-xs text-[#8a98a8] text-center py-4">No comments yet. Be the first to comment!</div>
+                            <div
+                                class="text-xs text-[#8a98a8] text-center py-4"
+                            >
+                                No comments yet. Be the first to comment!
+                            </div>
                         {:else}
                             {#each comments as comment}
-                                <div class="bg-white dark:bg-[#151e29] rounded-lg p-3 border border-[#e5e7eb] dark:border-[#1e2936]">
-                                    <div class="flex items-start justify-between mb-2">
-                                        <div class="text-xs text-[#5c6b7f] dark:text-gray-400">{formatDateTime(comment.created_at)}</div>
+                                <div
+                                    class="bg-white dark:bg-[#151e29] rounded-lg p-3 border border-[#e5e7eb] dark:border-[#1e2936]"
+                                >
+                                    <div
+                                        class="flex items-start justify-between mb-2"
+                                    >
+                                        <div
+                                            class="text-xs text-[#5c6b7f] dark:text-gray-400"
+                                        >
+                                            {formatDateTime(comment.created_at)}
+                                        </div>
                                         {#if $currentUser && String(comment.user_id) === String($currentUser.id)}
                                             <button
-                                                on:click={() => onDeleteComment(comment.id)}
+                                                on:click={() =>
+                                                    onDeleteComment(comment.id)}
                                                 class="p-1 text-[#5c6b7f] hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors"
                                                 title="Delete comment"
                                             >
-                                                <span class="material-symbols-outlined text-[18px]">delete</span>
+                                                <span
+                                                    class="material-symbols-outlined text-[18px]"
+                                                    >delete</span
+                                                >
                                             </button>
                                         {/if}
                                     </div>
-                                    <div class="text-sm text-[#111418] dark:text-gray-200 whitespace-pre-wrap">{comment.content}</div>
+                                    <div
+                                        class="text-sm text-[#111418] dark:text-gray-200 whitespace-pre-wrap"
+                                    >
+                                        {comment.content}
+                                    </div>
                                     {#if comment.images && comment.images.length > 0}
-                                        <div class="grid grid-cols-3 gap-2 mt-2">
+                                        <div
+                                            class="grid grid-cols-3 gap-2 mt-2"
+                                        >
                                             {#each comment.images as imageUrl, imageIdx}
                                                 <button
                                                     type="button"
                                                     class="aspect-square rounded-lg overflow-hidden border border-[#e5e7eb] dark:border-[#1e2936]"
-                                                    on:click={() => openLightbox(comment.images || [], imageIdx)}
+                                                    on:click={() =>
+                                                        openLightbox(
+                                                            comment.images ||
+                                                                [],
+                                                            imageIdx,
+                                                        )}
                                                 >
-                                                    <img src={resolveImageUrl(imageUrl)} alt="Comment" class="w-full h-full object-cover cursor-pointer hover:opacity-90" />
+                                                    <img
+                                                        src={resolveImageUrl(
+                                                            imageUrl,
+                                                        )}
+                                                        alt="Comment"
+                                                        class="w-full h-full object-cover cursor-pointer hover:opacity-90"
+                                                    />
                                                 </button>
                                             {/each}
                                         </div>
@@ -543,7 +699,9 @@
                         {/if}
                     </div>
 
-                    <div class="bg-[#f6f7f8] dark:bg-[#0d141c] rounded-xl p-3 border border-[#e5e7eb] dark:border-[#1e2936]">
+                    <div
+                        class="bg-[#f6f7f8] dark:bg-[#0d141c] rounded-xl p-3 border border-[#e5e7eb] dark:border-[#1e2936]"
+                    >
                         <textarea
                             placeholder="Write a comment..."
                             rows="3"
@@ -554,14 +712,24 @@
                         {#if commentImages.length > 0}
                             <div class="grid grid-cols-4 gap-2 mt-3">
                                 {#each commentImages as imageUrl, idx}
-                                    <div class="relative group aspect-square rounded-lg overflow-hidden border border-[#e5e7eb] dark:border-[#1e2936]">
-                                        <img src={resolveImageUrl(imageUrl)} alt="Upload preview" class="w-full h-full object-cover" />
+                                    <div
+                                        class="relative group aspect-square rounded-lg overflow-hidden border border-[#e5e7eb] dark:border-[#1e2936]"
+                                    >
+                                        <img
+                                            src={resolveImageUrl(imageUrl)}
+                                            alt="Upload preview"
+                                            class="w-full h-full object-cover"
+                                        />
                                         <button
                                             type="button"
-                                            on:click={() => removeCommentImage(idx)}
+                                            on:click={() =>
+                                                removeCommentImage(idx)}
                                             class="absolute top-1 right-1 h-4 w-4 flex items-center justify-center bg-red-600/75 hover:bg-red-600 text-white rounded-sm opacity-0 group-hover:opacity-100 transition-colors"
                                         >
-                                            <span class="material-symbols-outlined text-[10px] leading-none">close</span>
+                                            <span
+                                                class="material-symbols-outlined text-[10px] leading-none"
+                                                >close</span
+                                            >
                                         </button>
                                     </div>
                                 {/each}
@@ -580,23 +748,35 @@
                                 />
                                 <button
                                     type="button"
-                                    on:click={() => commentImageUploadInput?.click()}
+                                    on:click={() =>
+                                        commentImageUploadInput?.click()}
                                     class="flex items-center gap-1 px-2 py-1.5 text-xs font-medium text-[#5c6b7f] dark:text-gray-400 hover:text-primary hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
                                 >
-                                    <span class="material-symbols-outlined text-[16px]">image</span>
+                                    <span
+                                        class="material-symbols-outlined text-[16px]"
+                                        >image</span
+                                    >
                                     Add images
                                 </button>
                                 {#if isUploadingCommentImage}
-                                    <span class="text-xs text-[#5c6b7f] dark:text-gray-400">Uploading...</span>
+                                    <span
+                                        class="text-xs text-[#5c6b7f] dark:text-gray-400"
+                                        >Uploading...</span
+                                    >
                                 {/if}
                             </div>
                             <button
                                 type="button"
                                 on:click={postComment}
-                                disabled={isPostingComment || (!commentInput.trim() && commentImages.length === 0)}
+                                disabled={isPostingComment ||
+                                    (!commentInput.trim() &&
+                                        commentImages.length === 0)}
                                 class="flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-blue-600 text-white text-sm font-medium rounded-lg shadow-sm transition-colors disabled:opacity-50"
                             >
-                                <span class="material-symbols-outlined text-[16px]">send</span>
+                                <span
+                                    class="material-symbols-outlined text-[16px]"
+                                    >send</span
+                                >
                                 Post
                             </button>
                         </div>
@@ -604,7 +784,9 @@
                 </div>
 
                 {#if saveError}
-                    <p class="text-sm text-red-600 dark:text-red-400">{saveError}</p>
+                    <p class="text-sm text-red-600 dark:text-red-400">
+                        {saveError}
+                    </p>
                 {/if}
             </div>
 
@@ -631,7 +813,10 @@
                             on:click|stopPropagation={showPrevImage}
                             aria-label="Previous image"
                         >
-                            <span class="material-symbols-outlined text-[20px] leading-none">chevron_left</span>
+                            <span
+                                class="material-symbols-outlined text-[20px] leading-none"
+                                >chevron_left</span
+                            >
                         </button>
                     {/if}
 
@@ -649,13 +834,18 @@
                             on:click|stopPropagation={showNextImage}
                             aria-label="Next image"
                         >
-                            <span class="material-symbols-outlined text-[20px] leading-none">chevron_right</span>
+                            <span
+                                class="material-symbols-outlined text-[20px] leading-none"
+                                >chevron_right</span
+                            >
                         </button>
                     {/if}
                 </div>
             {/if}
 
-            <div class="px-6 py-4 border-t border-[#e5e7eb] dark:border-[#1e2936] flex justify-end gap-2">
+            <div
+                class="px-6 py-4 border-t border-[#e5e7eb] dark:border-[#1e2936] flex justify-end gap-2"
+            >
                 <button
                     on:click={closePanel}
                     class="px-4 py-2 text-sm font-medium text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936]"

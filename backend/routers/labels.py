@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from backend import models
 from backend.core.deps import ensure_workspace_access, get_current_user
 from backend.database import get_db
-from backend.schemas import LabelCreate, LabelResponse, LabelUpdate
+from backend.schemas import LabelCreate, LabelResponse, LabelUpdate, LabelBulkCreate, LabelBulkDelete
 
 router = APIRouter(tags=["labels"])
 
@@ -50,7 +50,49 @@ def create_board_label(board_id: str, label_in: LabelCreate, current_user: model
     db.add(label)
     db.commit()
     db.refresh(label)
+    db.refresh(label)
     return label
+
+
+@router.post("/api/boards/{board_id}/labels/bulk", response_model=List[LabelResponse])
+def create_board_labels_bulk(board_id: str, payload: LabelBulkCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    board = db.query(models.Board).filter(models.Board.id == board_id).first()
+    if not board:
+        raise HTTPException(status_code=404, detail="Board not found")
+    ws = db.query(models.Workspace).filter(models.Workspace.id == board.workspace_id).first()
+    ensure_workspace_access(ws, current_user)
+    
+    created_labels = []
+    for label_in in payload.labels:
+        label = models.Label(name=label_in.name, color=label_in.color, board_id=board_id)
+        db.add(label)
+        created_labels.append(label)
+        
+    db.commit()
+    for label in created_labels:
+        db.refresh(label)
+    return created_labels
+
+
+@router.post("/api/boards/{board_id}/labels/bulk-delete")
+def delete_board_labels_bulk(board_id: str, payload: LabelBulkDelete, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    board = db.query(models.Board).filter(models.Board.id == board_id).first()
+    if not board:
+        raise HTTPException(status_code=404, detail="Board not found")
+    ws = db.query(models.Workspace).filter(models.Workspace.id == board.workspace_id).first()
+    ensure_workspace_access(ws, current_user)
+    
+    labels_to_delete = db.query(models.Label).filter(
+        models.Label.board_id == board_id,
+        models.Label.id.in_(payload.label_ids)
+    ).all()
+    
+    deleted_count = len(labels_to_delete)
+    for label in labels_to_delete:
+        db.delete(label)
+        
+    db.commit()
+    return {"ok": True, "deleted_count": deleted_count}
 
 
 @router.put("/api/labels/{label_id}", response_model=LabelResponse)

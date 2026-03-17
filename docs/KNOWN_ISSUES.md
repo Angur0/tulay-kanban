@@ -9,18 +9,16 @@ This document tracks remaining issues, active refactors, and recently completed 
 - **Server-side task filtering/grouping**: `loadMyTasks` still groups tasks on the client. Move grouping/filtering to API query params (for example `?assignee=me&group_by=status`).
 
 ### Frontend & UI Safety
-- **Template bloat in JS**: Large HTML strings are still hardcoded in orchestration/rendering paths. Migrate to HTML `<template>` tags or a lightweight component approach.
-- **Manual escaping dependency**: Widespread `innerHTML` rendering still depends on `escapeHtml`. Prefer DOM-first rendering with `.textContent` (or Sanitizer API where appropriate).
--**Add validation popups for forms**: Some modals do not have tooltips to notify users about invalid inputs/ lacking required fields.
-
-### Performance
-- **Layout thrashing risk**: Sidebar overflow handling still relies on manual offset-style calculations; replace with CSS-first layout (including Container Queries where suitable).
+- **Add validation popups for forms**: Some modals do not have tooltips to notify users about invalid inputs/ lacking required fields.
 
 ## In Progress / Partially Resolved
 
 - No active partially resolved items right now.
 
 ## Resolved (2026-02-22)
+
+- Frontend template bloat and manual escaping vulnerabilities were completely resolved by migrating to Svelte components.
+- Layout thrashing risk from sidebar calculations was resolved natively by adopting a CSS-first layout and structural `collapsed` classes in Svelte.
 
 - Frontend bootstrap was modularized: `frontend/app.js` now acts as entrypoint with logic split into `frontend/api.js`, `frontend/state.js`, `frontend/ui.js`, and `frontend/events.js`.
 - Backend monolith routing was decomposed from `backend/main.py` into feature routers under `backend/routers/*` and shared modules in `backend/core/*`, with `backend/main.py` as composition root.
