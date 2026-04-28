@@ -29,7 +29,7 @@
 </script>
 
 <div
-    class="flex-1 flex flex-col overflow-hidden bg-[#fbfcfd] dark:bg-[#0d141c]"
+    class="flex-1 flex flex-col overflow-hidden bg-[#f0f2f5] dark:bg-[#0d141c]"
 >
     <div
         class="shrink-0 px-8 py-4 border-b border-[#e5e7eb] dark:border-[#1e2936] flex items-center justify-between"

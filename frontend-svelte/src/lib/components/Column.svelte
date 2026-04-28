@@ -13,6 +13,7 @@
     import { openModal } from "$lib/stores/ui";
     import { updateColumn } from "$lib/api/listsApi";
     import { createTask } from "$lib/api/tasksApi";
+    import { loadColumnsAndTasks } from "$lib/api/boardDataApi";
     import { openContextMenu } from "$lib/stores/context-menu";
     import { createEventDispatcher } from "svelte";
 
@@ -187,6 +188,7 @@
                 labelIds: selectedLabelIds,
             });
             hideInlineAddForm();
+            await loadColumnsAndTasks();
         } catch (e) {
             console.error("Failed to create task", e);
         }

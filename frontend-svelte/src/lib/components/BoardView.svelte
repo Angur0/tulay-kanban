@@ -17,8 +17,10 @@
 
     $: canManageColumns = ["owner", "moderator"].includes($currentBoardRole);
     $: orderedColumns = [...$columns].sort((a, b) => {
-        const aPos = typeof a.position === "number" ? a.position : a.order ?? 0;
-        const bPos = typeof b.position === "number" ? b.position : b.order ?? 0;
+        const aPos =
+            typeof a.position === "number" ? a.position : (a.order ?? 0);
+        const bPos =
+            typeof b.position === "number" ? b.position : (b.order ?? 0);
         return aPos - bPos;
     });
 
@@ -28,7 +30,7 @@
             fromColumnId: string | null;
             toColumnId: string;
             beforeTaskId: string | null;
-        }>
+        }>,
     ) {
         const { taskId, fromColumnId, toColumnId, beforeTaskId } = event.detail;
         if (!taskId || !toColumnId) return;
@@ -36,21 +38,28 @@
         const movingTask = $tasks.find((task) => task.id === taskId);
         if (!movingTask) return;
 
-        const normalizeBeforeTaskId = beforeTaskId && beforeTaskId !== taskId ? beforeTaskId : null;
+        const normalizeBeforeTaskId =
+            beforeTaskId && beforeTaskId !== taskId ? beforeTaskId : null;
 
         const sortByOrder = (list: Task[]) =>
             [...list].sort((a, b) => {
                 const orderDelta = (a.order ?? 0) - (b.order ?? 0);
                 if (orderDelta !== 0) return orderDelta;
-                const aCreated = a.created_at ? new Date(a.created_at).getTime() : 0;
-                const bCreated = b.created_at ? new Date(b.created_at).getTime() : 0;
+                const aCreated = a.created_at
+                    ? new Date(a.created_at).getTime()
+                    : 0;
+                const bCreated = b.created_at
+                    ? new Date(b.created_at).getTime()
+                    : 0;
                 return aCreated - bCreated;
             });
 
         const pool = $tasks.filter((task) => task.id !== taskId);
         const movedTask = { ...movingTask, column_id: toColumnId };
 
-        const targetList = sortByOrder(pool.filter((task) => task.column_id === toColumnId));
+        const targetList = sortByOrder(
+            pool.filter((task) => task.column_id === toColumnId),
+        );
         const insertIndex = normalizeBeforeTaskId
             ? targetList.findIndex((task) => task.id === normalizeBeforeTaskId)
             : -1;
@@ -63,7 +72,9 @@
 
         const sourceList =
             fromColumnId && fromColumnId !== toColumnId
-                ? sortByOrder(pool.filter((task) => task.column_id === fromColumnId))
+                ? sortByOrder(
+                      pool.filter((task) => task.column_id === fromColumnId),
+                  )
                 : [];
 
         const affectedColumnIds = new Set<string>();
@@ -89,7 +100,11 @@
                 continue;
             }
 
-            if (task.column_id && affectedColumnIds.has(task.column_id) && orderByTaskId.has(task.id)) {
+            if (
+                task.column_id &&
+                affectedColumnIds.has(task.column_id) &&
+                orderByTaskId.has(task.id)
+            ) {
                 updatedById.set(task.id, {
                     ...task,
                     order: orderByTaskId.get(task.id) ?? task.order,
@@ -100,15 +115,25 @@
             updatedById.set(task.id, task);
         }
 
-        const columnIndexById = new Map(orderedColumns.map((column, idx) => [column.id, idx]));
+        const columnIndexById = new Map(
+            orderedColumns.map((column, idx) => [column.id, idx]),
+        );
         const orderedTasks = [...updatedById.values()].sort((a, b) => {
-            const aCol = a.column_id ? (columnIndexById.get(a.column_id) ?? Number.MAX_SAFE_INTEGER) : Number.MAX_SAFE_INTEGER;
-            const bCol = b.column_id ? (columnIndexById.get(b.column_id) ?? Number.MAX_SAFE_INTEGER) : Number.MAX_SAFE_INTEGER;
+            const aCol = a.column_id
+                ? (columnIndexById.get(a.column_id) ?? Number.MAX_SAFE_INTEGER)
+                : Number.MAX_SAFE_INTEGER;
+            const bCol = b.column_id
+                ? (columnIndexById.get(b.column_id) ?? Number.MAX_SAFE_INTEGER)
+                : Number.MAX_SAFE_INTEGER;
             if (aCol !== bCol) return aCol - bCol;
             const orderDelta = (a.order ?? 0) - (b.order ?? 0);
             if (orderDelta !== 0) return orderDelta;
-            const aCreated = a.created_at ? new Date(a.created_at).getTime() : 0;
-            const bCreated = b.created_at ? new Date(b.created_at).getTime() : 0;
+            const aCreated = a.created_at
+                ? new Date(a.created_at).getTime()
+                : 0;
+            const bCreated = b.created_at
+                ? new Date(b.created_at).getTime()
+                : 0;
             return aCreated - bCreated;
         });
 
@@ -116,7 +141,10 @@
 
         try {
             const updates = orderedTasks
-                .filter((task) => task.column_id && affectedColumnIds.has(task.column_id))
+                .filter(
+                    (task) =>
+                        task.column_id && affectedColumnIds.has(task.column_id),
+                )
                 .map((task) =>
                     updateTask(
                         task.id,
@@ -124,8 +152,8 @@
                             column_id: task.column_id,
                             order: task.order,
                         },
-                        { reload: false }
-                    )
+                        { reload: false },
+                    ),
                 );
             await Promise.all(updates);
         } catch (e) {
@@ -145,21 +173,34 @@
 
     function handleColumnDragOver(event: DragEvent, targetColumnId: string) {
         const movingColumnId =
-            event.dataTransfer?.getData("application/x-column-id") || draggedColumnId;
-        if (!movingColumnId || movingColumnId === targetColumnId || !canManageColumns) {
+            event.dataTransfer?.getData("application/x-column-id") ||
+            draggedColumnId;
+        if (
+            !movingColumnId ||
+            movingColumnId === targetColumnId ||
+            !canManageColumns
+        ) {
             return;
         }
 
         event.preventDefault();
-        const targetRect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+        const targetRect = (
+            event.currentTarget as HTMLElement
+        ).getBoundingClientRect();
         columnDropTargetId = targetColumnId;
-        columnDropBefore = event.clientX < targetRect.left + targetRect.width / 2;
+        columnDropBefore =
+            event.clientX < targetRect.left + targetRect.width / 2;
     }
 
     async function handleColumnDrop(event: DragEvent, targetColumnId: string) {
         const movingColumnId =
-            event.dataTransfer?.getData("application/x-column-id") || draggedColumnId;
-        if (!movingColumnId || movingColumnId === targetColumnId || !canManageColumns) {
+            event.dataTransfer?.getData("application/x-column-id") ||
+            draggedColumnId;
+        if (
+            !movingColumnId ||
+            movingColumnId === targetColumnId ||
+            !canManageColumns
+        ) {
             handleColumnDragEnd();
             return;
         }
@@ -167,8 +208,12 @@
         event.preventDefault();
 
         const nextColumns = [...orderedColumns];
-        const draggedIndex = nextColumns.findIndex((column) => column.id === movingColumnId);
-        const targetIndex = nextColumns.findIndex((column) => column.id === targetColumnId);
+        const draggedIndex = nextColumns.findIndex(
+            (column) => column.id === movingColumnId,
+        );
+        const targetIndex = nextColumns.findIndex(
+            (column) => column.id === targetColumnId,
+        );
         if (draggedIndex === -1 || targetIndex === -1) {
             handleColumnDragEnd();
             return;
@@ -198,8 +243,12 @@
         try {
             await Promise.all(
                 normalized.map((column, index) =>
-                    updateColumn(column.id, { position: index }, { reload: false })
-                )
+                    updateColumn(
+                        column.id,
+                        { position: index },
+                        { reload: false },
+                    ),
+                ),
             );
         } catch (e) {
             console.error("Failed to persist column order", e);
@@ -210,7 +259,7 @@
 </script>
 
 <div
-    class="flex-1 overflow-x-auto overflow-y-hidden bg-[#fbfcfd] dark:bg-[#0d141c] p-8 custom-scrollbar rounded-tl-2xl"
+    class="flex-1 overflow-x-auto overflow-y-hidden bg-[#f0f2f5] dark:bg-[#0d141c] p-8 custom-scrollbar rounded-tl-2xl"
 >
     <div class="flex h-full gap-6 min-w-[900px]" id="board">
         {#if $columns.length === 0}
@@ -260,7 +309,7 @@
             <div class="flex-shrink-0 h-full flex items-stretch">
                 <button
                     on:click={showCreateListModal}
-                    class="flex flex-col items-center justify-center px-4 w-16 bg-[#f1f3f5] dark:bg-[#1a232e] hover:bg-[#e6e8eb] dark:hover:bg-[#253040] rounded-xl text-[#5c6b7f] dark:text-gray-400 font-medium transition-all shadow-sm"
+                    class="flex flex-col items-center justify-center px-4 w-16 bg-white dark:bg-[#1a232e] hover:bg-[#f3f4f6] dark:hover:bg-[#253040] rounded-xl text-[#5c6b7f] dark:text-gray-400 font-medium transition-all shadow-sm border border-transparent hover:border-[#e5e7eb] dark:border-transparent dark:hover:border-[#374151]"
                 >
                     <span class="material-symbols-outlined text-2xl">add</span>
                 </button>

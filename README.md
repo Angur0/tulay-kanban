@@ -14,7 +14,7 @@ Real-time Kanban board built with FastAPI, PostgreSQL, Kafka, and a modular Type
 ## Tech Stack
 
 - Backend: FastAPI + SQLAlchemy
-- Frontend: TypeScript + Vite + modular browser code
+- Frontend: SvelteKit (TypeScript)
 - Data: PostgreSQL
 - Event streaming: Kafka (graceful offline fallback)
 - Auth: JWT login (registration disabled)
@@ -55,7 +55,7 @@ python main.py
 Use this if you want HMR and local frontend iteration.
 
 1) Keep backend running at `http://localhost:8000`
-2) In `frontend/`:
+2) In `frontend-svelte/`:
 
 ```bash
 npm install
@@ -101,20 +101,17 @@ tulay-kanban/
 │   ├── models.py
 │   ├── schemas.py
 │   └── storage.py
-├── frontend/
+├── frontend-svelte/
 │   ├── index.html
-│   ├── login.html
 │   ├── package.json
+│   ├── svelte.config.js
 │   ├── vite.config.ts
 │   └── src/
+│       ├── App.svelte
 │       ├── main.ts
-│       ├── events.ts
-│       ├── api.ts
-│       ├── state.ts
-│       ├── ui.ts
-│       ├── dom-events.ts
-│       ├── listeners/
-│       └── services/
+│       ├── app.css
+│       ├── lib/
+│       └── routes/
 ├── scripts/
 ├── docs/
 ├── docker-compose.yml
