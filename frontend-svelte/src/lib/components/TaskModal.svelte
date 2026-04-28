@@ -557,9 +557,13 @@
                             <button
                                 type="button"
                                 on:click={() => taskImageUploadInput?.click()}
-                                class="text-xs font-medium text-primary hover:text-blue-600"
+                                class="p-1 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md text-primary hover:text-blue-600 transition-colors inline-flex items-center justify-center"
+                                title="Add image"
                             >
-                                Add image
+                                <span
+                                    class="material-symbols-outlined text-[20px]"
+                                    >add_photo_alternate</span
+                                >
                             </button>
                         {/if}
                     </div>

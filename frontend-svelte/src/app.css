@@ -332,3 +332,12 @@ input[type="date"] {
     background: #151e29;
     border-color: #1e2936;
 }
+
+/* Universal transition for theme swapping to change all objects precisely at the same time */
+.theme-transition,
+.theme-transition *,
+.theme-transition *::before,
+.theme-transition *::after {
+    transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease, fill 300ms ease, stroke 300ms ease, box-shadow 300ms ease !important;
+    transition-delay: 0s !important;
+}

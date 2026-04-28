@@ -23,7 +23,21 @@ export function toggleSidebar() {
 }
 
 export function toggleTheme() {
-    isDarkMode.update(v => !v);
+    if (typeof document !== 'undefined' && document.startViewTransition) {
+        document.startViewTransition(() => {
+            isDarkMode.update(v => !v);
+        });
+    } else {
+        if (typeof document !== 'undefined') {
+            document.documentElement.classList.add('theme-transition');
+        }
+        isDarkMode.update(v => !v);
+        if (typeof window !== 'undefined') {
+            window.setTimeout(() => {
+                document.documentElement.classList.remove('theme-transition');
+            }, 300);
+        }
+    }
 }
 
 if (typeof window !== 'undefined') {
