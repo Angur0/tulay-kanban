@@ -2,10 +2,12 @@
     import { activeModal, closeModal } from "$lib/stores/ui";
     import { boardMembers } from "$lib/stores/board";
     import { currentBoardRole } from "$lib/stores/user";
+    import { addBoardMember, removeBoardMember } from "$lib/api/boardApi";
 
     let emailInput = "";
     let isAdding = false;
     let addError: string | null = null;
+    let isRemoving: string | null = null; // store userId being removed
 
     $: canManage = ["owner", "moderator"].includes($currentBoardRole);
 
@@ -17,12 +19,33 @@
         addError = null;
 
         try {
-            // API logic would be dispatched here
-            emailInput = "";
+            const res = await addBoardMember(emailInput.trim(), "viewer"); // Default role
+            if (!res.success) {
+                addError = res.error || "Failed to add member";
+            } else {
+                emailInput = "";
+            }
         } catch (err: any) {
             addError = err.message || "Failed to add member";
         } finally {
             isAdding = false;
+        }
+    }
+
+    async function handleRemoveMember(userId: string) {
+        if (!canManage) return;
+        isRemoving = userId;
+        addError = null;
+
+        try {
+            const res = await removeBoardMember(userId);
+            if (!res.success) {
+                addError = res.error || "Failed to remove member";
+            }
+        } catch (err: any) {
+            addError = err.message || "Failed to remove member";
+        } finally {
+            isRemoving = null;
         }
     }
 
@@ -169,13 +192,16 @@
                                         >
                                         {#if canManage && member.role !== "owner"}
                                             <button
-                                                class="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                                                on:click={() => handleRemoveMember(member.user.id)}
+                                                disabled={isRemoving === member.user.id}
+                                                class="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors disabled:opacity-50"
                                                 title="Remove member"
                                             >
-                                                <span
-                                                    class="material-symbols-outlined text-[18px]"
-                                                    >person_remove</span
-                                                >
+                                                {#if isRemoving === member.user.id}
+                                                    <span class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+                                                {:else}
+                                                    <span class="material-symbols-outlined text-[18px]">person_remove</span>
+                                                {/if}
                                             </button>
                                         {/if}
                                     </div>

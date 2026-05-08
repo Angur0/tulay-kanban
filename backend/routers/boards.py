@@ -50,6 +50,17 @@ def get_boards(ws_id: str, current_user: models.User = Depends(get_current_user)
     return boards
 
 
+@router.get("/api/boards", response_model=List[BoardResponse])
+def get_all_boards(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    boards = db.query(models.Board).join(
+        models.board_members, models.Board.id == models.board_members.c.board_id
+    ).filter(
+        models.board_members.c.user_id == current_user.id
+    ).order_by(models.Board.position).all()
+    print(f"Returning {len(boards)} boards for user {current_user.email}")
+    return boards
+
+
 @router.post("/api/boards", response_model=BoardResponse)
 def create_board(board_in: BoardCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     print(f"Creating board: name={board_in.name}, icon={board_in.icon}, color={board_in.icon_color}")

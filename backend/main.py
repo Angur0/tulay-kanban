@@ -1,21 +1,18 @@
 """
-Kafka Kanban Backend
-FastAPI server with Kafka Producer/Consumer and WebSocket broadcasting
+Tulay Kanban Backend
+FastAPI server with WebSocket broadcasting
 """
 
 import asyncio
-import json
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from aiokafka import AIOKafkaProducer
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from backend import models
 from backend.core import realtime
-from backend.core.realtime import KAFKA_BOOTSTRAP_SERVERS, consume_events
 from backend.core.setup import ensure_board_icon_column, ensure_task_order_column, seed_db
 from backend.database import engine
 from backend.routers import auth, boards, labels, misc, tasks, workspaces
@@ -39,27 +36,7 @@ async def lifespan(app: FastAPI):
         print(f"Warning: Failed to initialize storage backend: {e}")
         print("Image uploads will not work until storage is configured.")
 
-    try:
-        realtime.producer = AIOKafkaProducer(
-            bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
-            value_serializer=lambda v: json.dumps(v).encode("utf-8")
-        )
-        await realtime.producer.start()
-        print("Kafka producer started")
-        realtime.consumer_task = asyncio.create_task(consume_events())
-        print("Kafka consumer task started")
-    except Exception as e:
-        print(f"Failed to connect to Kafka: {e}")
-        print("Running in OFFLINE mode - events will not be sent to Kafka")
-
     yield
-
-    if realtime.producer:
-        await realtime.producer.stop()
-        print("Kafka producer stopped")
-    if realtime.consumer_task:
-        realtime.consumer_task.cancel()
-        print("Kafka consumer task cancelled")
 
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -75,7 +52,7 @@ app.add_middleware(
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-FRONTEND_DIR = PROJECT_ROOT / "frontend-svelte"
+FRONTEND_DIR = PROJECT_ROOT / "frontend"
 UPLOAD_DIR = PROJECT_ROOT / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 

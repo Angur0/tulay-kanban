@@ -5,11 +5,8 @@ import { boards, activeBoardId, setBoards, setActiveBoardId, setBoardMembers } f
 import { get } from 'svelte/store';
 
 export async function loadBoards() {
-    const wsId = get(activeWorkspaceId);
-    if (!wsId) return;
-
     try {
-        const response = await authFetch(`${API_URL}/api/workspaces/${wsId}/boards`);
+        const response = await authFetch(`${API_URL}/api/boards`);
         if (!response) return;
 
         const loadedBoards = await response.json();
@@ -154,5 +151,26 @@ export async function addBoardMember(email: string, role: string) {
         return { success: true };
     } catch (e) {
         return { success: false, error: 'Error adding member' };
+    }
+}
+
+export async function removeBoardMember(userId: string) {
+    const boardId = get(activeBoardId);
+    if (!boardId) return { success: false, error: 'No active board' };
+
+    try {
+        const response = await authFetch(`${API_URL}/api/boards/${boardId}/members/${userId}`, {
+            method: 'DELETE'
+        });
+
+        if (!response?.ok) {
+            const err = await response?.json().catch(() => ({}));
+            return { success: false, error: err?.detail || 'Failed to remove member' };
+        }
+
+        await loadBoardMembers();
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: 'Error removing member' };
     }
 }

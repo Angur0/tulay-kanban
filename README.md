@@ -55,7 +55,7 @@ python main.py
 Use this if you want HMR and local frontend iteration.
 
 1) Keep backend running at `http://localhost:8000`
-2) In `frontend-svelte/`:
+2) In `frontend/`:
 
 ```bash
 npm install
@@ -101,7 +101,7 @@ tulay-kanban/
 │   ├── models.py
 │   ├── schemas.py
 │   └── storage.py
-├── frontend-svelte/
+├── frontend/
 │   ├── index.html
 │   ├── package.json
 │   ├── svelte.config.js

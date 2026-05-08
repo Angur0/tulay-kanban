@@ -1,4 +1,4 @@
-export const STORAGE_KEY = 'kafka-kanban-tasks';
+export const STORAGE_KEY = 'tulay-kanban-tasks';
 export const API_URL = 'http://localhost:8000'; // Assuming this based on python main.py
 
 export const BOARD_ICONS = new Set<string>([

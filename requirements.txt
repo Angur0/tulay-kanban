@@ -1,7 +1,6 @@
 fastapi
 Pillow
 uvicorn
-aiokafka 
 websockets
 python-multipart
 sqlalchemy
@@ -9,8 +8,7 @@ psycopg2-binary
 python-jose[cryptography]
 bcrypt
 email-validator
-# forcing win32 selector for aiokafka on windows if needed usually handled in code, 
-# but dependencies are standard.
+
 
 # Optional: Uncomment for Cloudflare R2 storage support
 # boto3

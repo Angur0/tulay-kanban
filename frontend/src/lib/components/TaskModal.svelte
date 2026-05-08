@@ -339,12 +339,12 @@
 
 {#if $activeModal === "taskPanel" && task}
     <div
-        class="fixed inset-x-0 bottom-0 top-8 z-[60] flex justify-end"
+        class="absolute inset-0 z-[60] flex justify-end"
         role="dialog"
         aria-modal="true"
     >
         <div
-            class="fixed inset-x-0 bottom-0 top-8 bg-gray-900/20 transition-opacity"
+            class="absolute inset-0 bg-gray-900/20 transition-opacity"
             on:click={handleBackdropClick}
             on:keydown={(event) => {
                 if (event.key === "Escape") closePanel();
@@ -355,7 +355,7 @@
         ></div>
 
         <div
-            class="relative w-full max-w-2xl h-full bg-white dark:bg-[#151e29] shadow-2xl border-l border-t border-[#e5e7eb] dark:border-[#1e2936] flex flex-col pointer-events-auto rounded-tl-2xl"
+            class="relative w-full max-w-2xl h-full bg-white dark:bg-[#151e29] shadow-2xl border-l border-[#e5e7eb] dark:border-[#1e2936] flex flex-col pointer-events-auto"
         >
             <div
                 class="flex items-center justify-between px-6 py-4 border-b border-[#e5e7eb] dark:border-[#1e2936]"

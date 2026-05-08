@@ -31,15 +31,3 @@ export async function authFetch(
     return response;
 }
 
-export async function sendKafkaEventRequest(
-    apiUrl: string,
-    event: Record<string, unknown>
-): Promise<unknown> {
-    const response = await fetch(`${apiUrl}/api/events`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(event),
-    });
-
-    return response.json();
-}
