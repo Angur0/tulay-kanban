@@ -118,7 +118,7 @@
                 Tulay Kanban
             </h1>
             <p class="text-sm text-[#5c6b7f] dark:text-gray-400">
-                Real-time task management with Kafka
+                Real-time task management
             </p>
         </div>
 

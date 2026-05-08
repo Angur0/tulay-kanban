@@ -5,7 +5,7 @@
         labels,
         setColumns,
         setDeleteListTarget,
-        tasksByColumn,
+        filteredTasksByColumn,
     } from "$lib/stores/board";
     import { currentBoardRole } from "$lib/stores/user";
     import { columnColorClasses } from "$lib/constants";
@@ -43,7 +43,7 @@
     let editingTitle = "";
     let menuContainerEl: HTMLElement | null = null;
 
-    $: columnTasks = $tasksByColumn[column.id] || [];
+    $: columnTasks = $filteredTasksByColumn[column.id] || [];
     $: colorClass = columnColorClasses[index % columnColorClasses.length];
     $: canManage = ["owner", "moderator"].includes($currentBoardRole);
     $: canAdd = ["owner", "moderator", "member"].includes($currentBoardRole);

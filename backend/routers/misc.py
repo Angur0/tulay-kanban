@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 
 from backend.core import realtime
 from backend.core.deps import get_current_user
-from backend.core.realtime import KAFKA_TOPIC, manager, publish_or_broadcast
+from backend.core.realtime import manager, broadcast_event
 from backend.database import get_db
 from backend.schemas import KanbanEvent
 
@@ -48,22 +48,17 @@ async def publish_event(event: KanbanEvent):
     event_data = event.model_dump()
 
     try:
-        await publish_or_broadcast(event_data)
-        if realtime.producer:
-            print(f"Produced event to Kafka: {event_data}")
-            return {"status": "sent", "topic": KAFKA_TOPIC}
-        return {"status": "offline", "message": "Kafka not connected, broadcast directly"}
+        await broadcast_event(event_data)
+        return {"status": "sent"}
     except Exception as e:
-        print(f"Failed to send to Kafka: {e}")
-        await manager.broadcast(json.dumps(event_data))
-        return {"status": "fallback", "error": str(e)}
+        print(f"Failed to broadcast event: {e}")
+        return {"status": "error", "error": str(e)}
 
 
 @router.get("/api/health")
 async def health_check():
     return {
         "status": "healthy",
-        "kafka_connected": realtime.producer is not None,
         "websocket_connections": len(manager.active_connections)
     }
 

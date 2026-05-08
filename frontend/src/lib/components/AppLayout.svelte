@@ -1,6 +1,7 @@
 <script lang="ts">
     import Sidebar from "./Sidebar.svelte";
     import Header from "./Header.svelte";
+    import SearchModal from "./SearchModal.svelte";
     import { isSidebarCollapsed } from "$lib/stores/ui";
     import CreateBoardModal from "./CreateBoardModal.svelte";
     import CreateListModal from "./CreateListModal.svelte";
@@ -11,6 +12,7 @@
     import DeleteListModal from "./DeleteListModal.svelte";
     import EditBoardModal from "./EditBoardModal.svelte";
     import DeleteBoardModal from "./DeleteBoardModal.svelte";
+    import AccountSettingsModal from "./AccountSettingsModal.svelte";
     import ContextMenus from "./ContextMenus.svelte";
     import { onMount, onDestroy } from "svelte";
     import { createColumn } from "$lib/api/listsApi";
@@ -21,7 +23,7 @@
         activeTask,
         setActiveTask,
     } from "$lib/stores/board";
-    import type { KafkaEvent } from "$lib/types";
+    import type { RealtimeEvent } from "$lib/types";
     import { authFetch } from "$lib/api";
     import { API_URL } from "$lib/constants";
     import {
@@ -35,9 +37,10 @@
         loadBoardMembers,
     } from "$lib/api/boardApi";
     import { getWorkspaces } from "$lib/api/workspaceApi";
+    import { isSearchOpen, openSearch, closeSearch } from "$lib/stores/filter";
 
     let { children } = $props();
-    let kafkaListener: (e: any) => void;
+    let wsListener: (e: any) => void;
     let unsubscribeActiveBoard: (() => void) | null = null;
 
     async function handleCreateBoard(
@@ -107,8 +110,8 @@
             console.error("Failed to initialize app data", e);
         }
 
-        kafkaListener = (e: any) => {
-            const event: KafkaEvent = e.detail;
+        wsListener = (e: any) => {
+            const event: RealtimeEvent = e.detail;
             if (
                 [
                     "TASK_CREATED",
@@ -123,7 +126,18 @@
                 loadColumnsAndTasks();
             }
         };
-        window.addEventListener("kafka-message", kafkaListener);
+        window.addEventListener("ws-message", wsListener);
+
+        // Global search shortcut (Ctrl+K / ⌘K)
+        function handleGlobalKeydown(e: KeyboardEvent) {
+            if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+                e.preventDefault();
+                if ($isSearchOpen) closeSearch();
+                else openSearch();
+            }
+        }
+        window.addEventListener("keydown", handleGlobalKeydown);
+        onDestroy(() => window.removeEventListener("keydown", handleGlobalKeydown));
     });
 
     onDestroy(() => {
@@ -132,8 +146,8 @@
             unsubscribeActiveBoard = null;
         }
 
-        if (typeof window !== "undefined" && kafkaListener) {
-            window.removeEventListener("kafka-message", kafkaListener);
+        if (typeof window !== "undefined" && wsListener) {
+            window.removeEventListener("ws-message", wsListener);
         }
 
         setActiveTask(null);
@@ -148,7 +162,10 @@
         class="flex-1 flex flex-col h-full overflow-hidden bg-[#fbfcfd] dark:bg-[#151e29] relative"
     >
         <Header />
-        {@render children()}
+        <div class="flex-1 flex flex-col relative overflow-hidden">
+            {@render children()}
+            <TaskModal task={$activeTask} />
+        </div>
     </main>
     <CreateBoardModal on:create={handleCreateBoard} />
     <CreateListModal on:create={handleCreateList} />
@@ -156,8 +173,11 @@
     <DeleteListModal />
     <EditBoardModal />
     <DeleteBoardModal />
-    <TaskModal task={$activeTask} />
     <ManageMembersModal />
     <ManageLabelsModal />
+    <AccountSettingsModal />
     <ContextMenus />
+    {#if $isSearchOpen}
+        <SearchModal />
+    {/if}
 </div>

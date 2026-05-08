@@ -1,5 +1,5 @@
 import { writable, get } from 'svelte/store';
-import type { KafkaEvent } from '$lib/types';
+import type { RealtimeEvent } from '$lib/types';
 import { activeBoardId } from './board';
 import { API_URL } from '$lib/constants';
 
@@ -7,18 +7,18 @@ import { API_URL } from '$lib/constants';
 let ws: WebSocket | null = null;
 let reconnectTimer: number | null = null;
 
-export const isKafkaConnected = writable(false);
-export const globalEvents = writable<KafkaEvent[]>([]);
+export const isWsConnected = writable(false);
+export const globalEvents = writable<RealtimeEvent[]>([]);
 
-export function setKafkaConnected(connected: boolean) {
-    isKafkaConnected.set(connected);
+export function setWsConnected(connected: boolean) {
+    isWsConnected.set(connected);
 }
 
-export function addKafkaEvent(event: KafkaEvent) {
+export function addRealtimeEvent(event: RealtimeEvent) {
     globalEvents.update(events => [event, ...events]);
 }
 
-export function setGlobalEvents(events: KafkaEvent[]) {
+export function setGlobalEvents(events: RealtimeEvent[]) {
     globalEvents.set(events);
 }
 
@@ -28,7 +28,7 @@ function getWsUrl(boardId: string): string {
     return `${protocol}://${hostUrl}/api/ws/${boardId}`;
 }
 
-export function disconnectKafka() {
+export function disconnectWs() {
     if (reconnectTimer) {
         clearTimeout(reconnectTimer);
         reconnectTimer = null;
@@ -37,18 +37,16 @@ export function disconnectKafka() {
         ws.close();
         ws = null;
     }
-    setKafkaConnected(false);
+    setWsConnected(false);
 }
 
-export function connectKafka() {
+export function connectWs() {
     const boardId = get(activeBoardId);
     if (!boardId) return;
 
     // Don't connect if already connected to the same board
     if (ws && ws.readyState === WebSocket.OPEN) {
-        // We'd need to store the current connected board ID to be perfect, 
-        // but for now we'll just disconnect and reconnect to be safe when activeBoardId changes
-        disconnectKafka();
+        disconnectWs();
     }
 
     try {
@@ -57,29 +55,29 @@ export function connectKafka() {
 
         ws.onopen = () => {
             console.log('WebSocket connected to board:', boardId);
-            setKafkaConnected(true);
+            setWsConnected(true);
         };
 
         ws.onmessage = (event) => {
             console.log('WebSocket message:', event.data);
             try {
-                const kafkaEventStr = event.data as string;
-                const kafkaEventRaw = JSON.parse(kafkaEventStr);
+                const rawStr = event.data as string;
+                const raw = JSON.parse(rawStr);
 
-                const formattedEvent: KafkaEvent = {
-                    type: kafkaEventRaw.type,
-                    taskId: kafkaEventRaw.taskId,
-                    originalTaskId: kafkaEventRaw.taskId,
-                    data: kafkaEventRaw.data || {},
+                const formattedEvent: RealtimeEvent = {
+                    type: raw.type,
+                    taskId: raw.taskId,
+                    originalTaskId: raw.taskId,
+                    data: raw.data || {},
                     time: new Date().toLocaleTimeString(),
                     timestamp: new Date().toISOString(),
                 };
 
-                addKafkaEvent(formattedEvent);
+                addRealtimeEvent(formattedEvent);
 
                 // Dispatch a custom event so components can react (e.g., reloading tasks)
                 if (typeof window !== 'undefined') {
-                    window.dispatchEvent(new CustomEvent('kafka-message', { detail: formattedEvent }));
+                    window.dispatchEvent(new CustomEvent('ws-message', { detail: formattedEvent }));
                 }
 
             } catch (e) {
@@ -89,18 +87,18 @@ export function connectKafka() {
 
         ws.onclose = () => {
             console.log('WebSocket disconnected, reconnecting in 3s...');
-            setKafkaConnected(false);
+            setWsConnected(false);
             ws = null;
-            reconnectTimer = window.setTimeout(() => connectKafka(), 3000);
+            reconnectTimer = window.setTimeout(() => connectWs(), 3000);
         };
 
         ws.onerror = (error) => {
             console.error('WebSocket error:', error);
-            setKafkaConnected(false);
+            setWsConnected(false);
         };
     } catch (error) {
         console.error('Failed to connect WebSocket:', error);
-        reconnectTimer = window.setTimeout(() => connectKafka(), 3000);
+        reconnectTimer = window.setTimeout(() => connectWs(), 3000);
     }
 }
 
@@ -108,10 +106,10 @@ export function connectKafka() {
 if (typeof window !== 'undefined') {
     activeBoardId.subscribe((id) => {
         if (id) {
-            disconnectKafka();
-            connectKafka();
+            disconnectWs();
+            connectWs();
         } else {
-            disconnectKafka();
+            disconnectWs();
         }
     });
 }

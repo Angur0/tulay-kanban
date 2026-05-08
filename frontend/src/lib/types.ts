@@ -59,7 +59,7 @@ export interface BoardMemberResponse {
     user_full_name: string;
 }
 
-export interface KafkaEvent {
+export interface RealtimeEvent {
     type: string;
     taskId?: string;
     taskTitle?: string;

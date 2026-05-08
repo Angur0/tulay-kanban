@@ -6,7 +6,7 @@ from backend import models
 from backend.core import auth
 from backend.core.deps import get_current_user
 from backend.database import get_db
-from backend.schemas import Token, UserCreate, UserResponse
+from backend.schemas import Token, UserCreate, UserResponse, UserUpdate
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -50,4 +50,24 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 
 @router.get("/me", response_model=UserResponse)
 def get_me(current_user: models.User = Depends(get_current_user)):
+    return current_user
+
+
+@router.put("/me", response_model=UserResponse)
+def update_me(user_in: UserUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    if user_in.email and user_in.email != current_user.email:
+        # Check if email is taken
+        existing = db.query(models.User).filter(models.User.email == user_in.email).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Email already registered")
+        current_user.email = user_in.email
+    
+    if user_in.full_name is not None:
+        current_user.full_name = user_in.full_name
+        
+    if user_in.password:
+        current_user.hashed_password = auth.get_password_hash(user_in.password)
+        
+    db.commit()
+    db.refresh(current_user)
     return current_user

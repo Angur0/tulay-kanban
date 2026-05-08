@@ -220,6 +220,22 @@
     <div
         class="p-4 border-t border-[#e5e7eb] dark:border-[#1e2936] flex flex-col gap-1"
     >
+        {#if $currentUser}
+            <div class="flex items-center gap-3 px-3 py-2 w-full rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] text-[#111418] dark:text-white transition-colors cursor-pointer justify-start sidebar-item"
+                 on:click={() => openModal("accountSettingsModal")}
+                 data-sidebar-tooltip="Account Settings">
+                <div class="size-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs flex-shrink-0">
+                    {$currentUser.full_name ? $currentUser.full_name.charAt(0).toUpperCase() : $currentUser.email.charAt(0).toUpperCase()}
+                </div>
+                <div class="flex flex-col min-w-0 overflow-hidden sidebar-text text-left">
+                    <span class="text-sm font-semibold truncate">{$currentUser.full_name || "User"}</span>
+                    <span class="text-xs text-[#5c6b7f] dark:text-gray-400 truncate">{$currentUser.email}</span>
+                </div>
+            </div>
+            
+            <div class="h-px bg-[#e5e7eb] dark:bg-[#1e2936] my-1 sidebar-text"></div>
+        {/if}
+        
         <button
             on:click={toggleTheme}
             class="flex items-center gap-3 px-3 py-2 w-full rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors justify-start sidebar-item"
