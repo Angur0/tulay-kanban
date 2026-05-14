@@ -272,10 +272,14 @@
     }
 
     async function onDeleteComment(commentId: string) {
+        // Optimistic update: remove immediately for instant UI feedback
+        const prev = comments;
+        comments = comments.filter((comment) => comment.id !== commentId);
         try {
             await deleteTaskComment(commentId);
-            comments = comments.filter((comment) => comment.id !== commentId);
         } catch (e: any) {
+            // Roll back on failure
+            comments = prev;
             saveError = e?.message || "Failed to delete comment";
         }
     }
