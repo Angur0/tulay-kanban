@@ -5,7 +5,6 @@
     import { isSidebarCollapsed } from "$lib/stores/ui";
     import CreateBoardModal from "./CreateBoardModal.svelte";
     import CreateListModal from "./CreateListModal.svelte";
-    import CreateTaskModal from "./CreateTaskModal.svelte";
     import TaskModal from "./TaskModal.svelte";
     import ManageMembersModal from "./ManageMembersModal.svelte";
     import ManageLabelsModal from "./ManageLabelsModal.svelte";
@@ -67,21 +66,6 @@
             await loadColumnsAndTasks();
         } catch (e) {
             console.error("Failed to create list", e);
-        }
-    }
-
-    async function handleCreateTask(
-        event: CustomEvent<{ title: string; columnId: string }>,
-    ) {
-        const title = event.detail?.title?.trim();
-        const columnId = event.detail?.columnId;
-        if (!title || !columnId) return;
-
-        try {
-            await createTask(columnId, title);
-            await loadColumnsAndTasks();
-        } catch (e) {
-            console.error("Failed to create task", e);
         }
     }
 
@@ -171,7 +155,6 @@
     </main>
     <CreateBoardModal on:create={handleCreateBoard} />
     <CreateListModal on:create={handleCreateList} />
-    <CreateTaskModal on:create={handleCreateTask} />
     <DeleteListModal />
     <DeleteTaskModal />
     <EditBoardModal />

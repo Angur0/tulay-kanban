@@ -22,6 +22,9 @@ export async function createTask(
         description?: string;
         priority?: 'low' | 'medium' | 'high';
         labelIds?: string[];
+        start_date?: string;
+        due_date?: string;
+        images?: string[];
     }
 ) {
     const boardId = get(activeBoardId);
@@ -38,7 +41,9 @@ export async function createTask(
                 status: 'todo',
                 priority: options?.priority ?? 'medium',
                 label_ids: options?.labelIds ?? [],
-                images: []
+                start_date: options?.start_date,
+                due_date: options?.due_date,
+                images: options?.images ?? []
             })
         });
 

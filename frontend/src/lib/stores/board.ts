@@ -10,7 +10,6 @@ export const tasks = writable<Task[]>([]);
 export const labels = writable<Label[]>([]);
 export const boardMembers = writable<any[]>([]);
 export const activeTask = writable<Task | null>(null);
-export const createTaskColumnId = writable<string | null>(null);
 export const deleteListTarget = writable<{ id: string; title: string } | null>(null);
 export const deleteTaskTarget = writable<{ id: string; title: string } | null>(null);
 export const editBoardTarget = writable<Board | null>(null);
@@ -138,10 +137,6 @@ export function setBoardMembers(members: any[]) {
 
 export function setActiveTask(task: Task | null) {
     activeTask.set(task);
-}
-
-export function setCreateTaskColumnId(columnId: string | null) {
-    createTaskColumnId.set(columnId);
 }
 
 export function setDeleteListTarget(target: { id: string; title: string } | null) {

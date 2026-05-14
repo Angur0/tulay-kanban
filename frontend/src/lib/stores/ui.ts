@@ -13,7 +13,7 @@ function getInitialDarkMode(): boolean {
 }
 
 export const isDarkMode = writable(getInitialDarkMode());
-export const activeView = writable<'board' | 'activity' | 'my-tasks'>('board');
+export const activeView = writable<'board' | 'my-tasks'>('board');
 
 // Modals
 export const activeModal = writable<string | null>(null);
@@ -48,7 +48,7 @@ if (typeof window !== 'undefined') {
     });
 }
 
-export function switchView(view: 'board' | 'activity' | 'my-tasks') {
+export function switchView(view: 'board' | 'my-tasks') {
     activeView.set(view);
 }
 

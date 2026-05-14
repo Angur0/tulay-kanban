@@ -10,9 +10,9 @@
     import { currentBoardRole } from "$lib/stores/user";
     import { columnColorClasses } from "$lib/constants";
     import TaskCard from "./TaskCard.svelte";
+    import InlineCreateTaskForm from "./InlineCreateTaskForm.svelte";
     import { openModal } from "$lib/stores/ui";
     import { updateColumn } from "$lib/api/listsApi";
-    import { createTask } from "$lib/api/tasksApi";
     import { loadColumnsAndTasks } from "$lib/api/boardDataApi";
     import { openContextMenu } from "$lib/stores/context-menu";
     import { createEventDispatcher } from "svelte";
@@ -33,10 +33,6 @@
 
     let isMenuOpen = false;
     let showInlineAddForm = false;
-    let newTaskTitle = "";
-    let newTaskDescription = "";
-    let newTaskPriority: "low" | "medium" | "high" = "medium";
-    let selectedLabelIds: string[] = [];
     let isTaskDragOver = false;
     let taskDropIndex: number | null = null;
     let isRenaming = false;
@@ -162,44 +158,7 @@
     function handleAddCard() {
         if (!canAdd) return;
         showInlineAddForm = true;
-        newTaskTitle = "";
-        newTaskDescription = "";
-        newTaskPriority = "medium";
-        selectedLabelIds = [];
         isMenuOpen = false;
-    }
-
-    function hideInlineAddForm() {
-        showInlineAddForm = false;
-        newTaskTitle = "";
-        newTaskDescription = "";
-        newTaskPriority = "medium";
-        selectedLabelIds = [];
-    }
-
-    async function handleCreateInlineTask() {
-        const title = newTaskTitle.trim();
-        if (!title) return;
-
-        try {
-            await createTask(column.id, title, {
-                description: newTaskDescription.trim(),
-                priority: newTaskPriority,
-                labelIds: selectedLabelIds,
-            });
-            hideInlineAddForm();
-            await loadColumnsAndTasks();
-        } catch (e) {
-            console.error("Failed to create task", e);
-        }
-    }
-
-    function toggleLabel(labelId: string, checked: boolean) {
-        if (checked) {
-            selectedLabelIds = [...selectedLabelIds, labelId];
-        } else {
-            selectedLabelIds = selectedLabelIds.filter((id) => id !== labelId);
-        }
     }
 
     function handleColumnContextMenu(event: MouseEvent) {
@@ -475,105 +434,7 @@
         {/if}
 
         {#if showInlineAddForm && canAdd}
-            <div
-                class="flex flex-col gap-3 p-4 bg-white dark:bg-[#151e29] rounded-lg border-2 border-primary ring-4 ring-primary/20 shadow-xl mb-1 min-w-[320px]"
-            >
-                <input
-                    type="text"
-                    bind:value={newTaskTitle}
-                    class="w-full text-sm font-semibold text-[#111418] dark:text-white bg-transparent border-none p-0 focus:ring-0 placeholder-gray-400"
-                    placeholder="Task title..."
-                    autofocus
-                    on:keydown={(e) => {
-                        if (e.key === "Escape") hideInlineAddForm();
-                    }}
-                />
-                <textarea
-                    bind:value={newTaskDescription}
-                    class="w-full text-xs text-[#5c6b7f] dark:text-gray-300 bg-[#fbfcfd] dark:bg-[#0d141c] border border-[#e5e7eb] dark:border-[#1e2936] rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none placeholder-gray-400 custom-scrollbar"
-                    rows="2"
-                    placeholder="Add a description (optional)..."
-                    on:keydown={(e) => {
-                        if (e.key === "Escape") hideInlineAddForm();
-                    }}
-                ></textarea>
-
-                <div class="flex gap-3">
-                    <div class="flex-shrink-0">
-                        <label
-                            class="block text-[10px] font-semibold text-[#5c6b7f] dark:text-gray-400 uppercase mb-1.5"
-                            >Priority</label
-                        >
-                        <select
-                            bind:value={newTaskPriority}
-                            class="text-xs bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded px-2.5 py-1.5 focus:ring-2 focus:ring-primary/50 focus:outline-none"
-                        >
-                            <option value="low">Low</option>
-                            <option value="medium">Medium</option>
-                            <option value="high">High</option>
-                        </select>
-                    </div>
-
-                    <div class="flex-1 min-w-0">
-                        <label
-                            class="block text-[10px] font-semibold text-[#5c6b7f] dark:text-gray-400 uppercase mb-1.5"
-                            >Labels</label
-                        >
-                        <div
-                            class="flex flex-col gap-0.5 p-2 bg-[#fbfcfd] dark:bg-[#0d141c] border border-[#e5e7eb] dark:border-[#1e2936] rounded-lg max-h-[140px] overflow-y-auto custom-scrollbar"
-                        >
-                            {#if $labels.length === 0}
-                                <p class="text-xs text-gray-400 py-2 text-center">
-                                    No labels available
-                                </p>
-                            {:else}
-                                {#each $labels as label}
-                                    <label
-                                        class="flex items-center gap-2 cursor-pointer hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] px-2 py-1.5 rounded transition-colors"
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            class="rounded border-gray-300 w-3.5 h-3.5"
-                                            checked={selectedLabelIds.includes(label.id)}
-                                            on:change={(e) =>
-                                                toggleLabel(
-                                                    label.id,
-                                                    (e.currentTarget as HTMLInputElement).checked
-                                                )}
-                                        />
-                                        <span
-                                            class="w-3 h-3 rounded"
-                                            style="background-color: {label.color || '#93c5fd'}"
-                                        ></span>
-                                        <span class="text-xs text-[#111418] dark:text-white"
-                                            >{label.name}</span
-                                        >
-                                    </label>
-                                {/each}
-                            {/if}
-                        </div>
-                    </div>
-                </div>
-
-                <div
-                    class="flex items-center justify-end gap-2 pt-2 border-t border-[#e5e7eb] dark:border-[#1e2936]"
-                >
-                    <button
-                        on:click={hideInlineAddForm}
-                        class="text-xs text-[#5c6b7f] hover:text-[#111418] px-3 py-2 rounded-lg hover:bg-[#eff1f3] transition-colors"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        on:click={handleCreateInlineTask}
-                        class="flex items-center gap-1.5 bg-primary hover:bg-blue-600 text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-sm transition-colors"
-                        disabled={!newTaskTitle.trim()}
-                    >
-                        <span class="material-symbols-outlined text-[16px]">add</span>
-                        Create Task
-                    </button>
-                </div>
-            </div>
+            <InlineCreateTaskForm columnId={column.id} on:close={() => (showInlineAddForm = false)} />
         {/if}
     </div>
 

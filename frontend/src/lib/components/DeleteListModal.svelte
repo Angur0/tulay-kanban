@@ -1,6 +1,6 @@
 <script lang="ts">
     import { activeModal, closeModal } from "$lib/stores/ui";
-    import { deleteListTarget, setDeleteListTarget } from "$lib/stores/board";
+    import { deleteListTarget, setDeleteListTarget, columns } from "$lib/stores/board";
     import { deleteColumn } from "$lib/api/listsApi";
 
     let confirmText = "";
@@ -18,9 +18,13 @@
     async function handleDelete() {
         if (!$deleteListTarget || !canDelete) return;
 
+        const targetId = $deleteListTarget.id;
         isDeleting = true;
         try {
-            await deleteColumn($deleteListTarget.id);
+            await deleteColumn(targetId);
+            // Optimistically remove the column from the store so the UI
+            // updates immediately without requiring a page reload.
+            columns.update(cols => cols.filter(c => c.id !== targetId));
             resetAndClose();
         } catch (e) {
             console.error("Failed to delete list", e);

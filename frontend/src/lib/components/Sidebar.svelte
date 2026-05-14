@@ -185,22 +185,6 @@
                 >
             </a>
             <a
-                on:click|preventDefault={() => switchView("activity")}
-                class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group justify-start sidebar-item {$activeView ===
-                'activity'
-                    ? 'bg-[#eff1f3] dark:bg-[#1e2936] text-[#111418] dark:text-white'
-                    : 'text-[#5c6b7f] dark:text-gray-400 hover:bg-[#eff1f3] dark:hover:bg-[#1e2936]'}"
-                href="#"
-            >
-                <span
-                    class="material-symbols-outlined transition-colors flex-shrink-0 group-hover:text-primary"
-                    >history</span
-                >
-                <span class="text-sm font-medium sidebar-text whitespace-nowrap"
-                    >Activity</span
-                >
-            </a>
-            <a
                 on:click|preventDefault={() => openModal("labelManagerModal")}
                 class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group justify-start sidebar-item text-[#5c6b7f] dark:text-gray-400 hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] hover:text-[#111418] dark:hover:text-white"
                 href="#"
