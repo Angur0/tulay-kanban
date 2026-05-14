@@ -25,7 +25,7 @@ export function setGlobalEvents(events: RealtimeEvent[]) {
 function getWsUrl(boardId: string): string {
     const protocol = API_URL.startsWith('https') ? 'wss' : 'ws';
     const hostUrl = API_URL.replace(/^https?:\/\//, '');
-    return `${protocol}://${hostUrl}/api/ws/${boardId}`;
+    return `${protocol}://${hostUrl}/ws/${boardId}`;
 }
 
 export function disconnectWs() {

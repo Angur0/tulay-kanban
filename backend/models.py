@@ -1,7 +1,7 @@
 import datetime
 import uuid
 from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Text, JSON, Table
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 from .database import Base
 
 def generate_uuid():
@@ -103,6 +103,7 @@ class Task(Base):
     priority = Column(String, default="medium")
     label = Column(String)
     assignee_id = Column(String, ForeignKey("users.id"), nullable=True)
+    start_date = Column(DateTime, nullable=True)
     due_date = Column(DateTime, nullable=True)
     order = Column(Integer, default=0)
     events = Column(JSON, default=[])
@@ -155,5 +156,5 @@ class Comment(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
-    task = relationship("Task", backref="comments")
+    task = relationship("Task", backref=backref("comments", cascade="all, delete-orphan", passive_deletes=True))
     user = relationship("User")

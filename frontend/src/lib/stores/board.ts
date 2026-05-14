@@ -12,6 +12,7 @@ export const boardMembers = writable<any[]>([]);
 export const activeTask = writable<Task | null>(null);
 export const createTaskColumnId = writable<string | null>(null);
 export const deleteListTarget = writable<{ id: string; title: string } | null>(null);
+export const deleteTaskTarget = writable<{ id: string; title: string } | null>(null);
 export const editBoardTarget = writable<Board | null>(null);
 export const deleteBoardTarget = writable<Board | null>(null);
 
@@ -53,9 +54,13 @@ export const filteredTasksByColumn = derived(
 
         // Label filter
         if ($filters.labelIds.length > 0) {
-            filtered = filtered.filter(t =>
-                $filters.labelIds.every(lid => (t.label_ids || []).includes(lid))
-            );
+            filtered = filtered.filter(t => {
+                // API returns full label objects in `labels`; fall back to `label_ids` if present
+                const taskLabelIds = (t.labels as { id: string }[] | undefined)?.map(l => l.id)
+                    ?? (t.label_ids as string[] | undefined)
+                    ?? [];
+                return $filters.labelIds.every(lid => taskLabelIds.includes(lid));
+            });
         }
 
         // Board-level task search
@@ -141,6 +146,10 @@ export function setCreateTaskColumnId(columnId: string | null) {
 
 export function setDeleteListTarget(target: { id: string; title: string } | null) {
     deleteListTarget.set(target);
+}
+
+export function setDeleteTaskTarget(target: { id: string; title: string } | null) {
+    deleteTaskTarget.set(target);
 }
 
 export function setEditBoardTarget(target: Board | null) {

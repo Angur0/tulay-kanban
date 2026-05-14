@@ -53,7 +53,7 @@
 />
 
 <div
-    class="filter-bar flex items-center gap-3 px-8 py-2 bg-[#fbfcfd] dark:bg-[#151e29] overflow-x-auto flex-shrink-0"
+    class="filter-bar flex items-center gap-3 px-8 py-2 bg-[#fbfcfd] dark:bg-[#151e29] flex-shrink-0 overflow-visible"
 >
     <!-- Priority Chips -->
     <div class="flex items-center gap-1.5 flex-shrink-0">

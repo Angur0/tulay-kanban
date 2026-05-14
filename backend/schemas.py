@@ -138,6 +138,7 @@ class TaskCreate(BaseModel):
     board_id: str
     column_id: Optional[str] = None
     assignee_id: Optional[str] = None
+    start_date: Optional[datetime.datetime] = None
     due_date: Optional[datetime.datetime] = None
     order: Optional[int] = None
     images: Optional[List[str]] = []
@@ -157,6 +158,7 @@ class TaskResponse(BaseModel):
     column_id: Optional[str] = None
     order: int
     assignee_id: Optional[str] = None
+    start_date: Optional[datetime.datetime] = None
     due_date: Optional[datetime.datetime] = None
     events: Optional[list] = []
     images: Optional[List[str]] = []

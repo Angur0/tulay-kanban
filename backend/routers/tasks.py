@@ -145,38 +145,46 @@ async def update_task(task_id: str, updates: dict, current_user: models.User = D
 
 @router.delete("/api/tasks/{task_id}")
 async def delete_task(task_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    task = db.query(models.Task).filter(models.Task.id == task_id).first()
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+    try:
+        task = db.query(models.Task).filter(models.Task.id == task_id).first()
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
 
-    ensure_board_access(db, task.board_id, current_user, ["owner", "moderator", "member"])
+        ensure_board_access(db, task.board_id, current_user, ["owner", "moderator", "member"])
 
-    task_title = task.title
-    board_id = task.board_id
+        task_title = task.title
+        board_id = task.board_id
 
-    activity = models.Activity(
-        board_id=board_id,
-        user_id=current_user.id,
-        event_type="TASK_DELETED",
-        task_id=task_id,
-        task_title=task_title,
-        data={}
-    )
-    db.add(activity)
+        activity = models.Activity(
+            board_id=board_id,
+            user_id=current_user.id,
+            event_type="TASK_DELETED",
+            task_id=task_id,
+            task_title=task_title,
+            data={}
+        )
+        db.add(activity)
 
-    db.delete(task)
-    db.commit()
+        db.delete(task)
+        db.commit()
 
-    event = {
-        "type": "TASK_DELETED",
-        "taskId": task_id,
-        "timestamp": datetime.datetime.utcnow().isoformat(),
-        "user_id": current_user.id,
-        "board_id": board_id
-    }
-    await realtime.publish_or_broadcast(event)
+        event = {
+            "type": "TASK_DELETED",
+            "taskId": task_id,
+            "timestamp": datetime.datetime.utcnow().isoformat(),
+            "user_id": current_user.id,
+            "board_id": board_id
+        }
+        await realtime.publish_or_broadcast(event)
 
-    return {"status": "deleted"}
+        return {"status": "deleted"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/api/tasks/{task_id}/comments", response_model=list[CommentResponse])

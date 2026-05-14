@@ -16,6 +16,7 @@ export interface Task {
     priority: 'low' | 'medium' | 'high';
     column_id: string;
     board_id: string;
+    start_date?: string | null;
     due_date?: string | null;
     assignee_id?: string | null;
     label_ids?: string[];
