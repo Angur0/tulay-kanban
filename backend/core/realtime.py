@@ -32,3 +32,8 @@ storage: Any = None
 
 async def broadcast_event(event_data: dict):
     await manager.broadcast(json.dumps(event_data))
+
+
+# Alias used by routers — same as broadcast_event
+async def publish_or_broadcast(event_data: dict):
+    await broadcast_event(event_data)

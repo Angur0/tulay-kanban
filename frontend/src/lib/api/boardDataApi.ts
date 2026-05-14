@@ -11,10 +11,11 @@ export async function loadColumnsAndTasks() {
     if (!boardId) return;
 
     try {
-        const [colsRes, tasksRes, boardLabelsRes] = await Promise.all([
+        const [colsRes, tasksRes, boardLabelsRes, wsLabelsRes] = await Promise.all([
             authFetch(`${API_URL}/api/boards/${boardId}/columns`),
             authFetch(`${API_URL}/api/boards/${boardId}/tasks`),
-            authFetch(`${API_URL}/api/boards/${boardId}/labels`)
+            authFetch(`${API_URL}/api/boards/${boardId}/labels`),
+            workspaceId ? authFetch(`${API_URL}/api/workspaces/${workspaceId}/labels`) : Promise.resolve(null),
         ]);
 
         if (colsRes) {
@@ -44,12 +45,11 @@ export async function loadColumnsAndTasks() {
             );
         }
 
-        let mergedLabels: Label[] = [];
-        if (boardLabelsRes?.ok) {
-            mergedLabels = await boardLabelsRes.json() as Label[];
-        }
+        const boardLabels: Label[] = boardLabelsRes?.ok ? await boardLabelsRes.json() : [];
+        const wsLabels: Label[] = wsLabelsRes?.ok ? await wsLabelsRes.json() : [];
 
-        setLabels(mergedLabels);
+        // Merge workspace-global + board-specific labels (same as ManageLabelsModal)
+        setLabels([...wsLabels, ...boardLabels]);
     } catch (e) {
         console.error('Failed to load columns/tasks', e);
     }

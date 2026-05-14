@@ -1,10 +1,11 @@
 <script lang="ts">
-    import { activeModal, closeModal } from "$lib/stores/ui";
+    import { activeModal, closeModal, openModal } from "$lib/stores/ui";
     import {
         boardMembers,
         columns,
         labels,
         setActiveTask,
+        setDeleteTaskTarget,
         setTasks,
         tasks,
     } from "$lib/stores/board";
@@ -32,6 +33,7 @@
     let description = "";
     let selectedColumnId = "";
     let selectedPriority: "low" | "medium" | "high" = "medium";
+    let startDateValue = "";
     let dueDateValue = "";
     let selectedAssigneeId = "";
     let selectedLabelIds: string[] = [];
@@ -78,6 +80,9 @@
         selectedColumnId = task.column_id || "";
         selectedPriority =
             (task.priority as "low" | "medium" | "high") || "medium";
+        startDateValue = task.start_date
+            ? new Date(task.start_date).toISOString().split("T")[0]
+            : "";
         dueDateValue = task.due_date
             ? new Date(task.due_date).toISOString().split("T")[0]
             : "";
@@ -145,6 +150,7 @@
             status: buildStatus(selectedColumnId, task.status),
             priority: selectedPriority,
             label_ids: selectedLabelIds,
+            start_date: startDateValue || null,
             due_date: dueDateValue || null,
             assignee_id: selectedAssigneeId || null,
             images: taskImages,
@@ -183,19 +189,8 @@
 
     async function handleDeleteTask() {
         if (!task || !canManage || isDeleting) return;
-        if (!confirm("Delete this task?")) return;
-
-        isDeleting = true;
-        try {
-            await deleteTask(task.id);
-            setTasks($tasks.filter((taskItem) => taskItem.id !== task.id));
-            setActiveTask(null);
-            closePanel();
-        } catch (e: any) {
-            saveError = e?.message || "Failed to delete task";
-        } finally {
-            isDeleting = false;
-        }
+        setDeleteTaskTarget({ id: task.id, title: task.title });
+        openModal("deleteTaskModal");
     }
 
     function removeTaskImage(index: number) {
@@ -444,6 +439,19 @@
                             <option value="medium">Medium</option>
                             <option value="high">High</option>
                         </select>
+                    </div>
+
+                    <div>
+                        <label
+                            class="block text-xs font-semibold text-[#5c6b7f] dark:text-gray-400 uppercase tracking-wider mb-1"
+                            >Start date</label
+                        >
+                        <input
+                            type="date"
+                            bind:value={startDateValue}
+                            disabled={!canManage}
+                            class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"
+                        />
                     </div>
 
                     <div>

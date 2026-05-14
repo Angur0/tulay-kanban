@@ -10,6 +10,7 @@
     import ManageMembersModal from "./ManageMembersModal.svelte";
     import ManageLabelsModal from "./ManageLabelsModal.svelte";
     import DeleteListModal from "./DeleteListModal.svelte";
+    import DeleteTaskModal from "./DeleteTaskModal.svelte";
     import EditBoardModal from "./EditBoardModal.svelte";
     import DeleteBoardModal from "./DeleteBoardModal.svelte";
     import AccountSettingsModal from "./AccountSettingsModal.svelte";
@@ -42,6 +43,7 @@
     let { children } = $props();
     let wsListener: (e: any) => void;
     let unsubscribeActiveBoard: (() => void) | null = null;
+    let handleGlobalKeydown: ((e: KeyboardEvent) => void) | null = null;
 
     async function handleCreateBoard(
         event: CustomEvent<{ name: string; icon: string; color: string }>,
@@ -129,15 +131,14 @@
         window.addEventListener("ws-message", wsListener);
 
         // Global search shortcut (Ctrl+K / ⌘K)
-        function handleGlobalKeydown(e: KeyboardEvent) {
+        handleGlobalKeydown = (e: KeyboardEvent) => {
             if ((e.ctrlKey || e.metaKey) && e.key === "k") {
                 e.preventDefault();
                 if ($isSearchOpen) closeSearch();
                 else openSearch();
             }
-        }
+        };
         window.addEventListener("keydown", handleGlobalKeydown);
-        onDestroy(() => window.removeEventListener("keydown", handleGlobalKeydown));
     });
 
     onDestroy(() => {
@@ -146,8 +147,9 @@
             unsubscribeActiveBoard = null;
         }
 
-        if (typeof window !== "undefined" && wsListener) {
-            window.removeEventListener("ws-message", wsListener);
+        if (typeof window !== "undefined") {
+            if (wsListener) window.removeEventListener("ws-message", wsListener);
+            if (handleGlobalKeydown) window.removeEventListener("keydown", handleGlobalKeydown);
         }
 
         setActiveTask(null);
@@ -171,6 +173,7 @@
     <CreateListModal on:create={handleCreateList} />
     <CreateTaskModal on:create={handleCreateTask} />
     <DeleteListModal />
+    <DeleteTaskModal />
     <EditBoardModal />
     <DeleteBoardModal />
     <ManageMembersModal />
