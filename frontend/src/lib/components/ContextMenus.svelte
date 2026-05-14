@@ -4,7 +4,6 @@
         boards,
         columns,
         setActiveTask,
-        setCreateTaskColumnId,
         setDeleteBoardTarget,
         setDeleteListTarget,
         setEditBoardTarget,
