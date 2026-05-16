@@ -5,18 +5,20 @@ Real-time Kanban board built with FastAPI, PostgreSQL, Kafka, and a modular Type
 ## Features
 
 - Multi-workspace, multi-board Kanban flow
+- Role-Based Access Control (RBAC) for board members
 - Drag-and-drop for columns and tasks
-- Live updates via WebSockets (Kafka-backed when available)
-- Task detail panel (description, priority, due date, assignee, labels, comments)
+- Live updates via WebSockets
+- Task detail panel (description, priority, start date, due date, assignee, labels, comments)
+- Task activity history
 - Image attachment upload support
 - Light/Dark theme
 
 ## Tech Stack
 
 - Backend: FastAPI + SQLAlchemy
-- Frontend: SvelteKit (TypeScript)
+- Frontend: Svelte 5 + Vite (TypeScript)
 - Data: PostgreSQL
-- Event streaming: Kafka (graceful offline fallback)
+- Event streaming: WebSockets
 - Auth: JWT login (registration disabled)
 
 ## Prerequisites
@@ -86,7 +88,6 @@ Notes:
 
 - PostgreSQL unavailable on `localhost:5432`: run `docker compose up -d` and check `docker compose ps`
 - Missing Python packages: re-run `pip install -r requirements.txt`
-- Kafka unavailable: app still runs and falls back to direct WebSocket broadcast
 
 ## Project Layout
 
