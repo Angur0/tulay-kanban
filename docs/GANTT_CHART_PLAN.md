@@ -85,3 +85,24 @@ Create the core Gantt chart wrapper component.
 - **Styling:** Import `frappe-gantt/dist/frappe-gantt.css` globally or inside the component. Apply CSS overrides to match the Tulay Kanban dark/light themes (since Frappe's default might look out of place).
 - **Read-only handling:** Prevent dragging tasks on the Gantt chart if the user has `viewer` role (`$currentBoardRole`). Use the `readonly: true` option in Frappe Gantt based on permissions.
 - **Null Dates:** Tasks completely missing `start_date` and `due_date` should probably default to `start = now`, `end = now + 1 day` so they appear on the timeline. We can visually distinguish them with a specific CSS class.
+
+## 7. Export Functionality (PDF/Image/CSV)
+To allow users to save their board data and timelines:
+
+**Dependencies:**
+Install libraries for generating PDFs and capturing HTML to canvas:
+```bash
+npm install html2canvas jspdf papaparse
+npm install -D @types/jspdf @types/papaparse
+```
+
+**Gantt Chart Export (PDF/Image):**
+- Add an "Export" dropdown menu in the Gantt chart view header.
+- Implement an `exportToImage()` function using `html2canvas` to capture the `#gantt-container` DOM element and save it as a PNG.
+- Implement an `exportToPDF()` function using `jspdf` to place the generated canvas image into a PDF document and trigger a download.
+
+**Board Tasks Export (CSV):**
+- Add an "Export to CSV" option in the main Board header or settings menu.
+- Implement a function `exportTasksToCSV()` that maps the `$tasks` store into a structured tabular format (id, title, description, status, priority, start_date, due_date, assignees).
+- Use `papaparse` to convert the JavaScript objects to a CSV string.
+- Create a Blob from the CSV string and trigger a browser download for the resulting file.

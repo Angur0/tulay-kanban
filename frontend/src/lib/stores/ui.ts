@@ -14,6 +14,11 @@ function getInitialDarkMode(): boolean {
 
 export const isDarkMode = writable(getInitialDarkMode());
 export const activeView = writable<'board' | 'my-tasks'>('board');
+export const boardViewMode = writable<'kanban' | 'gantt'>('kanban');
+
+export function setBoardViewMode(mode: 'kanban' | 'gantt') {
+    boardViewMode.set(mode);
+}
 
 // Modals
 export const activeModal = writable<string | null>(null);
@@ -44,6 +49,8 @@ if (typeof window !== 'undefined') {
     isDarkMode.subscribe((isDark) => {
         document.documentElement.classList.toggle('dark', isDark);
         document.documentElement.classList.toggle('light', !isDark);
+        // frappe-gantt v1 uses html[data-theme=dark] for its CSS custom properties
+        document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
         localStorage.setItem('theme', isDark ? 'dark' : 'light');
     });
 }

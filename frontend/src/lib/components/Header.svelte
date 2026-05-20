@@ -1,7 +1,7 @@
 <script lang="ts">
     import { activeBoard, columns, tasks } from "$lib/stores/board";
     import { isWsConnected } from "$lib/stores/realtime";
-    import { activeView, openModal } from "$lib/stores/ui";
+    import { activeView, openModal, boardViewMode, setBoardViewMode } from "$lib/stores/ui";
     import { normalizeBoardIcon, columnColorClasses } from "$lib/constants";
     import { openSearch, isFilterBarOpen, hasActiveFilters } from "$lib/stores/filter";
     import FilterBar from "./FilterBar.svelte";
@@ -88,6 +88,28 @@
                     {/if}
                 </button>
             {/if}
+
+                <!-- View mode toggle (Kanban / Gantt) -->
+                {#if $activeBoard}
+                <div class="flex items-center bg-[#eff1f3] dark:bg-[#1e2936] rounded-lg p-0.5 ml-1">
+                    <button
+                        id="view-toggle-kanban"
+                        class="px-2.5 py-1 rounded-md text-xs font-medium transition-colors {$boardViewMode === 'kanban' ? 'bg-white dark:bg-[#2a3a4a] shadow-sm text-primary' : 'text-[#5c6b7f] hover:text-[#111418] dark:hover:text-white'}"
+                        on:click={() => setBoardViewMode('kanban')}
+                        title="Kanban view"
+                    >
+                        <span class="material-symbols-outlined text-[16px] align-middle">view_kanban</span>
+                    </button>
+                    <button
+                        id="view-toggle-gantt"
+                        class="px-2.5 py-1 rounded-md text-xs font-medium transition-colors {$boardViewMode === 'gantt' ? 'bg-white dark:bg-[#2a3a4a] shadow-sm text-primary' : 'text-[#5c6b7f] hover:text-[#111418] dark:hover:text-white'}"
+                        on:click={() => setBoardViewMode('gantt')}
+                        title="Gantt / Timeline view"
+                    >
+                        <span class="material-symbols-outlined text-[16px] align-middle">calendar_view_week</span>
+                    </button>
+                </div>
+                {/if}
 
             <!-- Global Search Button -->
             <button
