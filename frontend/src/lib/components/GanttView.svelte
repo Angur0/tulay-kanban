@@ -30,6 +30,7 @@
     type ViewMode = 'Day' | 'Week' | 'Month' | 'Quarter Day' | 'Half Day';
     let viewMode: ViewMode = 'Week';
     const VIEW_MODES: ViewMode[] = ['Day', 'Week', 'Month'];
+    let isCompact = false;
 
     // ─── Data transformation ──────────────────────────────────────────────────
     interface GanttTask {
@@ -122,6 +123,8 @@
                 date_format: 'YYYY-MM-DD',
                 readonly: isReadOnly,
                 popup_trigger: 'click',
+                bar_height: isCompact ? 18 : 30,
+                padding: isCompact ? 8 : 18,
                 on_click: (task: GanttTask) => {
                     const original = $tasks.find((t) => t.id === task.id);
                     if (original) setActiveTask(original);
@@ -154,19 +157,24 @@
 
     let currentViewMode: ViewMode = viewMode;
     let lastRenderedTasks: GanttTask[] | null = null;
+    let lastCompactMode = isCompact;
 
     // Robust reactive loop to handle building/refreshing the Gantt chart
     $: if (containerEl && Gantt) {
+        // Register isCompact as a dependency for Svelte reactivity
+        const _isCompact = isCompact;
         if (!initialized) {
             if (ganttTasks.length > 0) {
                 buildGantt(ganttTasks);
                 currentViewMode = viewMode;
+                lastCompactMode = isCompact;
                 lastRenderedTasks = ganttTasks;
             }
         } else {
-            if (currentViewMode !== viewMode) {
+            if (currentViewMode !== viewMode || lastCompactMode !== isCompact) {
                 buildGantt(ganttTasks);
                 currentViewMode = viewMode;
+                lastCompactMode = isCompact;
                 lastRenderedTasks = ganttTasks;
             } else if (ganttTasks) {
                 // If tasks changed but view mode didn't, refresh the tasks list
@@ -204,12 +212,82 @@
     let exporting = false;
     let showExportMenu = false;
 
+    async function getFullGanttCanvas(html2canvas: any) {
+        const scrollWrapper = containerEl.closest('.gantt-scroll-wrapper') as HTMLElement;
+        const svgEl = containerEl.querySelector('svg') as SVGElement;
+        
+        if (!scrollWrapper || !svgEl) {
+            throw new Error('Gantt elements not found');
+        }
+
+        // Save scroll positions
+        const originalScrollLeft = scrollWrapper.scrollLeft;
+        const originalScrollTop = scrollWrapper.scrollTop;
+        
+        // Save inline styles
+        const originalContainerStyle = containerEl.getAttribute('style') || '';
+        const originalWrapperStyle = scrollWrapper.getAttribute('style') || '';
+
+        try {
+            // Reset scroll to top-left to avoid html2canvas clipping/shifting issues
+            scrollWrapper.scrollLeft = 0;
+            scrollWrapper.scrollTop = 0;
+
+            // Get dimensions of the SVG
+            const svgWidth = parseFloat(svgEl.getAttribute('width') || '0') || svgEl.scrollWidth || svgEl.getBoundingClientRect().width;
+            const svgHeight = parseFloat(svgEl.getAttribute('height') || '0') || svgEl.scrollHeight || svgEl.getBoundingClientRect().height;
+
+            const padding = 32; // 16px padding on each side (p-4)
+            const targetWidth = svgWidth + padding;
+            const targetHeight = svgHeight + padding;
+
+            // Temporarily expand container and scroll wrapper to fit the entire SVG
+            scrollWrapper.style.width = `${targetWidth}px`;
+            scrollWrapper.style.height = `${targetHeight}px`;
+            scrollWrapper.style.overflow = 'visible';
+            scrollWrapper.style.maxHeight = 'none';
+            scrollWrapper.style.maxWidth = 'none';
+            
+            containerEl.style.width = `${targetWidth}px`;
+            containerEl.style.height = `${targetHeight}px`;
+            containerEl.style.overflow = 'visible';
+            containerEl.style.maxHeight = 'none';
+            containerEl.style.maxWidth = 'none';
+
+            // Wait a tiny bit for layout reflow
+            await new Promise((resolve) => requestAnimationFrame(resolve));
+
+            const canvas = await html2canvas(containerEl, {
+                backgroundColor: null,
+                scale: 2,
+                width: targetWidth,
+                height: targetHeight,
+                scrollX: 0,
+                scrollY: 0,
+                windowWidth: targetWidth + 100,
+                windowHeight: targetHeight + 100,
+                logging: false,
+                useCORS: true
+            });
+
+            return canvas;
+        } finally {
+            // Restore original inline styles
+            containerEl.setAttribute('style', originalContainerStyle);
+            scrollWrapper.setAttribute('style', originalWrapperStyle);
+            
+            // Restore scroll positions
+            scrollWrapper.scrollLeft = originalScrollLeft;
+            scrollWrapper.scrollTop = originalScrollTop;
+        }
+    }
+
     async function exportToImage() {
         exporting = true;
         showExportMenu = false;
         try {
             const { default: html2canvas } = await import('html2canvas');
-            const canvas = await html2canvas(containerEl, { backgroundColor: null, scale: 2 });
+            const canvas = await getFullGanttCanvas(html2canvas);
             const link = document.createElement('a');
             link.download = `${$activeBoard?.name ?? 'gantt'}-chart.png`;
             link.href = canvas.toDataURL('image/png');
@@ -227,7 +305,7 @@
         try {
             const { default: html2canvas } = await import('html2canvas');
             const { jsPDF } = await import('jspdf');
-            const canvas = await html2canvas(containerEl, { backgroundColor: null, scale: 2 });
+            const canvas = await getFullGanttCanvas(html2canvas);
             const imgData = canvas.toDataURL('image/png');
             const pdf = new jsPDF({ orientation: 'landscape', unit: 'px', format: [canvas.width / 2, canvas.height / 2] });
             pdf.addImage(imgData, 'PNG', 0, 0, canvas.width / 2, canvas.height / 2);
@@ -271,7 +349,7 @@
 </script>
 
 
-<div class="gantt-view flex flex-col flex-1 overflow-hidden bg-[#fbfcfd] dark:bg-[#151e29]">
+<div class="gantt-view flex flex-col flex-1 overflow-hidden bg-[#fbfcfd] dark:bg-[#151e29]" class:compact={isCompact}>
     <!-- ─── Toolbar ─────────────────────────────────────────────────────── -->
     <div class="gantt-toolbar flex items-center justify-between px-6 py-3 border-b border-[#e5e7eb] dark:border-[#1e2936] flex-shrink-0">
         <!-- View mode pills -->
@@ -296,6 +374,21 @@
                     Read-only
                 </span>
             {/if}
+
+            <!-- Compress view toggle -->
+            <button
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border disabled:opacity-50 {isCompact
+                    ? 'bg-primary text-white border-primary shadow-sm hover:bg-primary/90'
+                    : 'text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] border-[#e5e7eb] dark:border-[#2a3a4a]'}"
+                on:click={() => (isCompact = !isCompact)}
+                id="gantt-compact-toggle"
+                title={isCompact ? 'Standard View' : 'Compress View'}
+            >
+                <span class="material-symbols-outlined text-[16px]">
+                    {isCompact ? 'unfold_more' : 'unfold_less'}
+                </span>
+                {isCompact ? 'Expand' : 'Compress'}
+            </button>
 
             <!-- Export dropdown -->
             <div class="relative">
@@ -466,5 +559,18 @@
 
     :global(.gantt-container) {
         min-height: 450px;
+    }
+
+    /* Compact view font size adjustments */
+    :global(.compact .gantt-container .gantt .bar-label) {
+        font-size: 10px !important;
+    }
+    :global(.compact .gantt-container .gantt .bar-label.big) {
+        font-size: 10px !important;
+    }
+
+    /* Dark mode adjustments for big labels (labels drawn outside the bar) */
+    :global(.dark .gantt-container .gantt .bar-label.big) {
+        fill: #cbd5e1 !important;
     }
 </style>
