@@ -57,9 +57,13 @@ UPLOAD_DIR = PROJECT_ROOT / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 
 FRONTEND_DIST = FRONTEND_DIR / "dist"
+FRONTEND_ASSETS = FRONTEND_DIST / "assets"
+
+# Ensure frontend build directories exist so Starlette/FastAPI doesn't crash on startup
+FRONTEND_ASSETS.mkdir(parents=True, exist_ok=True)
 
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
-app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
+app.mount("/assets", StaticFiles(directory=str(FRONTEND_ASSETS)), name="assets")
 app.mount("/static", StaticFiles(directory=str(FRONTEND_DIST)), name="static")
 
 app.include_router(auth.router)
