@@ -5,8 +5,11 @@
     import { currentBoardRole } from '$lib/stores/user';
     import { updateTask } from '$lib/api/tasksApi';
     import type { Task } from '$lib/types';
+    import { tick } from 'svelte';
     // Bypass frappe-gantt's incomplete exports map by using the filesystem path directly
     import ganttCssUrl from '/node_modules/frappe-gantt/dist/frappe-gantt.css?url';
+    import { exportGanttImage, exportBoardCSV, triggerDownload } from '$lib/api/exportApi';
+    import { API_URL } from '$lib/constants';
 
     // Inject the CSS once during mount
     let cssInjected = false;
@@ -101,6 +104,84 @@
         });
     }
 
+    let activeGaps: {start: number, end: number, days: number}[] = [];
+    let mapTimeFunc: (t: number) => number = (t) => t;
+    let unmapTimeFunc: (t: number) => number = (t) => t;
+
+    function compressTasks(tasks: GanttTask[]): GanttTask[] {
+        activeGaps = [];
+        mapTimeFunc = (t) => t;
+        unmapTimeFunc = (t) => t;
+        if (tasks.length === 0) return tasks;
+
+        const spans = tasks.map(t => ({
+            id: t.id,
+            start: new Date(t.start).getTime(),
+            end: new Date(t.end).getTime()
+        }));
+
+        let events: {time: number, type: 'start'|'end'}[] = [];
+        for (const s of spans) {
+            events.push({ time: s.start, type: 'start' });
+            events.push({ time: s.end, type: 'end' });
+        }
+        events.sort((a, b) => a.time - b.time);
+
+        let activeCount = 0;
+        let lastTime = events[0].time;
+
+        for (const e of events) {
+            if (activeCount === 0 && e.time > lastTime) {
+                const gapDays = (e.time - lastTime) / (1000 * 60 * 60 * 24);
+                if (gapDays > 2) {
+                    activeGaps.push({ start: lastTime, end: e.time, days: gapDays });
+                }
+            }
+            if (e.type === 'start') activeCount++;
+            else activeCount--;
+            
+            lastTime = e.time;
+        }
+
+        if (activeGaps.length === 0) return tasks;
+
+        const COMPRESSED_GAP_DAYS = 2;
+        const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+        mapTimeFunc = function(t: number): number {
+            let shift = 0;
+            for (const g of activeGaps) {
+                if (t >= g.end) {
+                    shift += (g.days - COMPRESSED_GAP_DAYS) * MS_PER_DAY;
+                } else if (t > g.start && t < g.end) {
+                    shift += (t - g.start) / MS_PER_DAY * MS_PER_DAY - (COMPRESSED_GAP_DAYS * MS_PER_DAY);
+                }
+            }
+            return t - shift;
+        };
+
+        unmapTimeFunc = function(mappedT: number): number {
+            let shift = 0;
+            for (const g of activeGaps) {
+                const mappedGapStart = mapTimeFunc(g.start);
+                const mappedGapEnd = mapTimeFunc(g.end);
+                if (mappedT >= mappedGapEnd) {
+                    shift += (g.days - COMPRESSED_GAP_DAYS) * MS_PER_DAY;
+                } else if (mappedT > mappedGapStart && mappedT < mappedGapEnd) {
+                    const ratio = (mappedT - mappedGapStart) / (COMPRESSED_GAP_DAYS * MS_PER_DAY);
+                    shift += ratio * (g.days - COMPRESSED_GAP_DAYS) * MS_PER_DAY;
+                }
+            }
+            return mappedT + shift;
+        };
+
+        return tasks.map(t => ({
+            ...t,
+            start: formatDate(new Date(mapTimeFunc(new Date(t.start).getTime()))),
+            end: formatDate(new Date(mapTimeFunc(new Date(t.end).getTime()))),
+        }));
+    }
+
     // ─── Init / re-init Gantt ─────────────────────────────────────────────────
     let initialized = false;
     const isReadOnly = $currentBoardRole === 'viewer';
@@ -121,16 +202,25 @@
             ganttInstance = new Gantt(containerEl, ganttTasks, {
                 view_mode: viewMode,
                 date_format: 'YYYY-MM-DD',
-                readonly: isReadOnly,
+                readonly: isReadOnly || isCompact, // disable dragging when dates are compressed/faked
                 popup_trigger: 'click',
                 bar_height: isCompact ? 18 : 30,
                 padding: isCompact ? 8 : 18,
+                column_width: isCompact ? (viewMode === 'Day' ? 15 : viewMode === 'Week' ? 50 : 60) : undefined,
+                custom_popup_html: (task: GanttTask) => {
+                    const startStr = task._original?.start_date || task.start;
+                    const endStr = task._original?.due_date || task.end;
+                    return `<div class="p-2 bg-[#1e293b] text-white rounded shadow-lg text-xs">
+                        <strong>${task.name}</strong><br/>
+                        ${startStr} to ${endStr}
+                    </div>`;
+                },
                 on_click: (task: GanttTask) => {
                     const original = $tasks.find((t) => t.id === task.id);
                     if (original) setActiveTask(original);
                 },
                 on_date_change: async (task: GanttTask, start: Date, end: Date) => {
-                    if (isReadOnly) return;
+                    if (isReadOnly || isCompact) return;
                     try {
                         await updateTask(task.id, {
                             start_date: formatDate(start),
@@ -153,7 +243,8 @@
     }
 
     // Reactive: rebuild chart when tasks change
-    $: ganttTasks = transformTasks($tasks);
+    $: baseGanttTasks = transformTasks($tasks);
+    $: ganttTasks = isCompact ? compressTasks(baseGanttTasks) : baseGanttTasks;
 
     let currentViewMode: ViewMode = viewMode;
     let lastRenderedTasks: GanttTask[] | null = null;
@@ -169,6 +260,7 @@
                 currentViewMode = viewMode;
                 lastCompactMode = isCompact;
                 lastRenderedTasks = ganttTasks;
+                tick().then(applyCompactVisuals);
             }
         } else {
             if (currentViewMode !== viewMode || lastCompactMode !== isCompact) {
@@ -176,23 +268,118 @@
                 currentViewMode = viewMode;
                 lastCompactMode = isCompact;
                 lastRenderedTasks = ganttTasks;
+                tick().then(applyCompactVisuals);
             } else if (ganttTasks) {
                 // If tasks changed but view mode didn't, refresh the tasks list
                 if (ganttTasks.length === 0) {
                     buildGantt(ganttTasks);
                     lastRenderedTasks = null;
+                    tick().then(applyCompactVisuals);
                 } else if (ganttInstance && lastRenderedTasks !== ganttTasks) {
                     try {
                         ganttInstance.refresh(ganttTasks);
                         lastRenderedTasks = ganttTasks;
+                        tick().then(applyCompactVisuals);
                     } catch (err) {
                         console.warn('Gantt refresh failed, falling back to full rebuild:', err);
                         buildGantt(ganttTasks);
                         lastRenderedTasks = ganttTasks;
+                        tick().then(applyCompactVisuals);
                     }
                 }
             }
         }
+    }
+
+    function applyCompactVisuals() {
+        if (!containerEl) return;
+        const svg = containerEl.querySelector('svg');
+        if (!svg) return;
+
+        svg.querySelectorAll('.custom-gap-overlay').forEach(e => e.remove());
+
+        if (!isCompact || !ganttInstance || !activeGaps.length) return;
+
+        const gantt_start = ganttInstance.gantt_start;
+        let step = 24;
+        if (viewMode === 'Week') step = 168;
+        if (viewMode === 'Month') step = 720;
+        
+        const actual_col_width = ganttInstance.options.column_width;
+        const svgHeight = svg.getAttribute('height') || '100%';
+
+        activeGaps.forEach(g => {
+            const mappedStart = new Date(mapTimeFunc(g.start));
+            const mappedEnd = new Date(mapTimeFunc(g.end));
+
+            const durationHrsStart = (mappedStart.getTime() - gantt_start.getTime()) / (1000 * 60 * 60);
+            const x = (durationHrsStart / step) * actual_col_width;
+
+            const durationHrsEnd = (mappedEnd.getTime() - gantt_start.getTime()) / (1000 * 60 * 60);
+            const w = ((durationHrsEnd - durationHrsStart) / step) * actual_col_width;
+
+            const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            group.setAttribute("class", "custom-gap-overlay");
+            
+            const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+            rect.setAttribute("x", x.toString());
+            rect.setAttribute("y", "0");
+            rect.setAttribute("width", w.toString());
+            rect.setAttribute("height", svgHeight.toString());
+            rect.setAttribute("fill", "#94a3b8");
+            rect.setAttribute("opacity", "0.15");
+            
+            const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            text.setAttribute("x", (x + w/2).toString());
+            text.setAttribute("y", "35"); 
+            text.setAttribute("text-anchor", "middle");
+            text.setAttribute("fill", "#64748b");
+            text.setAttribute("font-size", "10px");
+            text.setAttribute("font-weight", "600");
+            text.textContent = `Skip: ${formatDate(new Date(g.start))} to ${formatDate(new Date(g.end))}`;
+
+            group.appendChild(rect);
+            group.appendChild(text);
+            
+            const grid = svg.querySelector('.grid-background');
+            if (grid && grid.nextSibling) {
+                svg.insertBefore(group, grid.nextSibling);
+            } else {
+                svg.appendChild(group);
+            }
+        });
+
+        const ticks = svg.querySelectorAll('.tick');
+        ticks.forEach(tick => {
+            const transform = tick.getAttribute('transform');
+            if (!transform) return;
+            const match = transform.match(/translate\(([^,]+)/);
+            if (match) {
+                const x = parseFloat(match[1]);
+                const mappedTime = gantt_start.getTime() + (x / actual_col_width) * step * 60 * 60 * 1000;
+                const realTime = unmapTimeFunc(mappedTime);
+                const date = new Date(realTime);
+                
+                const textEls = tick.querySelectorAll('text');
+                textEls.forEach(textEl => {
+                    if (textEl.classList.contains('lower-text')) {
+                        if (viewMode === 'Day') {
+                            textEl.textContent = date.getDate().toString();
+                        } else if (viewMode === 'Week') {
+                            textEl.textContent = `${date.toLocaleString('default', { month: 'short' })} ${date.getDate()}`;
+                        } else {
+                            textEl.textContent = date.toLocaleString('default', { month: 'short' });
+                        }
+                    } else if (textEl.classList.contains('upper-text')) {
+                        if (viewMode === 'Day' || viewMode === 'Week') {
+                            textEl.textContent = date.toLocaleString('default', { month: 'long', year: 'numeric' });
+                        } else {
+                            textEl.textContent = date.getFullYear().toString();
+                        }
+                    }
+                });
+            }
+        });
     }
 
     onMount(async () => {
@@ -208,140 +395,67 @@
         initialized = false;
     });
 
-    // ─── Export helpers ───────────────────────────────────────────────────────
+    // ─── Export helpers (backend-driven) ────────────────────────────────────
     let exporting = false;
     let showExportMenu = false;
+    let exportError: string | null = null;
 
-    async function getFullGanttCanvas(html2canvas: any) {
-        const scrollWrapper = containerEl.closest('.gantt-scroll-wrapper') as HTMLElement;
-        const svgEl = containerEl.querySelector('svg') as SVGElement;
-        
-        if (!scrollWrapper || !svgEl) {
-            throw new Error('Gantt elements not found');
-        }
-
-        // Save scroll positions
-        const originalScrollLeft = scrollWrapper.scrollLeft;
-        const originalScrollTop = scrollWrapper.scrollTop;
-        
-        // Save inline styles
-        const originalContainerStyle = containerEl.getAttribute('style') || '';
-        const originalWrapperStyle = scrollWrapper.getAttribute('style') || '';
-
-        try {
-            // Reset scroll to top-left to avoid html2canvas clipping/shifting issues
-            scrollWrapper.scrollLeft = 0;
-            scrollWrapper.scrollTop = 0;
-
-            // Get dimensions of the SVG
-            const svgWidth = parseFloat(svgEl.getAttribute('width') || '0') || svgEl.scrollWidth || svgEl.getBoundingClientRect().width;
-            const svgHeight = parseFloat(svgEl.getAttribute('height') || '0') || svgEl.scrollHeight || svgEl.getBoundingClientRect().height;
-
-            const padding = 32; // 16px padding on each side (p-4)
-            const targetWidth = svgWidth + padding;
-            const targetHeight = svgHeight + padding;
-
-            // Temporarily expand container and scroll wrapper to fit the entire SVG
-            scrollWrapper.style.width = `${targetWidth}px`;
-            scrollWrapper.style.height = `${targetHeight}px`;
-            scrollWrapper.style.overflow = 'visible';
-            scrollWrapper.style.maxHeight = 'none';
-            scrollWrapper.style.maxWidth = 'none';
-            
-            containerEl.style.width = `${targetWidth}px`;
-            containerEl.style.height = `${targetHeight}px`;
-            containerEl.style.overflow = 'visible';
-            containerEl.style.maxHeight = 'none';
-            containerEl.style.maxWidth = 'none';
-
-            // Wait a tiny bit for layout reflow
-            await new Promise((resolve) => requestAnimationFrame(resolve));
-
-            const canvas = await html2canvas(containerEl, {
-                backgroundColor: null,
-                scale: 2,
-                width: targetWidth,
-                height: targetHeight,
-                scrollX: 0,
-                scrollY: 0,
-                windowWidth: targetWidth + 100,
-                windowHeight: targetHeight + 100,
-                logging: false,
-                useCORS: true
-            });
-
-            return canvas;
-        } finally {
-            // Restore original inline styles
-            containerEl.setAttribute('style', originalContainerStyle);
-            scrollWrapper.setAttribute('style', originalWrapperStyle);
-            
-            // Restore scroll positions
-            scrollWrapper.scrollLeft = originalScrollLeft;
-            scrollWrapper.scrollTop = originalScrollTop;
-        }
+    function showNotification(message: string, type: 'error' | 'success' = 'error') {
+        // Reuse a simple toast or alert for now
+        // In a real app, this would hook into a toast store
+        alert(message);
     }
 
-    async function exportToImage() {
+    async function handleExport(format: 'png' | 'pdf') {
+        if (!$activeBoard) return;
         exporting = true;
         showExportMenu = false;
+        exportError = null;
         try {
-            const { default: html2canvas } = await import('html2canvas');
-            const canvas = await getFullGanttCanvas(html2canvas);
-            const link = document.createElement('a');
-            link.download = `${$activeBoard?.name ?? 'gantt'}-chart.png`;
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-        } catch (e) {
-            console.error('Export to image failed', e);
+            const result = await exportGanttImage($activeBoard.id, format);
+            if (result?.url) {
+                // Fetch the exported file as a blob to force a download instead of just displaying it
+                const fullUrl = result.url.startsWith('http') ? result.url : `${API_URL}${result.url}`;
+                const response = await fetch(fullUrl);
+                const blob = await response.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                triggerDownload(blobUrl, `${$activeBoard.name ?? 'board'}-gantt.${format}`);
+                URL.revokeObjectURL(blobUrl);
+            }
+        } catch (e: any) {
+            exportError = e.message || 'Export failed';
+            if (e.message?.includes('EMPTY_BOARD') || e.message?.includes('No tasks')) {
+                showNotification('This board has no tasks to export', 'error');
+            } else {
+                showNotification(exportError, 'error');
+            }
+            console.error('Export failed:', e);
         } finally {
             exporting = false;
         }
     }
 
-    async function exportToPDF() {
+    async function handleExportCSV() {
+        if (!$activeBoard) return;
         exporting = true;
         showExportMenu = false;
+        exportError = null;
         try {
-            const { default: html2canvas } = await import('html2canvas');
-            const { jsPDF } = await import('jspdf');
-            const canvas = await getFullGanttCanvas(html2canvas);
-            const imgData = canvas.toDataURL('image/png');
-            const pdf = new jsPDF({ orientation: 'landscape', unit: 'px', format: [canvas.width / 2, canvas.height / 2] });
-            pdf.addImage(imgData, 'PNG', 0, 0, canvas.width / 2, canvas.height / 2);
-            pdf.save(`${$activeBoard?.name ?? 'gantt'}-chart.pdf`);
-        } catch (e) {
-            console.error('Export to PDF failed', e);
-        } finally {
-            exporting = false;
-        }
-    }
-
-    async function exportTasksToCSV() {
-        exporting = true;
-        showExportMenu = false;
-        try {
-            const Papa = await import('papaparse');
-            const rows = $tasks.map((t) => ({
-                id: t.id,
-                title: t.title,
-                description: t.description ?? '',
-                status: t.status,
-                priority: t.priority,
-                start_date: t.start_date ?? '',
-                due_date: t.due_date ?? '',
-                column: $columns.find((c) => c.id === t.column_id)?.title ?? '',
-            }));
-            const csv = Papa.unparse(rows);
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `${$activeBoard?.name ?? 'board'}-tasks.csv`;
-            link.click();
-            URL.revokeObjectURL(url);
-        } catch (e) {
-            console.error('Export to CSV failed', e);
+            const result = await exportBoardCSV($activeBoard.id);
+            if (result?.csv) {
+                const blob = new Blob([result.csv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                triggerDownload(url, `${$activeBoard.name ?? 'board'}-tasks.csv`);
+                URL.revokeObjectURL(url);
+            }
+        } catch (e: any) {
+            exportError = e.message || 'CSV Export failed';
+            if (e.message?.includes('EMPTY_BOARD') || e.message?.includes('No tasks')) {
+                showNotification('This board has no tasks to export', 'error');
+            } else {
+                showNotification(exportError, 'error');
+            }
+            console.error('CSV export failed:', e);
         } finally {
             exporting = false;
         }
@@ -417,7 +531,7 @@
                     >
                         <button
                             class="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-[#374151] dark:text-gray-300 hover:bg-[#f3f4f6] dark:hover:bg-[#253040] transition-colors"
-                            on:click={exportToImage}
+                            on:click={() => handleExport('png')}
                             id="export-png-btn"
                         >
                             <span class="material-symbols-outlined text-[16px]">image</span>
@@ -425,7 +539,7 @@
                         </button>
                         <button
                             class="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-[#374151] dark:text-gray-300 hover:bg-[#f3f4f6] dark:hover:bg-[#253040] transition-colors"
-                            on:click={exportToPDF}
+                            on:click={() => handleExport('pdf')}
                             id="export-pdf-btn"
                         >
                             <span class="material-symbols-outlined text-[16px]">picture_as_pdf</span>
@@ -434,7 +548,7 @@
                         <div class="border-t border-[#e5e7eb] dark:border-[#2a3a4a] my-1"></div>
                         <button
                             class="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-[#374151] dark:text-gray-300 hover:bg-[#f3f4f6] dark:hover:bg-[#253040] transition-colors"
-                            on:click={exportTasksToCSV}
+                            on:click={handleExportCSV}
                             id="export-csv-btn"
                         >
                             <span class="material-symbols-outlined text-[16px]">table</span>
@@ -566,6 +680,9 @@
         font-size: 10px !important;
     }
     :global(.compact .gantt-container .gantt .bar-label.big) {
+        font-size: 10px !important;
+    }
+    :global(.compact .gantt-container .gantt .tick text) {
         font-size: 10px !important;
     }
 
