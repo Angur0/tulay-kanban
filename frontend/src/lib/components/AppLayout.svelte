@@ -105,6 +105,9 @@
                     "TASK_MOVED",
                     "TASK_DELETED",
                     "COLUMN_CREATED",
+                    "SUBTASK_CREATED",
+                    "SUBTASK_UPDATED",
+                    "SUBTASK_DELETED",
                 ].includes(event.type)
             ) {
                 // We're taking a simple approach: if any relevant event happens, just reload tasks/columns

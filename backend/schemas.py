@@ -128,6 +128,28 @@ class LabelBulkDelete(BaseModel):
     label_ids: List[str]
 
 
+class SubtaskCreate(BaseModel):
+    title: str
+    percentage: Optional[float] = None
+
+class SubtaskUpdate(BaseModel):
+    title: Optional[str] = None
+    is_finished: Optional[bool] = None
+    percentage: Optional[float] = None
+    finish_date: Optional[datetime.datetime] = None
+
+class SubtaskResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    task_id: str
+    title: str
+    is_finished: bool
+    percentage: float
+    is_manual_percentage: bool
+    finish_date: Optional[datetime.datetime] = None
+    created_at: datetime.datetime
+
 class TaskCreate(BaseModel):
     title: str
     description: Optional[str] = None
@@ -162,6 +184,7 @@ class TaskResponse(BaseModel):
     due_date: Optional[datetime.datetime] = None
     events: Optional[list] = []
     images: Optional[List[str]] = []
+    subtasks: List[SubtaskResponse] = []
     created_at: datetime.datetime
     updated_at: datetime.datetime
 

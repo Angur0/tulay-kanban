@@ -2,7 +2,7 @@ import { authFetch } from '$lib/api';
 import { API_URL } from '$lib/constants';
 import { activeBoardId } from '$lib/stores/board';
 import { get } from 'svelte/store';
-import type { TaskComment } from '$lib/types';
+import type { TaskComment, Subtask } from '$lib/types';
 
 export function resolveImageUrl(url: string): string {
     if (!url) return url;
@@ -152,4 +152,68 @@ export async function getMyTasks(): Promise<import('$lib/types').Task[]> {
     const response = await authFetch(`${API_URL}/api/tasks/my`);
     if (!response?.ok) return [];
     return (await response.json()) as import('$lib/types').Task[];
+}
+
+export async function createSubtask(
+    taskId: string,
+    title: string,
+    percentage?: number
+): Promise<Subtask | null> {
+    try {
+        const response = await authFetch(`${API_URL}/api/tasks/${taskId}/subtasks`, {
+            method: 'POST',
+            body: JSON.stringify({
+                title,
+                percentage: percentage !== undefined ? percentage : null
+            })
+        });
+
+        if (!response?.ok) {
+            const err = await response?.json().catch(() => ({}));
+            throw new Error(err?.detail || 'Failed to create subtask');
+        }
+
+        return (await response.json()) as Subtask;
+    } catch (e) {
+        console.error('Failed to create subtask', e);
+        throw e;
+    }
+}
+
+export async function updateSubtask(
+    subtaskId: string,
+    updates: Record<string, unknown>
+): Promise<Subtask | null> {
+    try {
+        const response = await authFetch(`${API_URL}/api/subtasks/${subtaskId}`, {
+            method: 'PUT',
+            body: JSON.stringify(updates)
+        });
+
+        if (!response?.ok) {
+            const err = await response?.json().catch(() => ({}));
+            throw new Error(err?.detail || 'Failed to update subtask');
+        }
+
+        return (await response.json()) as Subtask;
+    } catch (e) {
+        console.error('Failed to update subtask', e);
+        throw e;
+    }
+}
+
+export async function deleteSubtask(subtaskId: string): Promise<void> {
+    try {
+        const response = await authFetch(`${API_URL}/api/subtasks/${subtaskId}`, {
+            method: 'DELETE'
+        });
+
+        if (!response?.ok) {
+            const err = await response?.json().catch(() => ({}));
+            throw new Error(err?.detail || 'Failed to delete subtask');
+        }
+    } catch (e) {
+        console.error('Failed to delete subtask', e);
+        throw e;
+    }
 }

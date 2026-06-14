@@ -45,7 +45,22 @@
         dependencies: string;
         custom_class?: string;
         _original: Task;
+        _isSubtask?: boolean;
+        _parentId?: string;
+        _subtaskDone?: boolean;
+        _subtaskFinishDate?: string | null;
     }
+
+    const SUBTASK_COLORS = [
+        '#f59e0b', // amber
+        '#10b981', // emerald
+        '#8b5cf6', // violet
+        '#ef4444', // red
+        '#06b6d4', // cyan
+        '#f97316', // orange
+        '#84cc16', // lime
+        '#ec4899', // pink
+    ];
 
     function toDateStr(d: string | null | undefined, fallback: Date): string {
         if (!d) return formatDate(fallback);
@@ -79,7 +94,9 @@
             return true;
         });
 
-        return uniqueTasks.map((t) => {
+        const result: GanttTask[] = [];
+
+        for (const t of uniqueTasks) {
             const hasStart = !!t.start_date;
             const hasEnd = !!t.due_date;
             const start = toDateStr(t.start_date, today);
@@ -90,7 +107,7 @@
                 end = formatDate(addDay(new Date(start), 1));
             }
 
-            return {
+            result.push({
                 id: t.id,
                 name: t.title || 'Untitled Task',
                 start,
@@ -100,8 +117,41 @@
                 // Visually distinguish tasks with no real dates
                 custom_class: !hasStart && !hasEnd ? 'gantt-task-unscheduled' : '',
                 _original: t,
-            };
-        });
+            });
+
+            // Add subtasks
+            if (t.subtasks && t.subtasks.length > 0) {
+                t.subtasks.forEach((st, idx) => {
+                    const colorIndex = idx % SUBTASK_COLORS.length;
+                    const stStart = start;
+                    let stEnd = st.is_finished && st.finish_date
+                        ? toDateStr(st.finish_date, new Date(end))
+                        : end;
+
+                    // Ensure stEnd > stStart
+                    if (new Date(stEnd) <= new Date(stStart)) {
+                        stEnd = formatDate(addDay(new Date(stStart), 1));
+                    }
+
+                    result.push({
+                        id: `subtask-${st.id}`,
+                        name: `  ↳ ${st.title || 'Untitled Subtask'}`,
+                        start: stStart,
+                        end: stEnd,
+                        progress: st.is_finished ? 100 : (st.percentage || 0),
+                        dependencies: '',
+                        custom_class: `gantt-subtask gantt-subtask-color-${colorIndex}${st.is_finished ? ' gantt-subtask-done' : ''}`,
+                        _original: t,
+                        _isSubtask: true,
+                        _parentId: t.id,
+                        _subtaskDone: st.is_finished,
+                        _subtaskFinishDate: st.finish_date ? formatDate(new Date(st.finish_date)) : null,
+                    });
+                });
+            }
+        }
+
+        return result;
     }
 
     let activeGaps: {start: number, end: number, days: number}[] = [];
@@ -208,6 +258,15 @@
                 padding: isCompact ? 8 : 18,
                 column_width: isCompact ? (viewMode === 'Day' ? 15 : viewMode === 'Week' ? 50 : 60) : undefined,
                 custom_popup_html: (task: GanttTask) => {
+                    if (task._isSubtask) {
+                        const doneStr = task._subtaskDone
+                            ? `✓ Done on ${task._subtaskFinishDate || task.end}`
+                            : `In progress (${task.progress}%)`;
+                        return `<div class="p-2 bg-[#1e293b] text-white rounded shadow-lg text-xs">
+                            <strong>${task.name.replace('  ↳ ', '')}</strong><br/>
+                            ${doneStr}
+                        </div>`;
+                    }
                     const startStr = task._original?.start_date || task.start;
                     const endStr = task._original?.due_date || task.end;
                     return `<div class="p-2 bg-[#1e293b] text-white rounded shadow-lg text-xs">
@@ -216,11 +275,12 @@
                     </div>`;
                 },
                 on_click: (task: GanttTask) => {
-                    const original = $tasks.find((t) => t.id === task.id);
+                    const targetId = task._isSubtask && task._parentId ? task._parentId : task.id;
+                    const original = $tasks.find((t) => t.id === targetId);
                     if (original) setActiveTask(original);
                 },
                 on_date_change: async (task: GanttTask, start: Date, end: Date) => {
-                    if (isReadOnly || isCompact) return;
+                    if (isReadOnly || isCompact || task._isSubtask) return;
                     try {
                         await updateTask(task.id, {
                             start_date: formatDate(start),
@@ -561,7 +621,7 @@
     </div>
 
     <!-- ─── Legend ─────────────────────────────────────────────────────── -->
-    <div class="flex items-center gap-4 px-6 py-2 text-[11px] text-[#8a98a8] dark:text-[#5c6b7f] border-b border-[#e5e7eb] dark:border-[#1e2936] flex-shrink-0">
+    <div class="flex items-center gap-4 px-6 py-2 text-[11px] text-[#8a98a8] dark:text-[#5c6b7f] border-b border-[#e5e7eb] dark:border-[#1e2936] flex-shrink-0 flex-wrap">
         <span class="flex items-center gap-1.5">
             <span class="inline-block w-3 h-3 rounded-sm bg-primary opacity-80"></span>
             Scheduled
@@ -569,6 +629,14 @@
         <span class="flex items-center gap-1.5">
             <span class="inline-block w-3 h-3 rounded-sm bg-[#94a3b8]"></span>
             Unscheduled (default dates)
+        </span>
+        <span class="flex items-center gap-1.5">
+            <span class="inline-block w-3 h-2 rounded-sm bg-[#f59e0b] opacity-80"></span>
+            Subtask (Active)
+        </span>
+        <span class="flex items-center gap-1.5">
+            <span class="inline-block w-3 h-2 rounded-sm bg-[#94a3b8] opacity-50"></span>
+            Subtask (Done)
         </span>
         {#if !isReadOnly}
             <span class="flex items-center gap-1">
@@ -689,5 +757,67 @@
     /* Dark mode adjustments for big labels (labels drawn outside the bar) */
     :global(.dark .gantt-container .gantt .bar-label.big) {
         fill: #cbd5e1 !important;
+    }
+
+    /* Subtask styles */
+    :global(.gantt-container .gantt .bar-wrapper.gantt-subtask) {
+        transform: translateY(8px);
+    }
+    :global(.compact .gantt-container .gantt .bar-wrapper.gantt-subtask) {
+        transform: translateY(4px);
+    }
+    :global(.gantt-container .gantt .bar-wrapper.gantt-subtask .bar) {
+        height: 14px !important;
+        rx: 3;
+        opacity: 0.85;
+    }
+    :global(.gantt-container .gantt .bar-wrapper.gantt-subtask .bar-progress) {
+        height: 14px !important;
+        rx: 3;
+    }
+    :global(.compact .gantt-container .gantt .bar-wrapper.gantt-subtask .bar) {
+        height: 10px !important;
+    }
+    :global(.compact .gantt-container .gantt .bar-wrapper.gantt-subtask .bar-progress) {
+        height: 10px !important;
+    }
+
+    /* Subtask bar colors */
+    :global(.gantt-container .gantt .bar-wrapper.gantt-subtask-color-0 .bar) { fill: #f59e0b !important; stroke: #f59e0b !important; }
+    :global(.gantt-container .gantt .bar-wrapper.gantt-subtask-color-0 .bar-progress) { fill: #d97706 !important; }
+    
+    :global(.gantt-container .gantt .bar-wrapper.gantt-subtask-color-1 .bar) { fill: #10b981 !important; stroke: #10b981 !important; }
+    :global(.gantt-container .gantt .bar-wrapper.gantt-subtask-color-1 .bar-progress) { fill: #059669 !important; }
+    
+    :global(.gantt-container .gantt .bar-wrapper.gantt-subtask-color-2 .bar) { fill: #8b5cf6 !important; stroke: #8b5cf6 !important; }
+    :global(.gantt-container .gantt .bar-wrapper.gantt-subtask-color-2 .bar-progress) { fill: #7c3aed !important; }
+    
+    :global(.gantt-container .gantt .bar-wrapper.gantt-subtask-color-3 .bar) { fill: #ef4444 !important; stroke: #ef4444 !important; }
+    :global(.gantt-container .gantt .bar-wrapper.gantt-subtask-color-3 .bar-progress) { fill: #dc2626 !important; }
+    
+    :global(.gantt-container .gantt .bar-wrapper.gantt-subtask-color-4 .bar) { fill: #06b6d4 !important; stroke: #06b6d4 !important; }
+    :global(.gantt-container .gantt .bar-wrapper.gantt-subtask-color-4 .bar-progress) { fill: #0891b2 !important; }
+    
+    :global(.gantt-container .gantt .bar-wrapper.gantt-subtask-color-5 .bar) { fill: #f97316 !important; stroke: #f97316 !important; }
+    :global(.gantt-container .gantt .bar-wrapper.gantt-subtask-color-5 .bar-progress) { fill: #ea580c !important; }
+    
+    :global(.gantt-container .gantt .bar-wrapper.gantt-subtask-color-6 .bar) { fill: #84cc16 !important; stroke: #84cc16 !important; }
+    :global(.gantt-container .gantt .bar-wrapper.gantt-subtask-color-6 .bar-progress) { fill: #65a30d !important; }
+    
+    :global(.gantt-container .gantt .bar-wrapper.gantt-subtask-color-7 .bar) { fill: #ec4899 !important; stroke: #ec4899 !important; }
+    :global(.gantt-container .gantt .bar-wrapper.gantt-subtask-color-7 .bar-progress) { fill: #db2777 !important; }
+
+    /* Done subtasks styling */
+    :global(.gantt-container .gantt .bar-wrapper.gantt-subtask-done .bar) {
+        fill: #94a3b8 !important;
+        stroke: #94a3b8 !important;
+        opacity: 0.5 !important;
+    }
+    :global(.gantt-container .gantt .bar-wrapper.gantt-subtask-done .bar-progress) {
+        fill: #64748b !important;
+        opacity: 0.5 !important;
+    }
+    :global(.gantt-container .gantt .bar-wrapper.gantt-subtask-done .bar-label) {
+        opacity: 0.5 !important;
     }
 </style>

@@ -8,7 +8,7 @@ from backend.core import realtime
 from backend.core.deps import get_current_user
 from backend.core.rbac import ensure_board_access
 from backend.database import get_db
-from backend.schemas import CommentCreate, CommentResponse, TaskCreate, TaskResponse
+from backend.schemas import CommentCreate, CommentResponse, TaskCreate, TaskResponse, SubtaskCreate, SubtaskUpdate, SubtaskResponse
 
 router = APIRouter(tags=["tasks"])
 
@@ -310,3 +310,191 @@ def get_board_activities(board_id: str, current_user: models.User = Depends(get_
         "timestamp": a.timestamp.isoformat() if a.timestamp is not None else None,
         "user_id": a.user_id
     } for a in activities]
+
+
+def recalculate_subtask_percentages(task_id: str, db: Session):
+    subtasks = db.query(models.Subtask).filter(models.Subtask.task_id == task_id).order_by(models.Subtask.created_at).all()
+    if not subtasks:
+        return
+    
+    manual_subtasks = [s for s in subtasks if s.is_manual_percentage]
+    auto_subtasks = [s for s in subtasks if not s.is_manual_percentage]
+    
+    sum_manual = sum(s.percentage for s in manual_subtasks)
+    remaining = max(0.0, 100.0 - sum_manual)
+    
+    if auto_subtasks:
+        share = remaining / len(auto_subtasks)
+        allocated = 0.0
+        for s in auto_subtasks[:-1]:
+            rounded_share = round(share, 2)
+            s.percentage = rounded_share
+            allocated += rounded_share
+        
+        auto_subtasks[-1].percentage = max(0.0, round(remaining - allocated, 2))
+    
+    db.commit()
+
+
+@router.post("/api/tasks/{task_id}/subtasks", response_model=SubtaskResponse)
+async def create_subtask(
+    task_id: str,
+    subtask_in: SubtaskCreate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    ensure_board_access(db, task.board_id, current_user, ["owner", "moderator", "member"])
+    
+    is_manual = subtask_in.percentage is not None
+    percentage_val = subtask_in.percentage if is_manual else 0.0
+    
+    new_subtask = models.Subtask(
+        task_id=task_id,
+        title=subtask_in.title,
+        percentage=percentage_val,
+        is_manual_percentage=is_manual,
+        is_finished=False
+    )
+    db.add(new_subtask)
+    db.commit()
+    
+    recalculate_subtask_percentages(task_id, db)
+    db.refresh(new_subtask)
+    
+    event = {
+        "type": "SUBTASK_CREATED",
+        "taskId": task_id,
+        "subtask": {
+            "id": new_subtask.id,
+            "task_id": new_subtask.task_id,
+            "title": new_subtask.title,
+            "is_finished": new_subtask.is_finished,
+            "percentage": new_subtask.percentage,
+            "is_manual_percentage": new_subtask.is_manual_percentage,
+            "finish_date": new_subtask.finish_date.isoformat() if new_subtask.finish_date else None,
+            "created_at": new_subtask.created_at.isoformat()
+        },
+        "timestamp": datetime.datetime.utcnow().isoformat(),
+        "board_id": task.board_id
+    }
+    await realtime.publish_or_broadcast(event)
+    
+    return new_subtask
+
+
+@router.put("/api/subtasks/{subtask_id}", response_model=SubtaskResponse)
+async def update_subtask(
+    subtask_id: str,
+    updates: dict,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    subtask = db.query(models.Subtask).filter(models.Subtask.id == subtask_id).first()
+    if not subtask:
+        raise HTTPException(status_code=404, detail="Subtask not found")
+        
+    task = db.query(models.Task).filter(models.Task.id == subtask.task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+        
+    ensure_board_access(db, task.board_id, current_user, ["owner", "moderator", "member"])
+    
+    percentage_changed = False
+    
+    if "title" in updates:
+        subtask.title = updates["title"]
+        
+    if "is_finished" in updates:
+        val = updates["is_finished"]
+        subtask.is_finished = val
+        if val:
+            if not subtask.finish_date:
+                subtask.finish_date = datetime.datetime.utcnow()
+        else:
+            subtask.finish_date = None
+            
+    if "finish_date" in updates:
+        fd = updates["finish_date"]
+        if fd:
+            if isinstance(fd, str):
+                try:
+                    subtask.finish_date = datetime.datetime.fromisoformat(fd.replace("Z", "+00:00"))
+                except ValueError:
+                    subtask.finish_date = datetime.datetime.utcnow()
+            else:
+                subtask.finish_date = fd
+        else:
+            subtask.finish_date = None
+            
+    if "percentage" in updates:
+        val = updates["percentage"]
+        if val is None:
+            subtask.is_manual_percentage = False
+        else:
+            subtask.is_manual_percentage = True
+            subtask.percentage = float(val)
+        percentage_changed = True
+        
+    db.commit()
+    
+    if percentage_changed:
+        recalculate_subtask_percentages(task.id, db)
+            
+    db.refresh(subtask)
+    
+    event = {
+        "type": "SUBTASK_UPDATED",
+        "taskId": task.id,
+        "subtask": {
+            "id": subtask.id,
+            "task_id": subtask.task_id,
+            "title": subtask.title,
+            "is_finished": subtask.is_finished,
+            "percentage": subtask.percentage,
+            "is_manual_percentage": subtask.is_manual_percentage,
+            "finish_date": subtask.finish_date.isoformat() if subtask.finish_date else None,
+            "created_at": subtask.created_at.isoformat()
+        },
+        "timestamp": datetime.datetime.utcnow().isoformat(),
+        "board_id": task.board_id
+    }
+    await realtime.publish_or_broadcast(event)
+    
+    return subtask
+
+
+@router.delete("/api/subtasks/{subtask_id}")
+async def delete_subtask(
+    subtask_id: str,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    subtask = db.query(models.Subtask).filter(models.Subtask.id == subtask_id).first()
+    if not subtask:
+        raise HTTPException(status_code=404, detail="Subtask not found")
+        
+    task = db.query(models.Task).filter(models.Task.id == subtask.task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+        
+    ensure_board_access(db, task.board_id, current_user, ["owner", "moderator", "member"])
+    
+    db.delete(subtask)
+    db.commit()
+    
+    recalculate_subtask_percentages(task.id, db)
+    
+    event = {
+        "type": "SUBTASK_DELETED",
+        "taskId": task.id,
+        "subtaskId": subtask_id,
+        "timestamp": datetime.datetime.utcnow().isoformat(),
+        "board_id": task.board_id
+    }
+    await realtime.publish_or_broadcast(event)
+    
+    return {"status": "deleted"}

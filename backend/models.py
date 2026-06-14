@@ -1,6 +1,6 @@
 import datetime
 import uuid
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Text, JSON, Table
+from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Text, JSON, Table, Boolean, Float
 from sqlalchemy.orm import relationship, backref
 from .database import Base
 
@@ -115,6 +115,7 @@ class Task(Base):
     assignee = relationship("User", back_populates="tasks")
     column = relationship("BoardColumn", back_populates="tasks")
     labels = relationship("Label", secondary=task_labels, back_populates="tasks")
+    subtasks = relationship("Subtask", back_populates="task", cascade="all, delete-orphan", order_by="Subtask.created_at")
 
 class Label(Base):
     __tablename__ = "labels"
@@ -158,3 +159,18 @@ class Comment(Base):
 
     task = relationship("Task", backref=backref("comments", cascade="all, delete-orphan", passive_deletes=True))
     user = relationship("User")
+
+class Subtask(Base):
+    __tablename__ = "subtasks"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    task_id = Column(String, ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False)
+    title = Column(String, nullable=False)
+    is_finished = Column(Boolean, default=False, nullable=False)
+    percentage = Column(Float, nullable=False, default=0.0)
+    is_manual_percentage = Column(Boolean, default=False, nullable=False)
+    finish_date = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+    task = relationship("Task", back_populates="subtasks")
