@@ -207,7 +207,7 @@
             ganttInstance = new Gantt(containerEl, ganttTasks, {
                 view_mode: viewMode,
                 date_format: 'YYYY-MM-DD',
-                readonly: isReadOnly || isCompact, // disable dragging when dates are compressed/faked
+                readonly: true, // always read-only – dates are changed via the task modal
                 popup_trigger: 'click',
                 bar_height: isCompact ? 18 : 30,
                 padding: isCompact ? 8 : 18,
@@ -225,17 +225,7 @@
                     const original = $tasks.find((t) => t.id === targetId);
                     if (original) setActiveTask(original);
                 },
-                on_date_change: async (task: GanttTask, start: Date, end: Date) => {
-                    if (isReadOnly || isCompact) return;
-                    try {
-                        await updateTask(task.id, {
-                            start_date: formatDate(start),
-                            due_date: formatDate(end),
-                        });
-                    } catch (e) {
-                        console.error('Failed to update task dates', e);
-                    }
-                },
+                on_date_change: () => {}, // read-only – no date changes via drag
                 on_progress_change: () => {},
                 on_view_change: () => {},
             });
@@ -627,12 +617,7 @@
             Unscheduled (default dates)
         </span>
 
-        {#if !isReadOnly}
-            <span class="flex items-center gap-1">
-                <span class="material-symbols-outlined text-[13px]">drag_pan</span>
-                Drag bars to reschedule
-            </span>
-        {/if}
+
     </div>
 
     <!-- ─── Chart container ───────────────────────────────────────────── -->

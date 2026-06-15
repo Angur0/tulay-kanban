@@ -7,6 +7,7 @@
     import { openContextMenu } from "$lib/stores/context-menu";
     import { resolveImageUrl } from "$lib/api/tasksApi";
     import { createEventDispatcher } from "svelte";
+    import { startTouchDrag, moveTouchDrag, commitTouchDrop, cancelTouchDrag, touchDrag } from "$lib/stores/touch-drag";
 
     const dispatch = createEventDispatcher<{
         taskDragStart: { taskId: string; columnId: string };
@@ -87,19 +88,97 @@
     function handleDragEnd() {
         dispatch("taskDragEnd", undefined);
     }
+
+    // ── Touch / Pointer drag logic ────────────────────────────────────────────
+    const HOLD_MS = 300;
+    let holdTimer: ReturnType<typeof setTimeout> | null = null;
+    let isTouchDragging = false;
+    let pointerStartX = 0;
+    let pointerStartY = 0;
+    const MOVE_THRESHOLD = 8; // px before we decide the user is scrolling
+
+    function handlePointerDown(event: PointerEvent) {
+        // Only intercept touch/pen; let mouse use HTML5 DnD as before
+        if (!canManage || event.pointerType === "mouse") return;
+
+        pointerStartX = event.clientX;
+        pointerStartY = event.clientY;
+        isTouchDragging = false;
+
+        holdTimer = setTimeout(() => {
+            isTouchDragging = true;
+            startTouchDrag(task.id, task.column_id, event.clientX, event.clientY);
+            // Suppress the pending click so the task modal doesn't open
+            suppressNextClick = true;
+        }, HOLD_MS);
+    }
+
+    function handlePointerMove(event: PointerEvent) {
+        if (event.pointerType === "mouse") return;
+        if (!isTouchDragging) {
+            // If the pointer moved noticeably before the hold timer fired, cancel it
+            const dx = Math.abs(event.clientX - pointerStartX);
+            const dy = Math.abs(event.clientY - pointerStartY);
+            if ((dx > MOVE_THRESHOLD || dy > MOVE_THRESHOLD) && holdTimer) {
+                clearTimeout(holdTimer);
+                holdTimer = null;
+            }
+            return;
+        }
+        event.preventDefault();
+        moveTouchDrag(event.clientX, event.clientY);
+    }
+
+    function handlePointerUp(event: PointerEvent) {
+        if (event.pointerType === "mouse") return;
+        if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+        if (!isTouchDragging) return;
+        isTouchDragging = false;
+        // The Column component that owns the element under the pointer
+        // will react to touchDrag becoming inactive and fire taskDrop.
+        // We just need to signal the drop with the final coordinates.
+        window.dispatchEvent(new CustomEvent("touch-task-drop", {
+            detail: { x: event.clientX, y: event.clientY }
+        }));
+        commitTouchDrop();
+    }
+
+    function handlePointerCancel(event: PointerEvent) {
+        if (event.pointerType === "mouse") return;
+        if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+        isTouchDragging = false;
+        cancelTouchDrag();
+    }
+
+    let suppressNextClick = false;
+    function handleClick(event: MouseEvent) {
+        if (suppressNextClick) {
+            suppressNextClick = false;
+            event.preventDefault();
+            event.stopPropagation();
+            return;
+        }
+        handleOpenTask();
+    }
+
+    $: isTouchActive = $touchDrag.active && $touchDrag.taskId === task.id;
 </script>
 
 <div
     class="task-card group flex flex-col gap-2 p-3 bg-white dark:bg-[#151e29] rounded-lg border border-[#e5e7eb] dark:border-[#1e2936] hover:border-primary/50 shadow-sm cursor-pointer transition-all {isDone
         ? 'opacity-60 hover:opacity-100'
-        : ''}"
-    style="border-left-width: 4px; border-left-color: {borderColor};"
+        : ''} {isTouchActive ? 'opacity-50 scale-95' : ''}"
+    style="border-left-width: 4px; border-left-color: {borderColor}; touch-action: {isTouchActive ? 'none' : 'pan-x pan-y'};"
     data-task-id={task.id}
     draggable={canManage}
-    on:click={handleOpenTask}
+    on:click={handleClick}
     on:contextmenu={handleTaskContextMenu}
     on:dragstart={handleDragStart}
     on:dragend={handleDragEnd}
+    on:pointerdown={handlePointerDown}
+    on:pointermove={handlePointerMove}
+    on:pointerup={handlePointerUp}
+    on:pointercancel={handlePointerCancel}
     role="button"
     tabindex="0"
 >

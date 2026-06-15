@@ -1,5 +1,5 @@
 export const STORAGE_KEY = 'tulay-kanban-tasks';
-export const API_URL = 'http://localhost:8000'; // Assuming this based on python main.py
+export const API_URL = `http://${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}:8000`;
 
 export const BOARD_ICONS = new Set<string>([
     'dashboard', 'folder', 'campaign', 'code', 'shopping_bag',

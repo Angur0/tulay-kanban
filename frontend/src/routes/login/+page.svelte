@@ -44,14 +44,18 @@
 
             if (!response.ok) {
                 const error = await response.json().catch(() => ({}));
-                throw new Error(error.detail || "Login failed");
+                throw new Error(error.detail || `Server error ${response.status}`);
             }
 
             const data = await response.json();
             localStorage.setItem("access_token", data.access_token);
             window.location.href = "/";
         } catch (error: any) {
-            errorMessage = error.message;
+            if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
+                errorMessage = `Cannot reach backend at ${API_URL} — check that the server is running and port 8000 is accessible.`;
+            } else {
+                errorMessage = error.message;
+            }
         } finally {
             isLoading = false;
         }

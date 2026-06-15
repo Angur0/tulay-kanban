@@ -4,6 +4,9 @@ import { fileURLToPath, URL } from 'node:url';
 
 export default defineConfig({
 	plugins: [svelte()],
+	server: {
+		host: '0.0.0.0',
+	},
 	resolve: {
 		alias: {
 			$lib: fileURLToPath(new URL('./src/lib', import.meta.url))

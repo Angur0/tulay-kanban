@@ -145,7 +145,9 @@ export async function uploadImage(file: File): Promise<string> {
     }
 
     const data = (await response.json()) as { url: string };
-    return resolveImageUrl(data.url);
+    // Return the raw path (e.g. /uploads/foo.jpg) so it's stored device-agnostically.
+    // resolveImageUrl() will prepend the correct host at display time.
+    return data.url;
 }
 
 export async function getMyTasks(): Promise<import('$lib/types').Task[]> {
