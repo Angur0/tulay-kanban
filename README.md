@@ -36,40 +36,96 @@ Tulay Kanban is a real-time Kanban task management app for workspaces, boards, l
 
 ## Quick Start
 
-Run the database:
+### 1. Database Setup
+
+Ensure Docker is running, then start the PostgreSQL database:
 
 ```bash
 docker compose up -d
 ```
 
-Install backend dependencies:
+### 2. Backend Setup (Python Virtual Environment)
 
+Create and activate a virtual environment, then install Python dependencies:
+
+**On Linux / macOS:**
 ```bash
+# Create venv
+python3 -m venv venv
+
+# Activate venv
+source venv/bin/activate
+
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-Start the backend API:
+**On Windows (PowerShell or CMD):**
+```cmd
+:: Create venv
+python -m venv venv
 
-```bash
-python main.py
+:: Activate venv
+call venv\Scripts\activate
+
+:: Install dependencies
+pip install -r requirements.txt
 ```
 
-In another terminal, install frontend dependencies and start Vite:
+### 3. Frontend Setup
+
+Install Node.js dependencies:
 
 ```bash
 cd frontend
 npm install
-npm run dev
+cd ..
 ```
 
-Open the app:
+---
 
-- Frontend: `http://localhost:5173`
-- Login route: `http://localhost:5173/login`
-- Backend API: `http://localhost:8000`
-- Health check: `http://localhost:8000/api/health`
+## Running the Application
 
-The frontend currently calls `http://localhost:8000` directly via `frontend/src/lib/constants.ts`.
+### Option A: Using Launch Scripts (Recommended)
+
+Both launch scripts automatically open/close the development port (5173) in your firewall, activate the virtual environment, and run the backend and frontend simultaneously.
+
+- **Linux (Arch / others with UFW):**
+  ```bash
+  ./scripts/launch_arch_linux.sh
+  ```
+  *(Requires `sudo` permissions to configure UFW firewall port 5173).*
+
+- **Windows:**
+  Right-click `scripts/launch_windows.bat` and select **Run as Administrator** *(required to configure the Windows Firewall rule for port 5173).*
+
+### Option B: Manual Startup
+
+If you prefer starting them manually in separate terminals:
+
+1. **Start Backend (FastAPI):**
+   ```bash
+   # Make sure venv is active
+   python main.py
+   ```
+   *(Starts backend API locally on port 8000).*
+
+2. **Start Frontend (Vite):**
+   ```bash
+   cd frontend
+   npm run dev -- --host 0.0.0.0
+   ```
+   *(Starts frontend dev server on port 5173).*
+
+### Accessing the App
+
+During development, the frontend dev server at port `5173` acts as a reverse proxy for the backend. **You only need to expose and connect to port `5173` on client devices (including over VPNs like Tailscale).**
+
+- **App URL:** `http://<your-ip-or-host>:5173`
+- **Login URL:** `http://<your-ip-or-host>:5173/login`
+- **Direct Backend (Localhost only):** `http://localhost:8000` (e.g. `/api/health`, `/uploads/`)
+
+---
 
 ## Demo Login
 
@@ -117,7 +173,7 @@ cd ..
 python main.py
 ```
 
-FastAPI mounts `frontend/dist` assets and serves the built root page at `/`. During development, prefer the Vite dev server at `http://localhost:5173` for client-side routing and hot reload.
+FastAPI mounts `frontend/dist` assets and serves the built root page at `/`. During development, prefer the Vite dev server at `http://localhost:5173` for client-side routing, hot-reload, and proxying.
 
 ## Environment Variables
 

@@ -6,7 +6,10 @@
 - Initialized the canonical documentation system with architecture, planned changes, changelog, and issue-tracking files.
 - Added a mobile responsiveness roadmap covering app shell, header, Kanban board, touch interactions, Gantt view, modals, and responsive QA breakpoints.
 - Configured Vite server to bind to `0.0.0.0` in `vite.config.ts` so the frontend dev server is reachable on the local network/VPN interfaces.
-- Added firewall management in `scripts/launch_arch_linux.sh` to temporarily open/close port 8000 via UFW during runtime.
+- Added a reverse proxy configuration to Vite's dev server (`vite.config.ts`) to forward API, uploads, and WebSocket traffic to the backend, enabling a single-port entry point for clients (port 5173).
+- Added firewall management in `scripts/launch_arch_linux.sh` to temporarily open/close port 5173 via UFW during runtime.
+- Added a Windows launch script `scripts/launch_windows.bat` that automates backend/frontend startup and manages Windows Firewall rules for port 5173 on startup and shutdown.
+- Updated python virtual environment creation and activation steps in README for both Linux and Windows.
 
 **Changed:**
 - Updated the Svelte app shell with a mobile off-canvas sidebar, mobile menu trigger, responsive header controls, and small-screen modal/task panel behavior.
@@ -16,7 +19,7 @@
 - Rewrote the README to match the current FastAPI, PostgreSQL, Svelte 5, Vite, WebSocket, mobile-responsive, and canonical-docs state of the codebase.
 - Added an Arch Linux launch script that starts the backend and frontend together from the repository root.
 - Updated the launch script to source `venv/bin/activate` before starting the backend.
-- Made `API_URL` dynamic using `window.location.hostname` so any local network client hits the correct server IP.
+- Made `API_URL` dynamic using `window.location.host` so that all backend calls go through Vite's dev server proxy.
 - Refactored `uploadImage` to return and store raw relative paths (`/uploads/file.jpg`) rather than host-prefixed absolute URLs, ensuring uploads work across devices.
 - Relocated the Kanban "Add Card" button inside the scrollable column task area to prevent it from disappearing off-screen on smaller viewports.
 - Configured the Gantt Chart (`GanttView.svelte`) to be read-only (`readonly: true`) and disabled drag-to-reschedule functionality for all roles.

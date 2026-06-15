@@ -14,8 +14,8 @@ cleanup() {
         kill "${BACKEND_PID}" 2>/dev/null || true
     fi
 
-    echo "Closing firewall port 8000..."
-    sudo ufw delete allow 8000 >/dev/null 2>&1 || true
+    echo "Closing firewall port 5173..."
+    sudo ufw delete allow 5173 > /dev/null 2>&1 || true
 }
 
 trap cleanup EXIT INT TERM
@@ -40,8 +40,8 @@ if [[ ! -d "${ROOT_DIR}/frontend/node_modules" ]]; then
     exit 1
 fi
 
-echo "Opening firewall port 8000 for local network access..."
-sudo ufw allow 8000 >/dev/null 2>&1 || true
+echo "Opening firewall port 5173 for local network access..."
+sudo ufw allow 5173 > /dev/null 2>&1 || true
 
 echo "Starting Tulay Kanban backend on http://localhost:8000 ..."
 (
