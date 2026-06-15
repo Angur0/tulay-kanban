@@ -76,11 +76,12 @@ The authenticated UI uses a desktop sidebar layout at tablet/desktop widths and 
 
 The app is designed to be accessible to devices on the same local network (including Tailscale VPN).
 
-- **Backend** (`uvicorn`): bound to `0.0.0.0:8000` so it accepts connections from any interface.
-- **Frontend** (`vite dev`): bound to `0.0.0.0` via `server.host` in `vite.config.ts`, exposing the Network URL shown in the terminal.
-- **API URL**: `constants.ts` derives `API_URL` from `window.location.hostname` at runtime so any device automatically points API calls back to the correct host.
-- **CORS**: `backend/main.py` allows all private IP ranges (`192.168.*`, `10.*`, `172.16–31.*`) plus the Tailscale CGNAT range (`100.64–127.*`) via `allow_origin_regex`.
-- **Firewall**: `scripts/launch_arch_linux.sh` opens port 8000 via `ufw allow 8000` on startup and closes it via `ufw delete allow 8000` in its `cleanup` trap on exit.
+- **Backend** (`uvicorn`): Bound to `0.0.0.0:8000` locally. It is proxied by the frontend dev server, so clients never access port 8000 directly.
+- **Frontend** (`vite dev`): Bound to `0.0.0.0` via `server.host` in `vite.config.ts`, acting as the single-port network gateway (port 5173). It proxies `/api`, `/uploads`, and WebSocket `/ws` traffic to the backend.
+- **API URL**: `constants.ts` derives `API_URL` dynamically from the browser's own origin (`window.location.host`) so client API calls go back through the Vite dev server proxy.
+- **CORS**: `backend/main.py` is configured with wildcard CORS / private range allowed regexes, though same-origin proxying on 5173 bypasses standard CORS blockages entirely.
+- **Firewall**: Launch scripts (`scripts/launch_arch_linux.sh` / `scripts/launch_windows.bat`) automatically open port 5173 in the system firewall (UFW or Windows Defender Firewall) on startup, and clean up the rule upon script termination.
+
 
 # Image Uploads
 
