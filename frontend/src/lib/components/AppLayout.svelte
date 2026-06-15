@@ -2,7 +2,7 @@
     import Sidebar from "./Sidebar.svelte";
     import Header from "./Header.svelte";
     import SearchModal from "./SearchModal.svelte";
-    import { isSidebarCollapsed } from "$lib/stores/ui";
+    import { isMobileSidebarOpen, closeMobileSidebar } from "$lib/stores/ui";
     import CreateBoardModal from "./CreateBoardModal.svelte";
     import CreateListModal from "./CreateListModal.svelte";
     import TaskModal from "./TaskModal.svelte";
@@ -105,6 +105,9 @@
                     "TASK_MOVED",
                     "TASK_DELETED",
                     "COLUMN_CREATED",
+                    "SUBTASK_CREATED",
+                    "SUBTASK_UPDATED",
+                    "SUBTASK_DELETED",
                 ].includes(event.type)
             ) {
                 // We're taking a simple approach: if any relevant event happens, just reload tasks/columns
@@ -141,11 +144,19 @@
 </script>
 
 <div
-    class="flex h-screen w-full bg-background-light dark:bg-background-dark text-[#111418] dark:text-white font-display overflow-hidden"
+    class="app-shell flex h-screen w-full bg-background-light dark:bg-background-dark text-[#111418] dark:text-white font-display overflow-hidden"
 >
     <Sidebar />
+    {#if $isMobileSidebarOpen}
+        <button
+            type="button"
+            class="mobile-sidebar-backdrop fixed inset-0 z-[55] bg-slate-950/45 backdrop-blur-[2px] md:hidden"
+            on:click={closeMobileSidebar}
+            aria-label="Close navigation"
+        ></button>
+    {/if}
     <main
-        class="flex-1 flex flex-col h-full overflow-hidden bg-[#fbfcfd] dark:bg-[#151e29] relative"
+        class="responsive-main flex-1 flex flex-col h-full overflow-hidden bg-[#fbfcfd] dark:bg-[#151e29] relative"
     >
         <Header />
         <div class="flex-1 flex flex-col relative overflow-hidden">

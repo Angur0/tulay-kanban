@@ -45,7 +45,13 @@ app = FastAPI(title="Tulay Kanban API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:4173", "http://127.0.0.1:4173", "http://127.0.0.1:5173"],
+    allow_origins=[
+        "http://localhost:5173", "http://localhost:4173", "http://127.0.0.1:4173", "http://127.0.0.1:5173",
+        "http://localhost:5174", "http://127.0.0.1:5174",
+        "http://localhost:5175", "http://127.0.0.1:5175",
+        "http://localhost:5176", "http://127.0.0.1:5176",
+    ],
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d+\.\d+)(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -57,9 +63,13 @@ UPLOAD_DIR = PROJECT_ROOT / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 
 FRONTEND_DIST = FRONTEND_DIR / "dist"
+FRONTEND_ASSETS = FRONTEND_DIST / "assets"
+
+# Ensure frontend build directories exist so Starlette/FastAPI doesn't crash on startup
+FRONTEND_ASSETS.mkdir(parents=True, exist_ok=True)
 
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
-app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
+app.mount("/assets", StaticFiles(directory=str(FRONTEND_ASSETS)), name="assets")
 app.mount("/static", StaticFiles(directory=str(FRONTEND_DIST)), name="static")
 
 app.include_router(auth.router)

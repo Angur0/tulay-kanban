@@ -1,16 +1,21 @@
 <script lang="ts">
     import AppLayout from "$lib/components/AppLayout.svelte";
-    import { activeView } from "$lib/stores/ui";
+    import { activeView, boardViewMode } from "$lib/stores/ui";
     import { activeBoard } from "$lib/stores/board";
 
     import BoardView from "$lib/components/BoardView.svelte";
+    import GanttView from "$lib/components/GanttView.svelte";
     import MyTasksView from "$lib/components/MyTasksView.svelte";
 </script>
 
 <AppLayout>
     {#if $activeView === "board"}
         {#if $activeBoard}
-            <BoardView />
+            {#if $boardViewMode === 'kanban'}
+                <BoardView />
+            {:else}
+                <GanttView />
+            {/if}
         {:else}
             <div
                 class="flex-1 flex flex-col items-center justify-center text-[#8a98a8]"

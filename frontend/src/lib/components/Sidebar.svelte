@@ -8,6 +8,8 @@
         toggleTheme,
         switchView,
         openModal,
+        isMobileSidebarOpen,
+        closeMobileSidebar,
     } from "$lib/stores/ui";
     import {
         boards,
@@ -21,6 +23,21 @@
     function handleLogout() {
         localStorage.removeItem("access_token");
         window.location.href = "/login";
+    }
+
+    function selectBoard(boardId: string) {
+        setActiveBoardId(boardId);
+        closeMobileSidebar();
+    }
+
+    function selectView(view: "board" | "my-tasks") {
+        switchView(view);
+        closeMobileSidebar();
+    }
+
+    function openResponsiveModal(modalId: string) {
+        openModal(modalId);
+        closeMobileSidebar();
     }
 
     function handleBoardContextMenu(
@@ -55,6 +72,7 @@
     id="sidebar"
     class="w-[210px] flex-shrink-0 bg-[#fbfcfd] dark:bg-[#151e29] flex flex-col justify-between h-full z-20 transition-[width] duration-300 ease-in-out"
     class:collapsed={$isSidebarCollapsed}
+    class:mobile-open={$isMobileSidebarOpen}
 >
     <div class="flex flex-col p-4 gap-6 flex-1 min-h-0">
         <!-- App Header -->
@@ -86,7 +104,7 @@
                     Boards
                 </p>
                 <button
-                    on:click={() => openModal("createBoardModal")}
+                    on:click={() => openResponsiveModal("createBoardModal")}
                     class="text-[#5c6b7f] dark:text-gray-400 hover:text-primary transition-colors flex-shrink-0"
                     title="Create Board"
                     data-sidebar-tooltip="Create Board"
@@ -110,7 +128,7 @@
                 {#each $boards as board}
                     <div
                         class="flex items-center gap-1 group/board board-item cursor-pointer"
-                        on:click={() => setActiveBoardId(board.id)}
+                        on:click={() => selectBoard(board.id)}
                         on:contextmenu={(event) =>
                             handleBoardContextMenu(event, board.id, board.name)}
                     >
@@ -151,7 +169,7 @@
         <!-- Navigation -->
         <nav class="flex flex-col gap-1 mt-4 flex-shrink-0">
             <a
-                on:click|preventDefault={() => switchView("board")}
+                on:click|preventDefault={() => selectView("board")}
                 class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group justify-start sidebar-item {$activeView ===
                 'board'
                     ? 'bg-[#eff1f3] dark:bg-[#1e2936] text-[#111418] dark:text-white'
@@ -169,7 +187,7 @@
                 >
             </a>
             <a
-                on:click|preventDefault={() => switchView("my-tasks")}
+                on:click|preventDefault={() => selectView("my-tasks")}
                 class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group justify-start sidebar-item {$activeView ===
                 'my-tasks'
                     ? 'bg-[#eff1f3] dark:bg-[#1e2936] text-[#111418] dark:text-white'
@@ -185,7 +203,7 @@
                 >
             </a>
             <a
-                on:click|preventDefault={() => openModal("labelManagerModal")}
+                on:click|preventDefault={() => openResponsiveModal("labelManagerModal")}
                 class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group justify-start sidebar-item text-[#5c6b7f] dark:text-gray-400 hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] hover:text-[#111418] dark:hover:text-white"
                 href="#"
             >
@@ -206,7 +224,7 @@
     >
         {#if $currentUser}
             <div class="flex items-center gap-3 px-3 py-2 w-full rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] text-[#111418] dark:text-white transition-colors cursor-pointer justify-start sidebar-item"
-                 on:click={() => openModal("accountSettingsModal")}
+                 on:click={() => openResponsiveModal("accountSettingsModal")}
                  data-sidebar-tooltip="Account Settings">
                 <div class="size-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs flex-shrink-0">
                     {$currentUser.full_name ? $currentUser.full_name.charAt(0).toUpperCase() : $currentUser.email.charAt(0).toUpperCase()}

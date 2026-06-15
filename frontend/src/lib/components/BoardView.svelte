@@ -259,9 +259,9 @@
 </script>
 
 <div
-    class="flex-1 overflow-x-auto overflow-y-hidden bg-[#f0f2f5] dark:bg-[#0d141c] p-8 custom-scrollbar rounded-tl-2xl"
+    class="kanban-scroll flex-1 overflow-x-auto overflow-y-hidden bg-[#f0f2f5] dark:bg-[#0d141c] p-4 md:p-8 custom-scrollbar rounded-tl-none md:rounded-tl-2xl"
 >
-    <div class="flex h-full gap-6 min-w-[900px]" id="board">
+    <div class="responsive-board flex h-full gap-4 md:gap-6 min-w-max md:min-w-[900px]" id="board">
         {#if $columns.length === 0}
             <div
                 class="flex flex-col items-center justify-center w-full h-full text-[#8a98a8]"
@@ -309,7 +309,7 @@
             <div class="flex-shrink-0 h-full flex items-stretch">
                 <button
                     on:click={showCreateListModal}
-                    class="flex flex-col items-center justify-center px-4 w-16 bg-white dark:bg-[#1a232e] hover:bg-[#f3f4f6] dark:hover:bg-[#253040] rounded-xl text-[#5c6b7f] dark:text-gray-400 font-medium transition-all shadow-sm border border-transparent hover:border-[#e5e7eb] dark:border-transparent dark:hover:border-[#374151]"
+                    class="flex flex-col items-center justify-center px-4 w-14 md:w-16 bg-white dark:bg-[#1a232e] hover:bg-[#f3f4f6] dark:hover:bg-[#253040] rounded-xl text-[#5c6b7f] dark:text-gray-400 font-medium transition-all shadow-sm border border-transparent hover:border-[#e5e7eb] dark:border-transparent dark:hover:border-[#374151]"
                 >
                     <span class="material-symbols-outlined text-2xl">add</span>
                 </button>

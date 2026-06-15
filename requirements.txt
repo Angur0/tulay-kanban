@@ -1,5 +1,6 @@
 fastapi
 Pillow
+playwright
 uvicorn
 websockets
 python-multipart

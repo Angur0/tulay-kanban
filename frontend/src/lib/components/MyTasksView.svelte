@@ -32,7 +32,7 @@
     class="flex-1 flex flex-col overflow-hidden bg-[#f0f2f5] dark:bg-[#0d141c]"
 >
     <div
-        class="shrink-0 px-8 py-4 border-b border-[#e5e7eb] dark:border-[#1e2936] flex items-center justify-between"
+        class="shrink-0 px-4 md:px-8 py-4 border-b border-[#e5e7eb] dark:border-[#1e2936] flex items-center justify-between"
     >
         <h3 class="text-sm font-semibold text-[#111418] dark:text-white">
             My Assigned Tasks
@@ -46,7 +46,7 @@
             </span>
         </div>
     </div>
-    <div class="flex-1 overflow-y-auto custom-scrollbar p-8">
+    <div class="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8">
         {#if loading}
             <div class="flex items-center justify-center py-20 text-[#8a98a8]">
                 <span

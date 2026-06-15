@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: {{ bg_color }};
+            color: {{ text_color }};
+            padding: 20px;
+            min-width: fit-content;
+        }
+        .chart-wrapper {
+            display: flex;
+            flex-direction: column;
+            width: fit-content;
+        }
+        .chart-header {
+            display: flex;
+            border-bottom: 2px solid {{ grid_color }};
+            margin-bottom: 0;
+        }
+        .header-left {
+            width: {{ name_col_width }}px;
+            flex-shrink: 0;
+            font-weight: 600;
+            font-size: 10px;
+            padding: 6px 10px;
+            border-right: 2px solid {{ grid_color }};
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .header-left span { font-size: 8px; opacity: 0.6; }
+        .header-right {
+            display: flex;
+            flex-direction: column;
+        }
+        .date-row {
+            display: flex;
+            height: 24px;
+            border-bottom: 1px solid {{ grid_color }};
+        }
+        .date-cell {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: {{ date_font_size }}px;
+            color: {{ date_color }};
+            border-right: 1px solid {{ grid_color }};
+            font-weight: 500;
+        }
+        .date-cell:last-child { border-right: none; }
+        .today-marker { background: rgba(43, 140, 238, 0.08); }
+        .task-row {
+            display: flex;
+            height: {{ row_height }}px;
+            border-bottom: 1px solid {{ grid_color }};
+        }
+        .task-row:last-child { border-bottom: 2px solid {{ grid_color }}; }
+        .task-name {
+            width: {{ name_col_width }}px;
+            flex-shrink: 0;
+            padding: 0 10px;
+            display: flex;
+            align-items: center;
+            font-size: {{ task_font_size }}px;
+            font-weight: 500;
+            border-right: 1px solid {{ grid_color }};
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .task-name.unscheduled { color: {{ unscheduled_color }}; font-style: italic; }
+        .task-bar-area {
+            position: relative;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+        }
+        .task-bar {
+            height: {{ bar_height }}px;
+            border-radius: 3px;
+            position: absolute;
+            cursor: default;
+        }
+        .task-bar.scheduled { background: {{ bar_color }}; }
+        .task-bar.unscheduled { background: {{ unscheduled_color }}; }
+        .task-bar-label {
+            position: absolute;
+            font-size: {{ bar_label_font_size }}px;
+            white-space: nowrap;
+            pointer-events: none;
+            padding: 0 4px;
+            border-radius: 2px;
+            color: {{ text_color }};
+            z-index: 2;
+        }
+        .task-bar-label.inside {
+            color: #ffffff;
+        }
+        .task-bar-label.outside {
+            color: {{ text_color }};
+            background: rgba(255,255,255,0.92);
+        }
+        .weekend-strip {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.015);
+            pointer-events: none;
+        }
+        .today-line {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background: {{ today_color }};
+            pointer-events: none;
+        }
+        .board-title {
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: {{ text_color }};
+        }
+    </style>
+</head>
+<body>
+    <div class="chart-wrapper">
+        <div class="board-title">{{ board_name }}</div>
+        <div class="chart-header">
+            <div class="header-left">
+                Tasks <span>{{ num_tasks }} total</span>
+            </div>
+            <div class="header-right">
+                <div class="date-row">
+                    {% for cell in date_cells %}
+                    <div class="date-cell {{ 'today-marker' if cell.is_today else '' }}" style="width: {{ cell.width }}px;">
+                        {{ cell.label }}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="tasks-container">
+            {% for task in tasks %}
+            <div class="task-row">
+                <div class="task-name {{ 'unscheduled' if not task.has_dates else '' }}">
+                    {{ task.name }}
+                </div>
+                <div class="task-bar-area" style="width: {{ chart_width }}px;">
+                    {% if task.bar_left is not none %}
+                    <div class="task-bar {{ 'scheduled' if task.has_dates else 'unscheduled' }}"
+                         style="left: {{ task.bar_left }}px; width: {{ task.bar_width }}px; top: {{ (row_height - bar_height) / 2 }}px;"></div>
+                    {% if task.show_label_inside %}
+                    <div class="task-bar-label inside" style="left: {{ task.bar_left }}px; width: {{ task.bar_width }}px; line-height: {{ bar_height }}px; text-align: center; overflow: hidden;">
+                        {{ task.name }}
+                    </div>
+                    {% elif task.show_label_outside %}
+                    <div class="task-bar-label outside" style="left: {{ task.bar_left + task.bar_width + 3 }}px; line-height: {{ bar_height }}px;">
+                        {{ task.name }}
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html>

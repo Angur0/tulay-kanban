@@ -18,9 +18,13 @@
         resolveImageUrl,
         updateTask,
         uploadImage,
+        createSubtask,
+        updateSubtask,
+        deleteSubtask,
     } from "$lib/api/tasksApi";
     import { loadColumnsAndTasks } from "$lib/api/boardDataApi";
-    import type { Task, TaskComment } from "$lib/types";
+    import type { Task, TaskComment, Subtask } from "$lib/types";
+    import { onMount } from "svelte";
 
     export let task: Task | null = null;
 
@@ -311,23 +315,148 @@
         if (!lightboxImages.length) return;
         lightboxIndex = (lightboxIndex + 1) % lightboxImages.length;
     }
-</script>
 
-<svelte:window
-    on:open-task-lightbox={(
-        event: CustomEvent<{
-            taskId?: string;
-            imageIndex: number;
-            images?: string[];
-        }>,
-    ) => {
-        const { imageIndex, images = [] } = event.detail || {
+    // Subtask management state and functions
+    let newSubtaskTitle = "";
+    let newSubtaskPercentage: number | null = null;
+
+    // Reactive computation for completed subtasks percentage
+    $: completedPercentage = (() => {
+        if (!task || !task.subtasks || task.subtasks.length === 0) return 0;
+        const total = task.subtasks.reduce((sum, s) => s.is_finished ? sum + s.percentage : sum, 0);
+        return Math.min(100, Math.max(0, total));
+    })();
+
+    async function handleAddSubtask() {
+        if (!task || !newSubtaskTitle.trim()) return;
+        try {
+            const added = await createSubtask(
+                task.id,
+                newSubtaskTitle.trim(),
+                newSubtaskPercentage !== null ? Number(newSubtaskPercentage) : undefined
+            );
+            newSubtaskTitle = "";
+            newSubtaskPercentage = null;
+            if (added) {
+                const currentSubtasks = task.subtasks || [];
+                task.subtasks = [...currentSubtasks, added];
+                setActiveTask({ ...task });
+                await loadColumnsAndTasks();
+            }
+        } catch (e: any) {
+            saveError = e?.message || "Failed to add subtask";
+        }
+    }
+
+    async function toggleSubtask(subtaskId: string, isFinished: boolean) {
+        if (!task) return;
+        try {
+            if (task.subtasks) {
+                task.subtasks = task.subtasks.map(s => {
+                    if (s.id === subtaskId) {
+                        return {
+                            ...s,
+                            is_finished: isFinished,
+                            finish_date: isFinished ? new Date().toISOString() : null
+                        };
+                    }
+                    return s;
+                });
+                setActiveTask({ ...task });
+            }
+
+            const updated = await updateSubtask(subtaskId, { is_finished: isFinished });
+            if (updated && task && task.subtasks) {
+                task.subtasks = task.subtasks.map(s => s.id === subtaskId ? updated : s);
+                setActiveTask({ ...task });
+                await loadColumnsAndTasks();
+            }
+        } catch (e: any) {
+            saveError = e?.message || "Failed to update subtask status";
+        }
+    }
+
+    async function updateSubtaskPercentage(subtaskId: string, val: number) {
+        if (!task) return;
+        try {
+            const updated = await updateSubtask(subtaskId, { percentage: val });
+            if (updated && task && task.subtasks) {
+                await loadColumnsAndTasks();
+            }
+        } catch (e: any) {
+            saveError = e?.message || "Failed to update subtask percentage";
+        }
+    }
+
+    async function resetSubtaskToAuto(subtaskId: string) {
+        if (!task) return;
+        try {
+            const updated = await updateSubtask(subtaskId, { percentage: null });
+            if (updated && task && task.subtasks) {
+                await loadColumnsAndTasks();
+            }
+        } catch (e: any) {
+            saveError = e?.message || "Failed to reset subtask percentage";
+        }
+    }
+
+    async function updateSubtaskDate(subtaskId: string, dateStr: string) {
+        if (!task) return;
+        try {
+            const isoDate = dateStr ? new Date(dateStr).toISOString() : null;
+            const updated = await updateSubtask(subtaskId, { finish_date: isoDate });
+            if (updated && task && task.subtasks) {
+                task.subtasks = task.subtasks.map(s => s.id === subtaskId ? updated : s);
+                setActiveTask({ ...task });
+                await loadColumnsAndTasks();
+            }
+        } catch (e: any) {
+            saveError = e?.message || "Failed to update subtask finish date";
+        }
+    }
+
+    async function handleRemoveSubtask(subtaskId: string) {
+        if (!task) return;
+        try {
+            if (task.subtasks) {
+                task.subtasks = task.subtasks.filter(s => s.id !== subtaskId);
+                setActiveTask({ ...task });
+            }
+            await deleteSubtask(subtaskId);
+            await loadColumnsAndTasks();
+        } catch (e: any) {
+            saveError = e?.message || "Failed to delete subtask";
+        }
+    }
+
+    function handleOpenTaskLightbox(event: Event) {
+        const { imageIndex, images = [] } = (
+            event as CustomEvent<{
+                taskId?: string;
+                imageIndex: number;
+                images?: string[];
+            }>
+        ).detail || {
             imageIndex: 0,
             images: [],
         };
         if (!images.length) return;
         openLightbox(images, imageIndex ?? 0);
-    }}
+    }
+
+    onMount(() => {
+        window.addEventListener("open-task-lightbox", handleOpenTaskLightbox);
+
+        return () => {
+            window.removeEventListener(
+                "open-task-lightbox",
+                handleOpenTaskLightbox,
+            );
+        };
+    });
+</script>
+
+<svelte:window
     on:keydown={(event) => {
         if (!isLightboxOpen) return;
         if (event.key === "Escape") closeLightbox();
@@ -338,7 +467,7 @@
 
 {#if $activeModal === "taskPanel" && task}
     <div
-        class="absolute inset-0 z-[60] flex justify-end"
+        class="absolute inset-0 z-[60] flex items-end sm:items-stretch sm:justify-end"
         role="dialog"
         aria-modal="true"
     >
@@ -354,23 +483,23 @@
         ></div>
 
         <div
-            class="relative w-full max-w-2xl h-full bg-white dark:bg-[#151e29] shadow-2xl border-l border-[#e5e7eb] dark:border-[#1e2936] flex flex-col pointer-events-auto"
+            class="relative w-full max-w-2xl h-[92dvh] sm:h-full bg-white dark:bg-[#151e29] shadow-2xl border-l border-[#e5e7eb] dark:border-[#1e2936] rounded-t-2xl sm:rounded-t-none flex flex-col pointer-events-auto"
         >
             <div
-                class="flex items-center justify-between px-6 py-4 border-b border-[#e5e7eb] dark:border-[#1e2936]"
+                class="flex items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b border-[#e5e7eb] dark:border-[#1e2936]"
             >
                 <div
-                    class="flex items-center gap-3 text-[#111418] dark:text-white"
+                    class="flex items-center gap-3 text-[#111418] dark:text-white min-w-0"
                 >
                     <span
                         class="material-symbols-outlined text-2xl text-primary"
                         >view_timeline</span
                     >
-                    <div>
+                    <div class="min-w-0">
                         <input
                             type="text"
                             bind:value={title}
-                            class="text-xl font-bold bg-transparent border-none focus:outline-none focus:ring-0 p-0 text-[#111418] dark:text-white w-full"
+                            class="text-lg sm:text-xl font-bold bg-transparent border-none focus:outline-none focus:ring-0 p-0 text-[#111418] dark:text-white w-full truncate"
                             readonly={!canManage}
                         />
                         <p
@@ -405,7 +534,7 @@
             </div>
 
             <div
-                class="flex-1 overflow-y-auto px-6 py-6 custom-scrollbar space-y-6"
+                class="flex-1 overflow-y-auto px-4 sm:px-6 py-5 sm:py-6 custom-scrollbar space-y-6"
             >
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -559,6 +688,129 @@
                     ></textarea>
                 </div>
 
+                <!-- Subtasks Checklist section -->
+                <div class="border-t border-gray-200 dark:border-gray-800/50 pt-4 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <label class="block text-xs font-semibold text-[#5c6b7f] dark:text-gray-400 uppercase tracking-wider">
+                            Subtasks Checklist ({Math.round(completedPercentage)}%)
+                        </label>
+                    </div>
+                    
+                    <!-- Progress Bar -->
+                    <div class="w-full bg-gray-100 dark:bg-gray-800 h-2 rounded-full overflow-hidden">
+                        <div class="bg-primary h-full transition-all duration-300" style="width: {completedPercentage}%"></div>
+                    </div>
+
+                    <!-- Subtask list -->
+                    <div class="space-y-2 max-h-[250px] overflow-y-auto custom-scrollbar pr-1">
+                        {#if !task.subtasks || task.subtasks.length === 0}
+                            <p class="text-xs text-gray-400 italic py-1">No subtasks yet.</p>
+                        {:else}
+                            {#each task.subtasks as subtask (subtask.id)}
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-2 bg-gray-50 dark:bg-gray-800/40 rounded-lg border border-gray-200 dark:border-gray-800/70 hover:border-gray-300 dark:hover:border-gray-700 transition-colors">
+                                    <div class="flex-1 flex items-center gap-2.5 min-w-0">
+                                        <input
+                                            type="checkbox"
+                                            checked={subtask.is_finished}
+                                            disabled={!canManage}
+                                            on:change={(e) => toggleSubtask(subtask.id, e.currentTarget.checked)}
+                                            class="rounded border-gray-300 dark:border-gray-600 text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+                                        />
+                                        <span class="text-sm min-w-0 break-words {subtask.is_finished ? 'line-through text-gray-400 dark:text-gray-500' : 'text-[#111418] dark:text-white'}">
+                                            {subtask.title}
+                                        </span>
+                                    </div>
+
+                                    <div class="flex flex-wrap items-center gap-2 flex-shrink-0">
+                                        <!-- Weight Percentage pill -->
+                                        <div class="flex items-center gap-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-1.5 py-0.5 rounded text-[11px] text-gray-600 dark:text-gray-400">
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="100"
+                                                step="any"
+                                                value={subtask.percentage}
+                                                disabled={!canManage}
+                                                on:change={(e) => updateSubtaskPercentage(subtask.id, Number(e.currentTarget.value))}
+                                                class="w-8 text-center bg-transparent border-none p-0 text-[11px] font-semibold focus:ring-0 focus:outline-none"
+                                            />
+                                            <span>%</span>
+                                            {#if subtask.is_manual_percentage && canManage}
+                                                <button
+                                                    type="button"
+                                                    on:click={() => resetSubtaskToAuto(subtask.id)}
+                                                    class="text-gray-400 hover:text-primary transition-colors flex items-center"
+                                                    title="Set to auto-calculated percentage weight"
+                                                >
+                                                    <span class="material-symbols-outlined text-[12px]">autorenew</span>
+                                                </button>
+                                            {/if}
+                                        </div>
+
+                                        <!-- Optional finish date picker if finished -->
+                                        {#if subtask.is_finished}
+                                            <div class="flex items-center gap-1 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900/50 px-2 py-0.5 rounded text-[11px] text-green-700 dark:text-green-400">
+                                                <span class="material-symbols-outlined text-[12px]">event_available</span>
+                                                <input
+                                                    type="date"
+                                                    value={subtask.finish_date ? subtask.finish_date.split('T')[0] : ''}
+                                                    disabled={!canManage}
+                                                    on:change={(e) => updateSubtaskDate(subtask.id, e.currentTarget.value)}
+                                                    class="bg-transparent border-none p-0 text-[11px] font-semibold w-20 text-center focus:ring-0 focus:outline-none cursor-pointer"
+                                                />
+                                            </div>
+                                        {/if}
+
+                                        {#if canManage}
+                                            <button
+                                                type="button"
+                                                on:click={() => handleRemoveSubtask(subtask.id)}
+                                                class="p-1 text-[#5c6b7f] hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 rounded transition-colors"
+                                                title="Delete subtask"
+                                            >
+                                                <span class="material-symbols-outlined text-[16px]">close</span>
+                                            </button>
+                                        {/if}
+                                    </div>
+                                </div>
+                            {/each}
+                        {/if}
+                    </div>
+
+                    <!-- Add subtask form -->
+                    {#if canManage}
+                        <form on:submit|preventDefault={handleAddSubtask} class="flex flex-wrap sm:flex-nowrap items-center gap-2 mt-1 bg-gray-50 dark:bg-gray-800/20 p-2 rounded-lg border border-gray-200 dark:border-gray-800/40">
+                            <span class="material-symbols-outlined text-gray-400 text-sm pl-1">add</span>
+                            <input
+                                type="text"
+                                placeholder="Add a subtask checklist item..."
+                                bind:value={newSubtaskTitle}
+                                class="flex-1 min-w-[160px] px-2.5 py-1 text-xs bg-transparent border-none focus:outline-none focus:ring-0 text-[#111418] dark:text-white"
+                            />
+                            <div class="flex items-center gap-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-1.5 py-0.5 rounded text-[11px] text-gray-500">
+                                <input
+                                    type="number"
+                                    placeholder="%"
+                                    min="0"
+                                    max="100"
+                                    step="any"
+                                    bind:value={newSubtaskPercentage}
+                                    class="w-8 text-center bg-transparent border-none p-0 text-[11px] focus:ring-0 focus:outline-none"
+                                    title="Optional custom percentage weight (leave blank for auto)"
+                                />
+                                <span>%</span>
+                            </div>
+                            <button
+                                type="submit"
+                                disabled={!newSubtaskTitle.trim()}
+                                class="px-2.5 py-1 bg-primary hover:bg-blue-600 text-white text-[11px] font-semibold rounded transition-colors disabled:opacity-50"
+                            >
+                                Add
+                            </button>
+                        </form>
+                    {/if}
+                </div>
+
                 <div>
                     <div class="flex items-center justify-between mb-2">
                         <label
@@ -588,7 +840,7 @@
                         on:change={onTaskImageUpload}
                     />
                     <div
-                        class="grid grid-cols-3 gap-2 p-2 border border-[#e5e7eb] dark:border-[#1e2936] rounded-lg bg-[#fbfcfd] dark:bg-[#0d141c]"
+                        class="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2 border border-[#e5e7eb] dark:border-[#1e2936] rounded-lg bg-[#fbfcfd] dark:bg-[#0d141c]"
                     >
                         {#if taskImages.length === 0}
                             <div class="col-span-3 text-xs text-[#8a98a8] p-2">
@@ -752,7 +1004,7 @@
                             </div>
                         {/if}
 
-                        <div class="flex items-center justify-between mt-3">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-3">
                             <div class="flex items-center gap-2">
                                 <input
                                     type="file"
@@ -860,11 +1112,11 @@
             {/if}
 
             <div
-                class="px-6 py-4 border-t border-[#e5e7eb] dark:border-[#1e2936] flex justify-end gap-2"
+                class="px-4 sm:px-6 py-4 border-t border-[#e5e7eb] dark:border-[#1e2936] flex flex-col-reverse sm:flex-row sm:justify-end gap-2"
             >
                 <button
                     on:click={closePanel}
-                    class="px-4 py-2 text-sm font-medium text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936]"
+                    class="w-full sm:w-auto px-4 py-2 text-sm font-medium text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936]"
                 >
                     Cancel
                 </button>
@@ -872,7 +1124,7 @@
                     <button
                         on:click={saveTask}
                         disabled={isSaving}
-                        class="px-4 py-2 bg-primary hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors shadow-sm disabled:opacity-50"
+                        class="w-full sm:w-auto px-4 py-2 bg-primary hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors shadow-sm disabled:opacity-50"
                     >
                         {isSaving ? "Saving..." : "Save"}
                     </button>

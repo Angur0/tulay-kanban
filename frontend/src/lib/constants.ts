@@ -1,5 +1,8 @@
 export const STORAGE_KEY = 'tulay-kanban-tasks';
-export const API_URL = 'http://localhost:8000'; // Assuming this based on python main.py
+// Backend is proxied through the Vite dev server — use the same origin as the page.
+export const API_URL = typeof window !== 'undefined'
+    ? `${window.location.protocol}//${window.location.host}`
+    : 'http://localhost:5173';
 
 export const BOARD_ICONS = new Set<string>([
     'dashboard', 'folder', 'campaign', 'code', 'shopping_bag',

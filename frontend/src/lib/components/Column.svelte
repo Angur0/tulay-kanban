@@ -15,7 +15,8 @@
     import { updateColumn } from "$lib/api/listsApi";
     import { loadColumnsAndTasks } from "$lib/api/boardDataApi";
     import { openContextMenu } from "$lib/stores/context-menu";
-    import { createEventDispatcher } from "svelte";
+    import { createEventDispatcher, onMount, onDestroy } from "svelte";
+    import { touchDrag } from "$lib/stores/touch-drag";
 
     const dispatch = createEventDispatcher<{
         taskDrop: {
@@ -38,6 +39,89 @@
     let isRenaming = false;
     let editingTitle = "";
     let menuContainerEl: HTMLElement | null = null;
+    let columnEl: HTMLElement | null = null;
+
+    // Touch drag state — computed from the global touch-drag store
+    let touchDropIndex: number | null = null;
+    let isTouchDragOver = false;
+
+    $: {
+        const td = $touchDrag;
+        if (td.active && columnEl) {
+            const rect = columnEl.getBoundingClientRect();
+            const inside =
+                td.x >= rect.left &&
+                td.x <= rect.right &&
+                td.y >= rect.top &&
+                td.y <= rect.bottom;
+            isTouchDragOver = inside;
+            if (inside) {
+                // Figure out which task slot the pointer is hovering over
+                const cards = Array.from(
+                    columnEl.querySelectorAll<HTMLElement>(".task-card")
+                );
+                let found = false;
+                for (let i = 0; i < cards.length; i++) {
+                    const r = cards[i].getBoundingClientRect();
+                    if (td.y < r.top + r.height / 2) {
+                        touchDropIndex = i;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) touchDropIndex = columnTasks.length;
+            } else {
+                touchDropIndex = null;
+            }
+        } else {
+            isTouchDragOver = false;
+            touchDropIndex = null;
+        }
+    }
+
+    // We track the last known drag info before commitTouchDrop() clears the store.
+    // Using $: here so Svelte auto-manages the subscription lifetime.
+    let _lastTouchDragSnapshot = { taskId: "", fromColumnId: "" };
+    $: if ($touchDrag.active) {
+        _lastTouchDragSnapshot = {
+            taskId: $touchDrag.taskId ?? "",
+            fromColumnId: $touchDrag.fromColumnId ?? "",
+        };
+    }
+
+    function handleTouchDrop(x: number, y: number) {
+        if (!isTouchDragOver || !columnEl) return;
+        const { taskId, fromColumnId } = _lastTouchDragSnapshot;
+        if (!taskId) return;
+
+        const beforeTaskId =
+            touchDropIndex !== null &&
+            touchDropIndex >= 0 &&
+            touchDropIndex < columnTasks.length
+                ? columnTasks[touchDropIndex].id
+                : null;
+
+        dispatch("taskDrop", {
+            taskId,
+            fromColumnId: fromColumnId || null,
+            toColumnId: column.id,
+            beforeTaskId,
+        });
+        isTouchDragOver = false;
+        touchDropIndex = null;
+    }
+
+    function onWindowTouchDrop(event: Event) {
+        const e = event as CustomEvent<{ x: number; y: number }>;
+        handleTouchDrop(e.detail.x, e.detail.y);
+    }
+
+    onMount(() => {
+        window.addEventListener("touch-task-drop", onWindowTouchDrop);
+    });
+    onDestroy(() => {
+        window.removeEventListener("touch-task-drop", onWindowTouchDrop);
+    });
 
     $: columnTasks = $filteredTasksByColumn[column.id] || [];
     $: colorClass = columnColorClasses[index % columnColorClasses.length];
@@ -288,8 +372,9 @@
 />
 
 <div
-    class="column flex flex-col w-80 flex-shrink-0 h-full rounded-xl transition-colors"
+    class="column flex flex-col w-[min(20rem,calc(100vw-2rem))] md:w-80 flex-shrink-0 h-full rounded-xl transition-colors"
     data-column-id={column.id}
+    bind:this={columnEl}
     on:contextmenu={handleColumnContextMenu}
     on:dragover={handleTaskDragOver}
     on:dragleave={handleTaskDragLeave}
@@ -420,31 +505,30 @@
 
     <!-- Task List Area -->
     <div
-        class="flex-1 flex flex-col gap-3 overflow-y-auto custom-scrollbar pb-4 pr-1"
+        class="flex-1 flex flex-col gap-3 overflow-y-auto custom-scrollbar pb-4 pr-1 overscroll-y-contain"
     >
         {#each columnTasks as task, taskIndex (task.id)}
-            {#if isTaskDragOver && taskDropIndex === taskIndex}
+            {#if (isTaskDragOver && taskDropIndex === taskIndex) || (isTouchDragOver && touchDropIndex === taskIndex)}
                 <div class="h-1 bg-primary rounded-full my-1"></div>
             {/if}
             <TaskCard {task} />
         {/each}
 
-        {#if isTaskDragOver && taskDropIndex === columnTasks.length}
+        {#if (isTaskDragOver && taskDropIndex === columnTasks.length) || (isTouchDragOver && touchDropIndex === columnTasks.length)}
             <div class="h-1 bg-primary rounded-full my-1"></div>
         {/if}
 
         {#if showInlineAddForm && canAdd}
             <InlineCreateTaskForm columnId={column.id} on:close={() => (showInlineAddForm = false)} />
         {/if}
+        {#if canAdd && !showInlineAddForm}
+            <button
+                on:click={handleAddCard}
+                class="add-card-btn flex items-center justify-center px-2 py-2 mt-2 text-[#5c6b7f] dark:text-gray-400 hover:text-primary hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                title="Add Card"
+            >
+                <span class="material-symbols-outlined text-[20px]">add</span>
+            </button>
+        {/if}
     </div>
-
-    {#if canAdd}
-        <button
-            on:click={handleAddCard}
-            class="add-card-btn flex items-center justify-center px-2 py-2 mt-2 text-[#5c6b7f] dark:text-gray-400 hover:text-primary hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-            title="Add Card"
-        >
-            <span class="material-symbols-outlined text-[20px]">add</span>
-        </button>
-    {/if}
 </div>

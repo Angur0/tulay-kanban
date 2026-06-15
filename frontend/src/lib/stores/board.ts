@@ -139,6 +139,15 @@ export function setActiveTask(task: Task | null) {
     activeTask.set(task);
 }
 
+// Keep activeTask in sync with tasks store updates (e.g. from websocket or list reloads)
+tasks.subscribe($tasks => {
+    activeTask.update($current => {
+        if (!$current) return null;
+        const updated = $tasks.find(t => t.id === $current.id);
+        return updated || $current;
+    });
+});
+
 export function setDeleteListTarget(target: { id: string; title: string } | null) {
     deleteListTarget.set(target);
 }

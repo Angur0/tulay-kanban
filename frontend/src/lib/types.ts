@@ -8,6 +8,17 @@ export interface Label {
     color: string;
 }
 
+export interface Subtask {
+    id: string;
+    task_id: string;
+    title: string;
+    is_finished: boolean;
+    percentage: number;
+    is_manual_percentage: boolean;
+    finish_date?: string | null;
+    created_at?: string;
+}
+
 export interface Task {
     id: string;
     title: string;
@@ -22,6 +33,7 @@ export interface Task {
     label_ids?: string[];
     images?: string[];
     labels?: Label[];
+    subtasks?: Subtask[];
     order: number;
     created_at?: string;
     updated_at?: string;

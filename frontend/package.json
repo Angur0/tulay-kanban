@@ -16,5 +16,9 @@
 		"svelte-check": "^4.4.2",
 		"typescript": "^5.9.3",
 		"vite": "^7.3.1"
+	},
+	"dependencies": {
+		"frappe-gantt": "^1.2.2",
+		"mobile-drag-drop": "^3.0.0-rc.0"
 	}
 }
