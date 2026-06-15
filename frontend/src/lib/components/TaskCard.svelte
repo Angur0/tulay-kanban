@@ -156,7 +156,7 @@
             class="relative flex items-center min-h-[24px] flex-1 overflow-hidden"
         >
             <div
-                class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                class="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
             >
                 <button
                     class="task-comment-btn p-1 hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] rounded"
@@ -186,7 +186,7 @@
                 </button>
             </div>
             <div
-                class="task-labels-row absolute left-0 right-0 overflow-hidden transition-all duration-200 group-hover:translate-x-16 group-hover:opacity-0"
+                class="task-labels-row absolute left-16 right-0 md:left-0 md:right-0 overflow-hidden transition-all duration-200 md:group-hover:translate-x-16 md:group-hover:opacity-0"
             >
                 <div class="task-labels-inner flex gap-1 items-center">
                     {#if task.labels}

@@ -53,11 +53,11 @@
 />
 
 <div
-    class="filter-bar flex items-center gap-3 px-8 py-2 bg-[#fbfcfd] dark:bg-[#151e29] flex-shrink-0 overflow-visible"
+    class="filter-bar flex items-center gap-2 md:gap-3 px-4 md:px-8 py-2 bg-[#fbfcfd] dark:bg-[#151e29] flex-shrink-0 overflow-x-auto overflow-y-visible no-scrollbar"
 >
     <!-- Priority Chips -->
     <div class="flex items-center gap-1.5 flex-shrink-0">
-        <span class="text-[10px] font-bold uppercase tracking-widest text-[#8a98a8] mr-1">Priority</span>
+        <span class="hidden sm:inline text-[10px] font-bold uppercase tracking-widest text-[#8a98a8] mr-1">Priority</span>
         {#each priorities as p}
             <button
                 class="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all {$taskFilters.priority === p.value
@@ -75,7 +75,7 @@
         {/each}
     </div>
 
-    <div class="h-4 w-px bg-[#e5e7eb] dark:bg-[#1e2936] flex-shrink-0"></div>
+    <div class="hidden sm:block h-4 w-px bg-[#e5e7eb] dark:bg-[#1e2936] flex-shrink-0"></div>
 
     <!-- Label Filter -->
     <div class="label-dropdown-root relative flex-shrink-0">
@@ -124,7 +124,7 @@
         {/if}
     </div>
 
-    <div class="h-4 w-px bg-[#e5e7eb] dark:bg-[#1e2936] flex-shrink-0"></div>
+    <div class="hidden sm:block h-4 w-px bg-[#e5e7eb] dark:bg-[#1e2936] flex-shrink-0"></div>
 
     <!-- Sort -->
     <div class="sort-dropdown-root relative flex-shrink-0">

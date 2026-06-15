@@ -288,7 +288,7 @@
 />
 
 <div
-    class="column flex flex-col w-80 flex-shrink-0 h-full rounded-xl transition-colors"
+    class="column flex flex-col w-[min(20rem,calc(100vw-2rem))] md:w-80 flex-shrink-0 h-full rounded-xl transition-colors"
     data-column-id={column.id}
     on:contextmenu={handleColumnContextMenu}
     on:dragover={handleTaskDragOver}
@@ -420,7 +420,7 @@
 
     <!-- Task List Area -->
     <div
-        class="flex-1 flex flex-col gap-3 overflow-y-auto custom-scrollbar pb-4 pr-1"
+        class="flex-1 flex flex-col gap-3 overflow-y-auto custom-scrollbar pb-4 pr-1 overscroll-contain"
     >
         {#each columnTasks as task, taskIndex (task.id)}
             {#if isTaskDragOver && taskDropIndex === taskIndex}

@@ -2,6 +2,7 @@ import { writable } from 'svelte/store';
 
 // UI State
 export const isSidebarCollapsed = writable(false);
+export const isMobileSidebarOpen = writable(false);
 function getInitialDarkMode(): boolean {
     if (typeof window === 'undefined') return false;
 
@@ -25,6 +26,18 @@ export const activeModal = writable<string | null>(null);
 
 export function toggleSidebar() {
     isSidebarCollapsed.update(v => !v);
+}
+
+export function openMobileSidebar() {
+    isMobileSidebarOpen.set(true);
+}
+
+export function closeMobileSidebar() {
+    isMobileSidebarOpen.set(false);
+}
+
+export function toggleMobileSidebar() {
+    isMobileSidebarOpen.update(v => !v);
 }
 
 export function toggleTheme() {

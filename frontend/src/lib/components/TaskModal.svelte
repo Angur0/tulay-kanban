@@ -24,6 +24,7 @@
     } from "$lib/api/tasksApi";
     import { loadColumnsAndTasks } from "$lib/api/boardDataApi";
     import type { Task, TaskComment, Subtask } from "$lib/types";
+    import { onMount } from "svelte";
 
     export let task: Task | null = null;
 
@@ -427,23 +428,35 @@
             saveError = e?.message || "Failed to delete subtask";
         }
     }
-</script>
 
-<svelte:window
-    on:open-task-lightbox={(
-        event: CustomEvent<{
-            taskId?: string;
-            imageIndex: number;
-            images?: string[];
-        }>,
-    ) => {
-        const { imageIndex, images = [] } = event.detail || {
+    function handleOpenTaskLightbox(event: Event) {
+        const { imageIndex, images = [] } = (
+            event as CustomEvent<{
+                taskId?: string;
+                imageIndex: number;
+                images?: string[];
+            }>
+        ).detail || {
             imageIndex: 0,
             images: [],
         };
         if (!images.length) return;
         openLightbox(images, imageIndex ?? 0);
-    }}
+    }
+
+    onMount(() => {
+        window.addEventListener("open-task-lightbox", handleOpenTaskLightbox);
+
+        return () => {
+            window.removeEventListener(
+                "open-task-lightbox",
+                handleOpenTaskLightbox,
+            );
+        };
+    });
+</script>
+
+<svelte:window
     on:keydown={(event) => {
         if (!isLightboxOpen) return;
         if (event.key === "Escape") closeLightbox();
@@ -454,7 +467,7 @@
 
 {#if $activeModal === "taskPanel" && task}
     <div
-        class="absolute inset-0 z-[60] flex justify-end"
+        class="absolute inset-0 z-[60] flex items-end sm:items-stretch sm:justify-end"
         role="dialog"
         aria-modal="true"
     >
@@ -470,23 +483,23 @@
         ></div>
 
         <div
-            class="relative w-full max-w-2xl h-full bg-white dark:bg-[#151e29] shadow-2xl border-l border-[#e5e7eb] dark:border-[#1e2936] flex flex-col pointer-events-auto"
+            class="relative w-full max-w-2xl h-[92dvh] sm:h-full bg-white dark:bg-[#151e29] shadow-2xl border-l border-[#e5e7eb] dark:border-[#1e2936] rounded-t-2xl sm:rounded-t-none flex flex-col pointer-events-auto"
         >
             <div
-                class="flex items-center justify-between px-6 py-4 border-b border-[#e5e7eb] dark:border-[#1e2936]"
+                class="flex items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b border-[#e5e7eb] dark:border-[#1e2936]"
             >
                 <div
-                    class="flex items-center gap-3 text-[#111418] dark:text-white"
+                    class="flex items-center gap-3 text-[#111418] dark:text-white min-w-0"
                 >
                     <span
                         class="material-symbols-outlined text-2xl text-primary"
                         >view_timeline</span
                     >
-                    <div>
+                    <div class="min-w-0">
                         <input
                             type="text"
                             bind:value={title}
-                            class="text-xl font-bold bg-transparent border-none focus:outline-none focus:ring-0 p-0 text-[#111418] dark:text-white w-full"
+                            class="text-lg sm:text-xl font-bold bg-transparent border-none focus:outline-none focus:ring-0 p-0 text-[#111418] dark:text-white w-full truncate"
                             readonly={!canManage}
                         />
                         <p
@@ -521,7 +534,7 @@
             </div>
 
             <div
-                class="flex-1 overflow-y-auto px-6 py-6 custom-scrollbar space-y-6"
+                class="flex-1 overflow-y-auto px-4 sm:px-6 py-5 sm:py-6 custom-scrollbar space-y-6"
             >
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -694,7 +707,7 @@
                             <p class="text-xs text-gray-400 italic py-1">No subtasks yet.</p>
                         {:else}
                             {#each task.subtasks as subtask (subtask.id)}
-                                <div class="flex items-center justify-between gap-3 p-2 bg-gray-50 dark:bg-gray-800/40 rounded-lg border border-gray-200 dark:border-gray-800/70 hover:border-gray-300 dark:hover:border-gray-700 transition-colors">
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-2 bg-gray-50 dark:bg-gray-800/40 rounded-lg border border-gray-200 dark:border-gray-800/70 hover:border-gray-300 dark:hover:border-gray-700 transition-colors">
                                     <div class="flex-1 flex items-center gap-2.5 min-w-0">
                                         <input
                                             type="checkbox"
@@ -708,7 +721,7 @@
                                         </span>
                                     </div>
 
-                                    <div class="flex items-center gap-2 flex-shrink-0">
+                                    <div class="flex flex-wrap items-center gap-2 flex-shrink-0">
                                         <!-- Weight Percentage pill -->
                                         <div class="flex items-center gap-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-1.5 py-0.5 rounded text-[11px] text-gray-600 dark:text-gray-400">
                                             <input
@@ -766,13 +779,13 @@
 
                     <!-- Add subtask form -->
                     {#if canManage}
-                        <form on:submit|preventDefault={handleAddSubtask} class="flex items-center gap-2 mt-1 bg-gray-50 dark:bg-gray-800/20 p-2 rounded-lg border border-gray-200 dark:border-gray-800/40">
+                        <form on:submit|preventDefault={handleAddSubtask} class="flex flex-wrap sm:flex-nowrap items-center gap-2 mt-1 bg-gray-50 dark:bg-gray-800/20 p-2 rounded-lg border border-gray-200 dark:border-gray-800/40">
                             <span class="material-symbols-outlined text-gray-400 text-sm pl-1">add</span>
                             <input
                                 type="text"
                                 placeholder="Add a subtask checklist item..."
                                 bind:value={newSubtaskTitle}
-                                class="flex-1 px-2.5 py-1 text-xs bg-transparent border-none focus:outline-none focus:ring-0 text-[#111418] dark:text-white"
+                                class="flex-1 min-w-[160px] px-2.5 py-1 text-xs bg-transparent border-none focus:outline-none focus:ring-0 text-[#111418] dark:text-white"
                             />
                             <div class="flex items-center gap-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-1.5 py-0.5 rounded text-[11px] text-gray-500">
                                 <input
@@ -827,7 +840,7 @@
                         on:change={onTaskImageUpload}
                     />
                     <div
-                        class="grid grid-cols-3 gap-2 p-2 border border-[#e5e7eb] dark:border-[#1e2936] rounded-lg bg-[#fbfcfd] dark:bg-[#0d141c]"
+                        class="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2 border border-[#e5e7eb] dark:border-[#1e2936] rounded-lg bg-[#fbfcfd] dark:bg-[#0d141c]"
                     >
                         {#if taskImages.length === 0}
                             <div class="col-span-3 text-xs text-[#8a98a8] p-2">
@@ -991,7 +1004,7 @@
                             </div>
                         {/if}
 
-                        <div class="flex items-center justify-between mt-3">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-3">
                             <div class="flex items-center gap-2">
                                 <input
                                     type="file"
@@ -1099,11 +1112,11 @@
             {/if}
 
             <div
-                class="px-6 py-4 border-t border-[#e5e7eb] dark:border-[#1e2936] flex justify-end gap-2"
+                class="px-4 sm:px-6 py-4 border-t border-[#e5e7eb] dark:border-[#1e2936] flex flex-col-reverse sm:flex-row sm:justify-end gap-2"
             >
                 <button
                     on:click={closePanel}
-                    class="px-4 py-2 text-sm font-medium text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936]"
+                    class="w-full sm:w-auto px-4 py-2 text-sm font-medium text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936]"
                 >
                     Cancel
                 </button>
@@ -1111,7 +1124,7 @@
                     <button
                         on:click={saveTask}
                         disabled={isSaving}
-                        class="px-4 py-2 bg-primary hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors shadow-sm disabled:opacity-50"
+                        class="w-full sm:w-auto px-4 py-2 bg-primary hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors shadow-sm disabled:opacity-50"
                     >
                         {isSaving ? "Saving..." : "Save"}
                     </button>

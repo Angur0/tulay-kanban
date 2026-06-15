@@ -319,7 +319,7 @@
         if (viewMode === 'Week') step = 168;
         if (viewMode === 'Month') step = 720;
         
-        const actual_col_width = ganttInstance.options.column_width;
+        const actual_col_width = ganttInstance.config.column_width || ganttInstance.options.column_width || 60;
         const svgHeight = svg.getAttribute('height') || '100%';
 
         activeGaps.forEach(g => {
@@ -363,35 +363,42 @@
             }
         });
 
-        const ticks = svg.querySelectorAll('.tick');
-        ticks.forEach(tick => {
-            const transform = tick.getAttribute('transform');
-            if (!transform) return;
-            const match = transform.match(/translate\(([^,]+)/);
-            if (match) {
-                const x = parseFloat(match[1]);
-                const mappedTime = gantt_start.getTime() + (x / actual_col_width) * step * 60 * 60 * 1000;
-                const realTime = unmapTimeFunc(mappedTime);
-                const date = new Date(realTime);
-                
-                const textEls = tick.querySelectorAll('text');
-                textEls.forEach(textEl => {
-                    if (textEl.classList.contains('lower-text')) {
-                        if (viewMode === 'Day') {
-                            textEl.textContent = date.getDate().toString();
-                        } else if (viewMode === 'Week') {
-                            textEl.textContent = `${date.toLocaleString('default', { month: 'short' })} ${date.getDate()}`;
-                        } else {
-                            textEl.textContent = date.toLocaleString('default', { month: 'short' });
-                        }
-                    } else if (textEl.classList.contains('upper-text')) {
-                        if (viewMode === 'Day' || viewMode === 'Week') {
-                            textEl.textContent = date.toLocaleString('default', { month: 'long', year: 'numeric' });
-                        } else {
-                            textEl.textContent = date.getFullYear().toString();
-                        }
-                    }
-                });
+        // Update HTML header texts to match the real unmapped dates
+        const lowerTexts = containerEl.querySelectorAll('.lower-header .lower-text');
+        lowerTexts.forEach(el => {
+            const x = parseFloat((el as HTMLElement).style.left || '0');
+            const index = Math.round(x / actual_col_width);
+            const mappedDate = ganttInstance.dates[index];
+            if (!mappedDate) return;
+            const realTime = unmapTimeFunc(mappedDate.getTime());
+            const date = new Date(realTime);
+
+            if (viewMode === 'Day') {
+                el.textContent = date.getDate().toString();
+            } else if (viewMode === 'Week') {
+                el.textContent = `${date.toLocaleString('default', { month: 'short' })} ${date.getDate()}`;
+            } else { // Month
+                if (isCompact) {
+                    el.textContent = date.toLocaleString('default', { month: 'short' });
+                } else {
+                    el.textContent = date.toLocaleString('default', { month: 'long' });
+                }
+            }
+        });
+
+        const upperTexts = containerEl.querySelectorAll('.upper-header .upper-text');
+        upperTexts.forEach(el => {
+            const x = parseFloat((el as HTMLElement).style.left || '0');
+            const index = Math.round(x / actual_col_width);
+            const mappedDate = ganttInstance.dates[index];
+            if (!mappedDate) return;
+            const realTime = unmapTimeFunc(mappedDate.getTime());
+            const date = new Date(realTime);
+
+            if (viewMode === 'Day' || viewMode === 'Week') {
+                el.textContent = date.toLocaleString('default', { month: 'long', year: 'numeric' });
+            } else { // Month
+                el.textContent = date.getFullYear().toString();
             }
         });
     }
@@ -474,7 +481,7 @@
             if (e.message?.includes('EMPTY_BOARD') || e.message?.includes('No tasks')) {
                 showNotification('This board has no tasks to export', 'error');
             } else {
-                showNotification(exportError, 'error');
+                showNotification(exportError || 'Export failed', 'error');
             }
             console.error('Export failed:', e);
         } finally {
@@ -734,6 +741,15 @@
     }
     :global(.compact .gantt-container .gantt .tick text) {
         font-size: 10px !important;
+    }
+    :global(.compact .gantt-container .lower-text) {
+        font-size: 10px !important;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    :global(.compact .gantt-container .upper-text) {
+        font-size: 11px !important;
     }
 
     /* Dark mode adjustments for big labels (labels drawn outside the bar) */
