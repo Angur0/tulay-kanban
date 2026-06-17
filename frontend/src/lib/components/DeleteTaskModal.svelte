@@ -9,12 +9,15 @@
     } from "$lib/stores/board";
     import { deleteTask } from "$lib/api/tasksApi";
 
+    import { currentBoardRole } from "$lib/stores/user";
+
     let confirmText = "";
     let isDeleting = false;
     let deleteError = "";
 
     $: expectedTitle = $deleteTaskTarget?.title || "";
-    $: canDelete = confirmText.trim() === expectedTitle && !isDeleting;
+    $: hasPermission = ["owner", "editor"].includes($currentBoardRole);
+    $: canDelete = confirmText.trim() === expectedTitle && !isDeleting && hasPermission;
 
     function resetAndClose() {
         confirmText = "";

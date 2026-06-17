@@ -3,6 +3,10 @@ import { writable } from 'svelte/store';
 // UI State
 export const isSidebarCollapsed = writable(false);
 export const isMobileSidebarOpen = writable(false);
+export const isServerOffline = writable(false);
+export const isMaintenanceMode = writable(false);
+export const maintenanceEndTime = writable<string | null>(null);
+
 function getInitialDarkMode(): boolean {
     if (typeof window === 'undefined') return false;
 
@@ -14,7 +18,7 @@ function getInitialDarkMode(): boolean {
 }
 
 export const isDarkMode = writable(getInitialDarkMode());
-export const activeView = writable<'board' | 'my-tasks'>('board');
+export const activeView = writable<'board' | 'my-tasks' | 'admin'>('board');
 export const boardViewMode = writable<'kanban' | 'gantt' | 'calendar'>('kanban');
 
 export function setBoardViewMode(mode: 'kanban' | 'gantt' | 'calendar') {
@@ -83,7 +87,7 @@ if (typeof window !== 'undefined') {
     });
 }
 
-export function switchView(view: 'board' | 'my-tasks') {
+export function switchView(view: 'board' | 'my-tasks' | 'admin') {
     activeView.set(view);
 }
 

@@ -10,6 +10,7 @@
         openModal,
         isMobileSidebarOpen,
         closeMobileSidebar,
+        isServerOffline,
     } from "$lib/stores/ui";
     import {
         boards,
@@ -30,7 +31,7 @@
         closeMobileSidebar();
     }
 
-    function selectView(view: "board" | "my-tasks") {
+    function selectView(view: "board" | "my-tasks" | "admin") {
         switchView(view);
         closeMobileSidebar();
     }
@@ -101,8 +102,8 @@
         <div class="flex items-center gap-3 px-2 sidebar-header">
             <button
                 on:click={toggleSidebar}
-                class="flex items-center justify-center size-8 rounded-lg bg-primary text-white shadow-sm flex-shrink-0 hover:bg-blue-600 transition-colors"
-                data-sidebar-tooltip="Toggle Sidebar"
+                class="flex items-center justify-center size-8 rounded-lg text-white shadow-sm flex-shrink-0 transition-colors {$isServerOffline ? 'bg-red-500 hover:bg-red-600' : 'bg-primary hover:bg-blue-600'}"
+                data-sidebar-tooltip={$isServerOffline ? "Server Offline" : "Toggle Sidebar"}
             >
                 <span class="material-symbols-outlined text-xl"
                     >developer_board</span
@@ -176,6 +177,7 @@
                             </div>
                         </a>
                         <!-- TODO: Delete board logic -->
+                        {#if board.role !== 'viewer'}
                         <button
                             on:click={(event) =>
                                 handleDeleteBoard(event, board.id)}
@@ -186,6 +188,7 @@
                                 >delete</span
                             >
                         </button>
+                        {/if}
                     </div>
                 {/each}
             </div>
@@ -243,6 +246,25 @@
                     >Labels</span
                 >
             </a>
+            {#if $currentUser?.is_admin}
+                <a
+                    on:click|preventDefault={() => selectView("admin")}
+                    class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group justify-start sidebar-item {$activeView ===
+                    'admin'
+                        ? 'bg-[#eff1f3] dark:bg-[#1e2936] text-[#111418] dark:text-white'
+                        : 'text-[#5c6b7f] dark:text-gray-400 hover:bg-[#eff1f3] dark:hover:bg-[#1e2936]'}"
+                    data-sidebar-tooltip="Admin Panel"
+                    href="#"
+                >
+                    <span
+                        class="material-symbols-outlined transition-colors flex-shrink-0 group-hover:text-primary"
+                        >shield</span
+                    >
+                    <span class="text-sm font-medium sidebar-text whitespace-nowrap"
+                        >Admin Panel</span
+                    >
+                </a>
+            {/if}
         </nav>
     </div>
 

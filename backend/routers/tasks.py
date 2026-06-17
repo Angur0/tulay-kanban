@@ -46,7 +46,7 @@ def get_board_tasks(board_id: str, current_user: models.User = Depends(get_curre
 
 @router.post("/api/tasks", response_model=TaskResponse)
 async def create_task(task_in: TaskCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    ensure_board_access(db, task_in.board_id, current_user, ["owner", "moderator", "member"])
+    ensure_board_access(db, task_in.board_id, current_user, ["owner", "editor", "moderator", "member"])
     
     task_data = task_in.model_dump(exclude={"label_ids", "order"})
 
@@ -107,7 +107,7 @@ async def reorder_tasks(reorder_in: TaskBulkReorder, current_user: models.User =
     if not first_task:
         raise HTTPException(status_code=404, detail="Task not found")
         
-    ensure_board_access(db, first_task.board_id, current_user, ["owner", "moderator", "member"])
+    ensure_board_access(db, first_task.board_id, current_user, ["owner", "editor", "moderator", "member"])
     board_id = first_task.board_id
 
     task_ids = [item.id for item in reorder_in.items]
@@ -143,7 +143,7 @@ async def update_task(task_id: str, updates: dict, current_user: models.User = D
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    ensure_board_access(db, task.board_id, current_user, ["owner", "moderator", "member"])
+    ensure_board_access(db, task.board_id, current_user, ["owner", "editor", "moderator", "member"])
 
     new_column_id = updates.get("column_id")
     if new_column_id and new_column_id != task.column_id:
@@ -157,6 +157,9 @@ async def update_task(task_id: str, updates: dict, current_user: models.User = D
     for key, value in updates.items():
         if hasattr(task, key):
             setattr(task, key, value)
+
+    if "assignee_id" in updates and updates["assignee_id"] is not None:
+        task.is_orphaned = False
 
     if label_ids is not None:
         labels = db.query(models.Label).filter(models.Label.id.in_(label_ids)).all()
@@ -197,7 +200,7 @@ async def delete_task(task_id: str, current_user: models.User = Depends(get_curr
         if not task:
             raise HTTPException(status_code=404, detail="Task not found")
 
-        ensure_board_access(db, task.board_id, current_user, ["owner", "moderator", "member"])
+        ensure_board_access(db, task.board_id, current_user, ["owner", "editor"])
 
         task_title = task.title
         board_id = task.board_id
@@ -298,7 +301,7 @@ async def create_comment(task_id: str, comment_in: CommentCreate, current_user: 
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    ensure_board_access(db, task.board_id, current_user, ["owner", "moderator", "member"])
+    ensure_board_access(db, task.board_id, current_user, ["owner", "editor", "moderator", "member"])
 
     new_comment = models.Comment(
         task_id=task_id,
@@ -440,7 +443,7 @@ async def create_subtask(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     
-    ensure_board_access(db, task.board_id, current_user, ["owner", "moderator", "member"])
+    ensure_board_access(db, task.board_id, current_user, ["owner", "editor", "moderator", "member"])
     
     is_manual = subtask_in.percentage is not None
     percentage_val = subtask_in.percentage if is_manual else 0.0
@@ -494,7 +497,7 @@ async def update_subtask(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
         
-    ensure_board_access(db, task.board_id, current_user, ["owner", "moderator", "member"])
+    ensure_board_access(db, task.board_id, current_user, ["owner", "editor", "moderator", "member"])
     
     percentage_changed = False
     
@@ -574,7 +577,7 @@ async def delete_subtask(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
         
-    ensure_board_access(db, task.board_id, current_user, ["owner", "moderator", "member"])
+    ensure_board_access(db, task.board_id, current_user, ["owner", "editor", "moderator", "member"])
     
     db.delete(subtask)
     db.commit()
@@ -604,7 +607,7 @@ async def bulk_move_tasks(column_id: str, payload: ColumnBulkMove, current_user:
     if col.board_id != dest_col.board_id:
         raise HTTPException(status_code=400, detail="Columns must belong to the same board")
 
-    ensure_board_access(db, col.board_id, current_user, ["owner", "moderator", "member"])
+    ensure_board_access(db, col.board_id, current_user, ["owner", "editor", "moderator", "member"])
 
     max_order_row = db.query(models.Task.order).filter(
         models.Task.column_id == payload.destination_column_id
@@ -640,7 +643,7 @@ async def bulk_delete_tasks(column_id: str, current_user: models.User = Depends(
     if not col:
         raise HTTPException(status_code=404, detail="Column not found")
 
-    ensure_board_access(db, col.board_id, current_user, ["owner", "moderator", "member"])
+    ensure_board_access(db, col.board_id, current_user, ["owner", "editor"])
 
     archive_col = db.query(models.BoardColumn).filter(
         models.BoardColumn.board_id == col.board_id,
@@ -717,7 +720,7 @@ async def bulk_create_tasks(column_id: str, payload: ColumnBulkCreate, current_u
     if not col:
         raise HTTPException(status_code=404, detail="Column not found")
 
-    ensure_board_access(db, col.board_id, current_user, ["owner", "moderator", "member"])
+    ensure_board_access(db, col.board_id, current_user, ["owner", "editor", "moderator", "member"])
 
     max_order_row = db.query(models.Task.order).filter(
         models.Task.column_id == column_id

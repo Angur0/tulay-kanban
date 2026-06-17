@@ -104,6 +104,7 @@
     }
 
     function handleBulkDelete() {
+        if (!canDeleteTasks) return;
         isBulkDeleting = true;
         isMenuOpen = false;
     }
@@ -207,7 +208,8 @@
     $: columnTasks = $filteredTasksByColumn[column.id] || [];
     $: colorClass = columnColorClasses[index % columnColorClasses.length];
     $: canManage = ["owner", "moderator"].includes($currentBoardRole);
-    $: canAdd = ["owner", "moderator", "member"].includes($currentBoardRole);
+    $: canAdd = ["owner", "editor", "moderator", "member"].includes($currentBoardRole);
+    $: canDeleteTasks = ["owner", "editor"].includes($currentBoardRole);
 
     function toggleMenu() {
         isMenuOpen = !isMenuOpen;
@@ -559,6 +561,7 @@
                             <span class="material-symbols-outlined text-[18px]">move_down</span>
                             Bulk move tasks
                         </button>
+                        {#if canDeleteTasks}
                         <button
                             on:click={handleBulkDelete}
                             class="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left"
@@ -566,6 +569,7 @@
                             <span class="material-symbols-outlined text-[18px]">delete_sweep</span>
                             Bulk delete tasks
                         </button>
+                        {/if}
                         <div
                             class="border-t border-[#e5e7eb] dark:border-[#1e2936] my-1"
                         ></div>

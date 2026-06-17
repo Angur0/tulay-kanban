@@ -56,7 +56,8 @@
     let lightboxImages: string[] = [];
     let lightboxIndex = 0;
 
-    $: canManage = ["owner", "moderator", "member"].includes($currentBoardRole);
+    $: canManage = ["owner", "editor", "moderator", "member"].includes($currentBoardRole);
+    $: canDeleteTask = ["owner", "editor"].includes($currentBoardRole);
     $: assigneeOptions = $boardMembers.map((member) => ({
         id: member.user?.id || member.user_id,
         name:
@@ -507,7 +508,7 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
-                    {#if canManage}
+                    {#if canDeleteTask}
                         <button
                             on:click={handleDeleteTask}
                             disabled={isDeleting}
@@ -537,6 +538,16 @@
                     <div class="p-3 bg-yellow-50 text-yellow-700 rounded border border-yellow-200 text-sm flex items-center gap-2">
                         <span class="material-symbols-outlined text-[18px]">warning</span>
                         Warning: One or more dates are in the past.
+                    </div>
+                {/if}
+
+                {#if task.is_orphaned}
+                    <div class="p-3.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-xl text-sm text-amber-800 dark:text-amber-400 flex items-start gap-3">
+                        <span class="material-symbols-outlined text-amber-600 dark:text-amber-500 text-[20px] flex-shrink-0 mt-0.5">warning</span>
+                        <div class="flex-1">
+                            <h4 class="font-bold text-xs uppercase tracking-wide mb-0.5">Orphaned Task</h4>
+                            <p class="text-xs">The original assignee's account was deleted or suspended. Reassign this task to someone else to resolve the warning.</p>
+                        </div>
                     </div>
                 {/if}
 

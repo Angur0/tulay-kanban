@@ -16,7 +16,7 @@
 
     export let task: Task;
 
-    $: canManage = ["owner", "moderator", "member"].includes($currentBoardRole);
+    $: canManage = ["owner", "editor", "moderator", "member"].includes($currentBoardRole);
     $: assignee = task.assignee_id
         ? $boardMembers
               .map((member) => member.user || { id: member.user_id, email: member.user_email, full_name: member.user_full_name })
@@ -182,8 +182,11 @@
     <!-- Task Header -->
     <div class="flex justify-between items-start gap-2">
         <span
-            class="text-sm font-medium text-[#111418] dark:text-gray-200 leading-snug"
+            class="text-sm font-medium text-[#111418] dark:text-gray-200 leading-snug flex items-center gap-1.5"
         >
+            {#if task.is_orphaned}
+                <span class="text-amber-500 material-symbols-outlined text-[16px] flex-shrink-0" title="Orphaned task: owner has been deleted">warning</span>
+            {/if}
             {task.title}
         </span>
         {#if task.due_date}

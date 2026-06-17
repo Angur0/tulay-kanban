@@ -28,7 +28,7 @@
         name: member.user?.full_name || member.user_full_name || member.user?.email || member.user_email,
     }));
 
-    $: canManage = ["owner", "moderator", "member"].includes($currentBoardRole);
+    $: canManage = ["owner", "editor", "moderator", "member"].includes($currentBoardRole);
 
     $: if ($activeModal !== "createTaskModal") {
         // Reset form when modal closes

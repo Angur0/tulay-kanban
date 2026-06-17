@@ -22,7 +22,7 @@ board_members = Table(
     Base.metadata,
     Column("user_id", String, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
     Column("board_id", String, ForeignKey("boards.id", ondelete="CASCADE"), primary_key=True),
-    Column("role", String, default="viewer") # roles: owner, moderator, member, viewer
+    Column("role", String, default="viewer") # roles: owner, editor, moderator, member, viewer
 )
 
 class User(Base):
@@ -33,6 +33,10 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     full_name = Column(String)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    is_admin = Column(Boolean, default=False, nullable=False)
+    must_change_password = Column(Boolean, default=False, nullable=False)
+    is_banned = Column(Boolean, default=False, nullable=False)
+    ban_until = Column(DateTime, nullable=True)
 
     owned_workspaces = relationship("Workspace", back_populates="owner")
     workspaces = relationship("Workspace", secondary=workspace_members, back_populates="members")
@@ -112,6 +116,7 @@ class Task(Base):
     images = Column(JSON, default=[])
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    is_orphaned = Column(Boolean, default=False, nullable=False)
 
     board = relationship("Board", back_populates="tasks")
     assignee = relationship("User", back_populates="tasks")
@@ -176,3 +181,20 @@ class Subtask(Base):
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
     task = relationship("Task", back_populates="subtasks")
+
+
+class TokenBlacklist(Base):
+    __tablename__ = "token_blacklist"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class SystemSettings(Base):
+    __tablename__ = "system_settings"
+
+    id = Column(String, primary_key=True, default="singleton")
+    maintenance_mode = Column(Boolean, default=False, nullable=False)
+    maintenance_start = Column(DateTime, nullable=True)
+    maintenance_end = Column(DateTime, nullable=True)

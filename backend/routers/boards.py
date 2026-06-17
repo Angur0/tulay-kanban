@@ -38,27 +38,52 @@ def get_boards(ws_id: str, current_user: models.User = Depends(get_current_user)
     ws = db.query(models.Workspace).filter(models.Workspace.id == ws_id).first()
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
-    boards = db.query(models.Board).join(
+    boards_with_roles = db.query(models.Board, models.board_members.c.role).join(
         models.board_members, models.Board.id == models.board_members.c.board_id
     ).filter(
         models.Board.workspace_id == ws_id,
         models.board_members.c.user_id == current_user.id
     ).order_by(models.Board.position).all()
-    print(f"Returning {len(boards)} boards for workspace {ws_id}")
-    for board in boards:
-        print(f"  Board: id={board.id}, name={board.name}, icon={board.icon}")
-    return boards
+    print(f"Returning {len(boards_with_roles)} boards for workspace {ws_id}")
+    
+    result = []
+    for board, role in boards_with_roles:
+        print(f"  Board: id={board.id}, name={board.name}, icon={board.icon}, role={role}")
+        board_dict = {
+            "id": board.id,
+            "name": board.name,
+            "icon": board.icon,
+            "icon_color": board.icon_color,
+            "position": board.position,
+            "workspace_id": board.workspace_id,
+            "role": role
+        }
+        result.append(board_dict)
+    return result
 
 
 @router.get("/api/boards", response_model=List[BoardResponse])
 def get_all_boards(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    boards = db.query(models.Board).join(
+    boards_with_roles = db.query(models.Board, models.board_members.c.role).join(
         models.board_members, models.Board.id == models.board_members.c.board_id
     ).filter(
         models.board_members.c.user_id == current_user.id
     ).order_by(models.Board.position).all()
-    print(f"Returning {len(boards)} boards for user {current_user.email}")
-    return boards
+    print(f"Returning {len(boards_with_roles)} boards for user {current_user.email}")
+    
+    result = []
+    for board, role in boards_with_roles:
+        board_dict = {
+            "id": board.id,
+            "name": board.name,
+            "icon": board.icon,
+            "icon_color": board.icon_color,
+            "position": board.position,
+            "workspace_id": board.workspace_id,
+            "role": role
+        }
+        result.append(board_dict)
+    return result
 
 
 @router.post("/api/boards", response_model=BoardResponse)
@@ -246,7 +271,7 @@ def get_board_members(board_id: str, current_user: models.User = Depends(get_cur
 
 @router.post("/api/boards/{board_id}/members", response_model=BoardMemberResponse)
 def add_board_member(board_id: str, member_in: BoardMemberCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    ensure_board_access(db, board_id, current_user, ["owner", "moderator"])
+    ensure_board_access(db, board_id, current_user, ["owner"])
     
     target_user = db.query(models.User).filter(models.User.email == member_in.user_email).first()
     if not target_user:
@@ -309,7 +334,7 @@ def update_board_member(board_id: str, user_id: str, member_in: BoardMemberUpdat
     
 @router.delete("/api/boards/{board_id}/members/{user_id}")
 def remove_board_member(board_id: str, user_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    ensure_board_access(db, board_id, current_user, ["owner", "moderator"])
+    ensure_board_access(db, board_id, current_user, ["owner"])
     
     # Cannot remove the last owner
     if str(user_id) == str(current_user.id):

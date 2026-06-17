@@ -5,16 +5,23 @@ Tulay Kanban is a real-time Kanban task management app for workspaces, boards, l
 ## Features
 
 - Multi-workspace, multi-board Kanban workflow
-- Role-based board access for owners, moderators, members, and viewers
+- Role-based board access for owners, editors, moderators, members, and viewers
+- Dedicated Single Admin Account and User Management Panel
+- System Maintenance Mode (Emergency lockout and scheduled maintenance windows with real-time countdown overlays)
 - Drag-and-drop ordering for columns and tasks
 - Mobile-responsive app shell with an off-canvas navigation drawer
-- Board, My Tasks, and Gantt/timeline views
+- Board, My Tasks, Gantt/timeline, and Calendar views
 - Task detail panel with priority, dates, assignee, labels, comments, subtasks, and images
-- Search, filters, board/list/task management modals, and account settings
-- Live updates via WebSockets
+- Search (with multi-label filter chips), board filters, board/list/task modals, and account settings
+- Live updates via WebSockets with real-time assignment notifications
+- Toast notification system for user actions (task CRUD, drag-and-drop, and bulk changes)
+- Smart column/list archive-first deletion with warning suppression (per-browser settings)
+- Orphaned tasks indicators for users that have been deleted or suspended
 - Image uploads with local storage by default and optional Cloudflare R2 support
+- Gantt timeline color-coding by column with export styling support
 - Gantt image/PDF export and board CSV export
 - Light/dark theme
+
 
 ## Tech Stack
 
@@ -129,10 +136,10 @@ During development, the frontend dev server at port `5173` acts as a reverse pro
 
 ## Demo Login
 
-- Email: `test@example.com`
-- Password: `password123`
+- Email: `admin@tulay.local`
+- Password: `admin1234`
 
-The backend seed setup creates the demo user if it is missing. Registration UI exists, but backend registration is intentionally disabled.
+The backend seed setup creates the default admin user if it is missing. Registration UI exists, but backend registration is intentionally disabled. On first login, you will be prompted to change this default password.
 
 ## Common Commands
 
@@ -205,6 +212,7 @@ tulay-kanban/
 │   │   ├── realtime.py
 │   │   └── setup.py
 │   ├── routers/
+│   │   ├── admin.py
 │   │   ├── auth.py
 │   │   ├── boards.py
 │   │   ├── labels.py
@@ -246,6 +254,8 @@ Canonical project docs:
 - [Planned Changes](docs/02_planned_changes.md)
 - [Done Changes](docs/03_done_changes.md)
 - [Issues](docs/04_issues.md)
+- [Task UX Improvements Plan](docs/05_task_ux_improvements_plan.md)
+
 
 Additional reference docs:
 

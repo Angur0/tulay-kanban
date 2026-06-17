@@ -1,5 +1,26 @@
 # Done Changes
 
+### 2026-06-18
+
+**Added:**
+- Implemented System Maintenance Mode including manual emergency lockout and scheduled maintenance windows.
+- Created administrative endpoints `GET /api/admin/settings` and `PUT /api/admin/settings` to inspect and update system configurations.
+- Added a `SystemSettings` database table (singleton) to persist active states and scheduling.
+- Protected authentication boundaries (`get_current_user`, `/login`, `/register`) to enforce maintenance lockout on non-admin users.
+- Implemented a global `MaintenanceOverlay.svelte` component inside `AppLayout.svelte`, rendering a localized under-maintenance dashboard with a dynamic countdown timer for blocked users.
+- Implemented a project-wide single admin account system (ghost mode: invisible in board member lists but has full "owner" rights on all boards across all workspaces).
+- Created a separate Admin Panel (`/admin` view) for user management (listing, name/email edits, password resets, timeouts/bans, and account deletions).
+- Added instant suspension and ban capability using backend JWT token blacklisting.
+- Implemented a forced password-change prompt on login for users logging in with default or newly generated temporary passwords.
+- Added a new `editor` board role restricted specifically to task-focused actions (create, edit, move, delete).
+- Added visual "Orphaned Task" flags and warning banners for tasks previously assigned to deleted or suspended users.
+
+**Changed:**
+- Restricted task deletion permissions exclusively to board owners and editors.
+- Restricted board member management permissions to board owners and admins only (removed from moderators).
+- Updated context menus, task modals, calendar views, and column views to enforce role-based access for the new `editor` role.
+- Removed default test account credentials from the login page and backend database seeding.
+
 ### 2026-06-17
 
 **Added:**
@@ -17,7 +38,11 @@
 - Added List Settings modal with toggle settings for is_hidden and is_archive, and customized column headers to display status badges.
 - Implemented global Show Hidden Lists filter option in FilterBar.svelte and filtered lists in BoardView.svelte.
 - Created bulk list actions for tasks: bulk move to another list, bulk delete (archiving tasks if Archive list exists), and bulk creation.
+- Implemented task column color-coding in Gantt View (`GanttView.svelte`), styling task bars dynamically based on their board column, and propagated the styling to backend PNG/PDF exports (`gantt_image_service.py`).
+- Added a visual legend for Gantt chart items, distinguishing "Scheduled (List Color)" and "Unscheduled (50% Opacity)" tasks.
+- Added interactive label filter chips to the global Search Modal (`SearchModal.svelte`) to allow filtering search results by one or more labels.
 - Removed line-through and opacity styles on completed main tasks.
+
 
 ### 2026-06-15
 

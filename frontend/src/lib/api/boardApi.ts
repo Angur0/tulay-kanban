@@ -6,7 +6,9 @@ import { get } from 'svelte/store';
 
 export async function loadBoards() {
     try {
-        const response = await authFetch(`${API_URL}/api/boards`);
+        const user = get(currentUser);
+        const url = user?.is_admin ? `${API_URL}/api/admin/boards` : `${API_URL}/api/boards`;
+        const response = await authFetch(url);
         if (!response) return;
 
         const loadedBoards = await response.json();
@@ -116,15 +118,19 @@ export async function loadBoardMembers() {
         setBoardMembers(normalizedMembers);
 
         const me = get(currentUser);
-        const myMembership = me
-            ? members.find((member: any) => String(member.user_id) === String(me.id))
-            : null;
-
-        const role = myMembership?.role;
-        if (role === 'owner' || role === 'moderator' || role === 'member' || role === 'viewer') {
-            setCurrentBoardRole(role);
+        if (me?.is_admin) {
+            setCurrentBoardRole('owner');
         } else {
-            setCurrentBoardRole('viewer');
+            const myMembership = me
+                ? members.find((member: any) => String(member.user_id) === String(me.id))
+                : null;
+
+            const role = myMembership?.role;
+            if (role === 'owner' || role === 'editor' || role === 'moderator' || role === 'member' || role === 'viewer') {
+                setCurrentBoardRole(role);
+            } else {
+                setCurrentBoardRole('viewer');
+            }
         }
     } catch (e) {
         console.error('Failed to load board members', e);
@@ -172,5 +178,27 @@ export async function removeBoardMember(userId: string) {
         return { success: true };
     } catch (e) {
         return { success: false, error: 'Error removing member' };
+    }
+}
+
+export async function updateBoardMemberRole(userId: string, role: string) {
+    const boardId = get(activeBoardId);
+    if (!boardId) return { success: false, error: 'No active board' };
+
+    try {
+        const response = await authFetch(`${API_URL}/api/boards/${boardId}/members/${userId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ role })
+        });
+
+        if (!response?.ok) {
+            const err = await response?.json().catch(() => ({}));
+            return { success: false, error: err?.detail || 'Failed to update role' };
+        }
+
+        await loadBoardMembers();
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: 'Error updating role' };
     }
 }

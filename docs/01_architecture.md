@@ -89,7 +89,28 @@ Image paths are stored as relative paths (e.g. `/uploads/foo.jpg`) in the databa
 
 # Gantt Chart
 
-The Gantt view (`GanttView.svelte`) uses Frappe Gantt in **read-only mode** (`readonly: true`). Dragging task bars to change dates is disabled for all roles. Dates are edited via the task modal. Clicking a bar opens the task modal. The view supports Day / Week / Month modes and an optional Compress View that collapses large empty date gaps.
+The Gantt view (`GanttView.svelte`) uses Frappe Gantt in **read-only mode** (`readonly: true`). Dragging task bars to change dates is disabled. The view supports Day / Week / Month modes and an optional Compress View that collapses large empty date gaps. Task bars are dynamically color-coded based on their current column/list index (modulo 8, using classes `gantt-bar-color-0` through `7`) to match the list grouping. Unscheduled tasks (displaying default dates) are rendered at 50% opacity. The color-coding and view modes propagate to PNG/PDF exports generated via Playwright.
+
+# Calendar View
+
+The Calendar view (`CalendarView.svelte`) displays tasks on a calendar layout with three sub-views: Month, Week, and Day.
+- **State Persistence:** The selected year, month, day, and active view mode are stored locally, surviving view switches during the session.
+- **Responsiveness:** Grids adjust layout dynamically. On small screens, Month and Week views display portrait-orientation alerts prompting device rotation, while the Day view falls back to a compact, vertically stacked list of hourly task strips.
+- **Integrations:** Supports desktop click-to-create inline task forms with pre-filled due dates, and dynamically filters displayed tasks using the board's active FilterBar selections (search text, labels, and priorities).
+
+# Toast Notifications & Realtime Alerts
+
+- **Toast System:** A central toast notification store (`stores/toast.ts`) handles success, warning, error, and info popups with a 2-second auto-dismiss. The `<ToastContainer />` is mounted globally in `AppLayout.svelte`.
+- **User Action Feedback:** Triggered when the current user completes CRUD actions (creating/updating/deleting tasks, moving columns, and executing bulk list operations).
+- **WebSocket Alerts:** Listens to the `/ws/{board_id}` WebSocket connection. When a `TASK_UPDATED` broadcast event indicates that the current user has been assigned to a task by another member, it generates a real-time toast alert.
+
+# System Maintenance Mode
+
+Tulay Kanban includes administrative maintenance mode configurations to lock out non-admin users during emergency operations or scheduled database windows.
+
+- **Backend Enforcement**: Maintenance status is evaluated during authentication boundaries (`get_current_user` dependency) and user lifecycle gates (`/login`, `/register`). If the system settings indicate active manual maintenance or a current UTC timestamp falling within the scheduled maintenance window, non-admin users receive an `HTTP 503 Service Unavailable` response containing details about the maintenance state and estimated return time.
+- **Frontend Interception**: The `authFetch` client globally intercepts `503` responses. If a maintenance payload is detected, it populates Svelte stores (`isMaintenanceMode` and `maintenanceEndTime`). This triggers the `MaintenanceOverlay.svelte` component to mount globally, locking out user interactions and providing a live, localized countdown timer of the remaining maintenance duration.
+- **Admin Configuration**: Administrators manage the system settings via a dashboard card in the Admin Panel (`AdminView.svelte`), which triggers `GET` and `PUT` operations on `/api/admin/settings`. Pickers set local times, which the client converts to UTC ISO strings before storing them in the `SystemSettings` singleton DB table.
 
 # Core Integrations
 
@@ -99,3 +120,5 @@ The Gantt view (`GanttView.svelte`) uses Frappe Gantt in **read-only mode** (`re
 - JWT auth: login-protected API access and current-user lookup.
 - Upload storage: local `uploads/` directory by default, optional Cloudflare R2 via storage environment variables.
 - Frappe Gantt: read-only timeline/Gantt visualization in the frontend.
+- svelte-simple-calendar (or custom calendar rendering): custom month/week/day calendar grid logic.
+

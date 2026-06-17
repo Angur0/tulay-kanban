@@ -312,7 +312,7 @@
         {/each}
 
         <!-- Add List Button -->
-        {#if $columns.length > 0 && ["owner", "moderator", "member"].includes($currentBoardRole)}
+        {#if $columns.length > 0 && ["owner", "editor", "moderator", "member"].includes($currentBoardRole)}
             <div class="flex-shrink-0 h-full flex items-stretch">
                 <button
                     on:click={showCreateListModal}

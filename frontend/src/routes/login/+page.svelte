@@ -44,11 +44,28 @@
 
             if (!response.ok) {
                 const error = await response.json().catch(() => ({}));
-                throw new Error(error.detail || `Server error ${response.status}`);
+                const detail = error.detail;
+                let message = `Server error ${response.status}`;
+                if (typeof detail === 'object' && detail !== null) {
+                    message = detail.message || JSON.stringify(detail);
+                } else if (typeof detail === 'string') {
+                    message = detail;
+                }
+                throw new Error(message);
             }
 
             const data = await response.json();
             localStorage.setItem("access_token", data.access_token);
+            if (data.must_change_password) {
+                localStorage.setItem("must_change_password", "true");
+            } else {
+                localStorage.removeItem("must_change_password");
+            }
+            if (data.is_admin) {
+                localStorage.setItem("is_admin", "true");
+            } else {
+                localStorage.removeItem("is_admin");
+            }
             window.location.href = "/";
         } catch (error: any) {
             if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
@@ -79,7 +96,14 @@
 
             if (!response.ok) {
                 const error = await response.json().catch(() => ({}));
-                throw new Error(error.detail || "Registration failed");
+                const detail = error.detail;
+                let message = "Registration failed";
+                if (typeof detail === 'object' && detail !== null) {
+                    message = detail.message || JSON.stringify(detail);
+                } else if (typeof detail === 'string') {
+                    message = detail;
+                }
+                throw new Error(message);
             }
 
             successMessage =
@@ -353,57 +377,6 @@
                         >check_circle</span
                     >
                     <span>{successMessage}</span>
-                </div>
-            {/if}
-
-            <!-- Test Credentials -->
-            {#if activeTab === "login"}
-                <div class="px-8 pb-8">
-                    <div
-                        class="pt-6 border-t border-[#e5e7eb] dark:border-[#1e2936]"
-                    >
-                        <div class="flex items-center gap-2 mb-3">
-                            <span
-                                class="material-symbols-outlined text-[14px] text-[#8a98a8]"
-                                >science</span
-                            >
-                            <p
-                                class="text-xs font-semibold text-[#8a98a8] uppercase tracking-wider"
-                            >
-                                Test Credentials
-                            </p>
-                        </div>
-                        <div
-                            class="bg-[#fbfcfd] dark:bg-[#0d141c] rounded-lg px-4 py-3 border border-[#e5e7eb] dark:border-[#1e2936]"
-                        >
-                            <div
-                                class="flex items-center justify-between text-sm mb-1"
-                            >
-                                <span class="text-[#5c6b7f] dark:text-gray-400"
-                                    >Email:</span
-                                >
-                                <span
-                                    class="text-primary font-medium select-all cursor-pointer hover:underline"
-                                    on:click={() =>
-                                        (loginEmail = "test@example.com")}
-                                    >test@example.com</span
-                                >
-                            </div>
-                            <div
-                                class="flex items-center justify-between text-sm"
-                            >
-                                <span class="text-[#5c6b7f] dark:text-gray-400"
-                                    >Password:</span
-                                >
-                                <span
-                                    class="text-primary font-medium select-all cursor-pointer hover:underline"
-                                    on:click={() =>
-                                        (loginPassword = "password123")}
-                                    >password123</span
-                                >
-                            </div>
-                        </div>
-                    </div>
                 </div>
             {/if}
         </div>

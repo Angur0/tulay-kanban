@@ -7,6 +7,9 @@ def ensure_board_access(db: Session, board_id: str, current_user: models.User, r
     if not board:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Board not found")
         
+    if current_user.is_admin:
+        return "owner"
+        
     stmt = models.board_members.select().where(
         models.board_members.c.user_id == current_user.id,
         models.board_members.c.board_id == board_id

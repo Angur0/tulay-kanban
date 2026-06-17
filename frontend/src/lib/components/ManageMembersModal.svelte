@@ -2,14 +2,32 @@
     import { activeModal, closeModal } from "$lib/stores/ui";
     import { boardMembers } from "$lib/stores/board";
     import { currentBoardRole } from "$lib/stores/user";
-    import { addBoardMember, removeBoardMember } from "$lib/api/boardApi";
+    import { addBoardMember, removeBoardMember, updateBoardMemberRole } from "$lib/api/boardApi";
 
     let emailInput = "";
+    let roleInput = "viewer";
     let isAdding = false;
     let addError: string | null = null;
     let isRemoving: string | null = null; // store userId being removed
+    let isUpdatingRole: string | null = null;
 
-    $: canManage = ["owner", "moderator"].includes($currentBoardRole);
+    $: canManage = $currentBoardRole === "owner";
+
+    async function handleRoleChange(userId: string, newRole: string) {
+        if (!canManage) return;
+        isUpdatingRole = userId;
+        addError = null;
+        try {
+            const res = await updateBoardMemberRole(userId, newRole);
+            if (!res.success) {
+                addError = res.error || "Failed to update role";
+            }
+        } catch (err: any) {
+            addError = err.message || "Failed to update role";
+        } finally {
+            isUpdatingRole = null;
+        }
+    }
 
     async function handleAddMember(e: Event) {
         e.preventDefault();
@@ -19,7 +37,7 @@
         addError = null;
 
         try {
-            const res = await addBoardMember(emailInput.trim(), "viewer"); // Default role
+            const res = await addBoardMember(emailInput.trim(), roleInput);
             if (!res.success) {
                 addError = res.error || "Failed to add member";
             } else {
@@ -103,20 +121,30 @@
                                 class="block text-sm font-medium text-[#5c6b7f] dark:text-gray-400 mb-2"
                                 >Add Member</label
                             >
-                            <div class="flex gap-2">
+                            <div class="flex gap-2 flex-wrap md:flex-nowrap w-full">
                                 <input
                                     type="email"
                                     id="memberEmail"
                                     bind:value={emailInput}
                                     required
                                     placeholder="Enter email address"
-                                    class="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-[#111418] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
+                                    class="flex-1 min-w-[150px] px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-[#111418] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
                                     disabled={isAdding}
                                 />
+                                <select
+                                    bind:value={roleInput}
+                                    disabled={isAdding}
+                                    class="px-2 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-[#111418] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
+                                >
+                                    <option value="viewer">Viewer</option>
+                                    <option value="member">Member</option>
+                                    <option value="editor">Editor</option>
+                                    <option value="moderator">Moderator</option>
+                                </select>
                                 <button
                                     type="submit"
                                     disabled={isAdding || !emailInput.trim()}
-                                    class="px-4 py-2 bg-primary hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                    class="px-4 py-2 bg-primary hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 flex-shrink-0"
                                 >
                                     {#if isAdding}
                                         <span
@@ -186,10 +214,24 @@
                                     <div
                                         class="flex items-center gap-2 flex-shrink-0 ml-4"
                                     >
-                                        <span
-                                            class="px-2 py-1 bg-[#eff1f3] dark:bg-[#1e2936] text-[#5c6b7f] dark:text-gray-400 text-xs font-medium rounded capitalize"
-                                            >{member.role}</span
-                                        >
+                                        {#if canManage && member.role !== "owner"}
+                                            <select
+                                                value={member.role}
+                                                on:change={(e) => handleRoleChange(member.user.id, e.currentTarget.value)}
+                                                disabled={isUpdatingRole === member.user.id}
+                                                class="px-2 py-1 bg-[#eff1f3] dark:bg-[#1e2936] text-[#5c6b7f] dark:text-[#c9d1d9] text-xs font-medium rounded capitalize border-0 focus:ring-1 focus:ring-primary focus:outline-none"
+                                            >
+                                                <option value="viewer">Viewer</option>
+                                                <option value="member">Member</option>
+                                                <option value="editor">Editor</option>
+                                                <option value="moderator">Moderator</option>
+                                            </select>
+                                        {:else}
+                                            <span
+                                                class="px-2 py-1 bg-[#eff1f3] dark:bg-[#1e2936] text-[#5c6b7f] dark:text-gray-400 text-xs font-medium rounded capitalize"
+                                                >{member.role}</span
+                                            >
+                                        {/if}
                                         {#if canManage && member.role !== "owner"}
                                             <button
                                                 on:click={() => handleRemoveMember(member.user.id)}

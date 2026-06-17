@@ -2,7 +2,7 @@
     import Sidebar from "./Sidebar.svelte";
     import Header from "./Header.svelte";
     import SearchModal from "./SearchModal.svelte";
-    import { isMobileSidebarOpen, closeMobileSidebar } from "$lib/stores/ui";
+    import { isMobileSidebarOpen, closeMobileSidebar, isServerOffline, isMaintenanceMode } from "$lib/stores/ui";
     import CreateBoardModal from "./CreateBoardModal.svelte";
     import CreateListModal from "./CreateListModal.svelte";
     import EditListModal from "./EditListModal.svelte";
@@ -16,6 +16,8 @@
     import AccountSettingsModal from "./AccountSettingsModal.svelte";
     import ContextMenus from "./ContextMenus.svelte";
     import CreateTaskModal from "./CreateTaskModal.svelte";
+    import ChangePasswordPrompt from "./ChangePasswordPrompt.svelte";
+    import MaintenanceOverlay from "./MaintenanceOverlay.svelte";
     import { onMount, onDestroy } from "svelte";
     import { get } from "svelte/store";
     import { createColumn } from "$lib/api/listsApi";
@@ -173,6 +175,26 @@
         <Header />
         <div class="flex-1 flex flex-col relative overflow-hidden">
             {@render children()}
+            
+            {#if $isMaintenanceMode}
+                <MaintenanceOverlay />
+            {:else if $isServerOffline}
+                <div class="absolute inset-0 z-[60] bg-white/80 dark:bg-[#151e29]/80 backdrop-blur-sm flex flex-col items-center justify-center p-8 text-center animate-in fade-in duration-300">
+                    <div class="w-20 h-20 mb-6 rounded-full bg-red-50 dark:bg-red-900/30 flex items-center justify-center text-red-500 relative shadow-sm">
+                        <span class="material-symbols-outlined text-4xl">cloud_off</span>
+                        <div class="absolute inset-0 rounded-full border border-red-500/50 animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite]"></div>
+                    </div>
+                    <h2 class="text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white mb-3">Connection Lost</h2>
+                    <p class="text-gray-600 dark:text-gray-400 max-w-md mx-auto mb-8 text-lg">
+                        We're having trouble reaching the server. The app is actively trying to reconnect in the background.
+                    </p>
+                    <div class="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-primary/10 text-primary font-medium">
+                        <span class="material-symbols-outlined animate-spin text-xl">sync</span>
+                        <span>Reconnecting...</span>
+                    </div>
+                </div>
+            {/if}
+
             <TaskModal task={$activeTask} />
         </div>
     </main>
@@ -188,6 +210,7 @@
     <AccountSettingsModal />
     <ContextMenus />
     <CreateTaskModal />
+    <ChangePasswordPrompt />
     {#if $isSearchOpen}
         <SearchModal />
     {/if}
