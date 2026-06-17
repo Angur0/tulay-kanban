@@ -41,130 +41,47 @@ Tulay Kanban is a real-time Kanban task management app for workspaces, boards, l
 - Node.js 18+
 - npm
 
-## Quick Start
+## Running the Application (Local Deployment with Docker)
 
-### 1. Database Setup
+Tulay Kanban is fully containerized with Docker, making it simple to deploy locally across Windows and Linux. The deployment features automatic Tailscale split-DNS, meaning it is accessible natively via `http://tulay-kanban.internal` on any device on your Tailnet.
 
-Ensure Docker is running, then start the PostgreSQL database:
+### Prerequisites
 
-```bash
-docker compose up -d
-```
-
-### 2. Backend Setup (Python Virtual Environment)
-
-Create and activate a virtual environment, then install Python dependencies:
-
-**On Linux / macOS:**
-```bash
-# Create venv
-python3 -m venv venv
-
-# Activate venv
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-**On Windows (PowerShell or CMD):**
-```cmd
-:: Create venv
-python -m venv venv
-
-:: Activate venv
-call venv\Scripts\activate
-
-:: Install dependencies
-pip install -r requirements.txt
-```
-
-### 3. Frontend Setup
-
-Install Node.js dependencies:
-
-```bash
-cd frontend
-npm install
-cd ..
-```
-
----
-
-## Running the Application
-
-### Option A: Using Launch Scripts (Recommended)
-
-Both launch scripts automatically open/close the development port (5173) in your firewall, activate the virtual environment, and run the backend and frontend simultaneously.
-
-- **Linux (Arch / others with UFW):**
-  ```bash
-  ./scripts/launch_arch_linux.sh
-  ```
-  *(Requires `sudo` permissions to configure UFW firewall port 5173).*
-
-- **Windows:**
-  Right-click `scripts/launch_windows.bat` and select **Run as Administrator** *(required to configure the Windows Firewall rule for port 5173).*
-
-### Option B: Manual Startup
-
-If you prefer starting them manually in separate terminals:
-
-1. **Start Backend (FastAPI):**
-   ```bash
-   # Make sure venv is active
-   python main.py
-   ```
-   *(Starts backend API locally on port 8000).*
-
-2. **Start Frontend (Vite):**
-   ```bash
-   cd frontend
-   npm run dev -- --host 0.0.0.0
-   ```
-   *(Starts frontend dev server on port 5173).*
-
-### Option C: Running inside Docker (Local Network Deployment with Tailscale)
-
-This is the recommended approach for deploying the application on a local server or host machine accessible via Tailscale under `http://tulay-kanban.internal`.
-
-#### Prerequisites
 1. Docker and Docker Compose installed.
 2. Tailscale running on the host and client devices.
-3. If running on **Windows**, run the following in an administrator PowerShell to free port 53 (so the DNS container can bind to it):
+3. If running on **Windows**, you must free port 53 so the DNS container can bind to it. Run this in an Administrator PowerShell:
    ```powershell
    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Dnscache\Parameters" -Name EnableGlobalQueryBlockList -Value 0
    Stop-Service Dnscache -Force; Start-Service Dnscache
    ```
 
-#### 1. Setup Environment
-Copy `.env.example` to `.env` and configure:
-- `HOST_TAILSCALE_IP`: Set this to your host's Tailscale IP (e.g., `100.x.x.x`).
-- `HOST_HTTP_PORT`: Set this to `80` (or another port like `8080` if 80 is occupied).
+### 1. Setup Environment
 
-#### 2. Start Containers
-Build and run the containers:
+Copy `.env.example` to `.env` and configure:
+- `HOST_TAILSCALE_IP`: Set this to your host machine's Tailscale IPv4 address (find it by running `tailscale ip -4`).
+- `HOST_HTTP_PORT`: Keep as `80`. *(If port 80 is occupied on your host, you must either stop the conflicting service, or change this port to `8080`)*.
+- Update the `POSTGRES_*` credentials and `SECRET_KEY` if desired.
+
+### 2. Start Containers
+
+Build and start the application stack (Postgres, Backend, Frontend, and DNS):
 ```bash
 docker compose up -d --build
 ```
-This starts four containers: Postgres, Backend (FastAPI), Frontend (Nginx), and DNS (dnsmasq).
 
-#### 3. Configure Tailscale Split-DNS (One-Time Setup)
-1. Open the **Tailscale Admin Console** -> **DNS** (https://login.tailscale.com/admin/dns).
+### 3. Configure Tailscale Split-DNS (One-Time Setup)
+
+1. Open your **[Tailscale Admin Console -> DNS](https://login.tailscale.com/admin/dns)**.
 2. Under **Nameservers** click **Add nameserver** -> **Custom**.
-3. Set the IP address to your host machine's Tailscale IP.
+3. Set the IP address to your host machine's Tailscale IP (the same one you put in `.env`).
 4. Select **Restrict to domain** and enter `internal`.
 5. Save the configuration.
 
-Now, all Tailscale-connected devices can access the app directly at **`http://tulay-kanban.internal`** (or `http://tulay-kanban.internal:8080` if using a custom port)!
-
 ### Accessing the App
 
-During development, the frontend dev server at port `5173` acts as a reverse proxy for the backend. **You only need to expose and connect to port `5173` on client devices (including over VPNs like Tailscale).**
+Once deployed and configured, simply open a browser on any Tailscale-connected device:
 
-- **App URL:** `http://<your-ip-or-host>:5173`
-- **Login URL:** `http://<your-ip-or-host>:5173/login`
-- **Direct Backend (Localhost only):** `http://localhost:8000` (e.g. `/api/health`, `/uploads/`)
+- **App URL:** `http://tulay-kanban.internal` (or `http://tulay-kanban.internal:8080` if you changed the port).
 
 ---
 
@@ -175,62 +92,39 @@ During development, the frontend dev server at port `5173` acts as a reverse pro
 
 The backend seed setup creates the default admin user if it is missing. Registration UI exists, but backend registration is intentionally disabled. On first login, you will be prompted to change this default password.
 
-## Common Commands
+## Development Commands
 
-Backend:
+If you are modifying the codebase and need to test things manually:
 
+Infrastructure:
 ```bash
-python main.py
-python clean_db.py
-python scripts/clean_db.py
+docker compose up -d
+docker compose ps
+docker compose logs -f
+docker compose down
 ```
 
-Frontend:
-
+Frontend (requires Node 20+):
 ```bash
 cd frontend
 npm run dev
 npm run check
 npm run build
-npm run preview
 ```
-
-Infrastructure:
-
-```bash
-docker compose up -d
-docker compose ps
-docker compose down
-```
-
-## Production Build Notes
-
-Build the frontend before relying on FastAPI static serving:
-
-```bash
-cd frontend
-npm run build
-cd ..
-python main.py
-```
-
-FastAPI mounts `frontend/dist` assets and serves the built root page at `/`. During development, prefer the Vite dev server at `http://localhost:5173` for client-side routing, hot-reload, and proxying.
 
 ## Environment Variables
 
+Your `.env` file controls the Docker deployment. Key variables:
+
+- `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB`: Database credentials.
+- `SECRET_KEY`: Used to securely sign JWT tokens.
+- `HOST_TAILSCALE_IP`: Used by the DNS container to route `.internal` traffic.
+- `HOST_HTTP_PORT`: Exposed HTTP port on the host machine.
 - `STORAGE_BACKEND`: `local` by default; set to `r2` for Cloudflare R2.
-- `BASE_URL`: base URL for absolute local file URLs, for example `http://localhost:8000`.
-- `R2_ACCOUNT_ID`: Cloudflare R2 account ID.
-- `R2_ACCESS_KEY_ID`: Cloudflare R2 access key.
-- `R2_SECRET_ACCESS_KEY`: Cloudflare R2 secret key.
-- `R2_BUCKET_NAME`: Cloudflare R2 bucket.
-- `R2_PUBLIC_URL`: public R2 bucket/base URL.
+- `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET_NAME` / `R2_PUBLIC_URL`: Cloudflare R2 settings.
 
 Notes:
-
-- The app does not automatically load `.env`; export variables in your shell/runtime environment.
-- `boto3` is optional and only needed when enabling R2 storage.
-- The database URL is currently hardcoded in `backend/database.py` as `postgresql://user:password@localhost:5432/kanban`.
+- The `.env` file is automatically parsed by Docker Compose. The `DATABASE_URL` is dynamically generated and passed to the backend container.
 
 ## Project Layout
 
