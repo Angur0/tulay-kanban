@@ -189,3 +189,12 @@ class TokenBlacklist(Base):
     id = Column(String, primary_key=True, default=generate_uuid)
     user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class SystemSettings(Base):
+    __tablename__ = "system_settings"
+
+    id = Column(String, primary_key=True, default="singleton")
+    maintenance_mode = Column(Boolean, default=False, nullable=False)
+    maintenance_start = Column(DateTime, nullable=True)
+    maintenance_end = Column(DateTime, nullable=True)

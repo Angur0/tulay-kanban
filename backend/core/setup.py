@@ -186,3 +186,26 @@ def seed_admin():
         print(f"Error seeding admin user: {e}")
     finally:
         db.close()
+
+
+def ensure_system_settings():
+    """Ensure the system settings singleton row exists."""
+    db = SessionLocal()
+    try:
+        settings = db.query(models.SystemSettings).filter(models.SystemSettings.id == "singleton").first()
+        if not settings:
+            print("Initializing default system settings...")
+            settings = models.SystemSettings(
+                id="singleton",
+                maintenance_mode=False,
+                maintenance_start=None,
+                maintenance_end=None
+            )
+            db.add(settings)
+            db.commit()
+            print("Default system settings initialized.")
+    except Exception as e:
+        db.rollback()
+        print(f"Error ensuring system settings: {e}")
+    finally:
+        db.close()

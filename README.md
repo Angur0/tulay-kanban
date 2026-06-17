@@ -7,6 +7,7 @@ Tulay Kanban is a real-time Kanban task management app for workspaces, boards, l
 - Multi-workspace, multi-board Kanban workflow
 - Role-based board access for owners, editors, moderators, members, and viewers
 - Dedicated Single Admin Account and User Management Panel
+- System Maintenance Mode (Emergency lockout and scheduled maintenance windows with real-time countdown overlays)
 - Drag-and-drop ordering for columns and tasks
 - Mobile-responsive app shell with an off-canvas navigation drawer
 - Board, My Tasks, Gantt/timeline, and Calendar views
@@ -211,6 +212,7 @@ tulay-kanban/
 │   │   ├── realtime.py
 │   │   └── setup.py
 │   ├── routers/
+│   │   ├── admin.py
 │   │   ├── auth.py
 │   │   ├── boards.py
 │   │   ├── labels.py

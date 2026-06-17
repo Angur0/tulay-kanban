@@ -13,6 +13,21 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 @router.post("/register", response_model=UserResponse)
 def register(user_in: UserCreate, db: Session = Depends(get_db)):
+    settings = db.query(models.SystemSettings).filter(models.SystemSettings.id == "singleton").first()
+    if settings:
+        import datetime
+        is_active = False
+        if settings.maintenance_mode:
+            is_active = True
+        elif settings.maintenance_start and settings.maintenance_end:
+            now = datetime.datetime.utcnow()
+            is_active = settings.maintenance_start <= now <= settings.maintenance_end
+        if is_active:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Registration is temporarily disabled due to system maintenance."
+            )
+
     user = db.query(models.User).filter(models.User.email == user_in.email).first()
     if user:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -40,6 +55,25 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     user = db.query(models.User).filter(models.User.email == form_data.username).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password")
+
+    if not user.is_admin:
+        settings = db.query(models.SystemSettings).filter(models.SystemSettings.id == "singleton").first()
+        if settings:
+            import datetime
+            is_active = False
+            if settings.maintenance_mode:
+                is_active = True
+            elif settings.maintenance_start and settings.maintenance_end:
+                now = datetime.datetime.utcnow()
+                is_active = settings.maintenance_start <= now <= settings.maintenance_end
+            if is_active:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail={
+                        "message": "System is currently undergoing maintenance.",
+                        "end_time": settings.maintenance_end.isoformat() if settings.maintenance_end else None
+                    }
+                )
 
     if not auth.verify_password(form_data.password, str(user.hashed_password)):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password")

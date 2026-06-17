@@ -33,6 +33,24 @@ async def get_current_user(db: Session = Depends(get_db), token: str = Depends(o
         raise credentials_exception
 
     if not user.is_admin:
+        settings = db.query(models.SystemSettings).filter(models.SystemSettings.id == "singleton").first()
+        if settings:
+            is_active = False
+            if settings.maintenance_mode:
+                is_active = True
+            elif settings.maintenance_start and settings.maintenance_end:
+                now = datetime.datetime.utcnow()
+                is_active = settings.maintenance_start <= now <= settings.maintenance_end
+            
+            if is_active:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail={
+                        "message": "System is currently undergoing maintenance.",
+                        "end_time": settings.maintenance_end.isoformat() if settings.maintenance_end else None
+                    }
+                )
+
         now = datetime.datetime.utcnow()
         if user.is_banned or (user.ban_until and user.ban_until > now):
             raise HTTPException(

@@ -3,6 +3,11 @@
 ### 2026-06-18
 
 **Added:**
+- Implemented System Maintenance Mode including manual emergency lockout and scheduled maintenance windows.
+- Created administrative endpoints `GET /api/admin/settings` and `PUT /api/admin/settings` to inspect and update system configurations.
+- Added a `SystemSettings` database table (singleton) to persist active states and scheduling.
+- Protected authentication boundaries (`get_current_user`, `/login`, `/register`) to enforce maintenance lockout on non-admin users.
+- Implemented a global `MaintenanceOverlay.svelte` component inside `AppLayout.svelte`, rendering a localized under-maintenance dashboard with a dynamic countdown timer for blocked users.
 - Implemented a project-wide single admin account system (ghost mode: invisible in board member lists but has full "owner" rights on all boards across all workspaces).
 - Created a separate Admin Panel (`/admin` view) for user management (listing, name/email edits, password resets, timeouts/bans, and account deletions).
 - Added instant suspension and ban capability using backend JWT token blacklisting.

@@ -161,3 +161,39 @@ def delete_admin_user(
     db.commit()
 
     return {"status": "deleted"}
+
+
+@router.get("/api/admin/settings", response_model=schemas.SystemSettingsResponse)
+def get_admin_settings(
+    db: Session = Depends(get_db),
+    current_admin: models.User = Depends(get_admin_user)
+):
+    """Retrieve system settings."""
+    settings = db.query(models.SystemSettings).filter(models.SystemSettings.id == "singleton").first()
+    if not settings:
+        raise HTTPException(status_code=404, detail="Settings not found")
+    return settings
+
+
+@router.put("/api/admin/settings", response_model=schemas.SystemSettingsResponse)
+def update_admin_settings(
+    settings_update: schemas.SystemSettingsUpdate,
+    db: Session = Depends(get_db),
+    current_admin: models.User = Depends(get_admin_user)
+):
+    """Update system settings (maintenance mode and scheduling)."""
+    settings = db.query(models.SystemSettings).filter(models.SystemSettings.id == "singleton").first()
+    if not settings:
+        raise HTTPException(status_code=404, detail="Settings not found")
+
+    if settings_update.maintenance_mode is not None:
+        settings.maintenance_mode = settings_update.maintenance_mode
+
+    if "maintenance_start" in settings_update.model_fields_set:
+        settings.maintenance_start = settings_update.maintenance_start
+    if "maintenance_end" in settings_update.model_fields_set:
+        settings.maintenance_end = settings_update.maintenance_end
+
+    db.commit()
+    db.refresh(settings)
+    return settings

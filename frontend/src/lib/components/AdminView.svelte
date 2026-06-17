@@ -25,9 +25,83 @@
     let banForever = false;
     let banUntilDate = "";
 
+    let maintenanceMode = false;
+    let maintenanceStart = "";
+    let maintenanceEnd = "";
+    let isSavingSettings = false;
+
     onMount(async () => {
         await fetchUsers();
+        await fetchSettings();
     });
+
+    async function fetchSettings() {
+        try {
+            const token = localStorage.getItem('access_token');
+            const res = await fetch(`${API_URL}/api/admin/settings`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                maintenanceMode = data.maintenance_mode;
+                if (data.maintenance_start) {
+                    maintenanceStart = formatUTCForInput(data.maintenance_start);
+                } else {
+                    maintenanceStart = "";
+                }
+                if (data.maintenance_end) {
+                    maintenanceEnd = formatUTCForInput(data.maintenance_end);
+                } else {
+                    maintenanceEnd = "";
+                }
+            }
+        } catch (e: any) {
+            console.error("Failed to load settings:", e);
+        }
+    }
+
+    function formatUTCForInput(utcString: string): string {
+        const d = new Date(utcString);
+        const pad = (n: number) => n.toString().padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    async function saveSettings() {
+        isSavingSettings = true;
+        errorMsg = "";
+        successMsg = "";
+        try {
+            const token = localStorage.getItem('access_token');
+            const payload = {
+                maintenance_mode: maintenanceMode,
+                maintenance_start: maintenanceStart ? new Date(maintenanceStart).toISOString() : null,
+                maintenance_end: maintenanceEnd ? new Date(maintenanceEnd).toISOString() : null
+            };
+
+            const res = await fetch(`${API_URL}/api/admin/settings`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.detail || "Failed to update settings");
+            }
+
+            successMsg = "System settings updated successfully.";
+            await fetchSettings();
+        } catch (e: any) {
+            errorMsg = e.message;
+        } finally {
+            isSavingSettings = false;
+        }
+    }
 
     async function fetchUsers() {
         isLoading = true;
@@ -213,6 +287,85 @@
                 placeholder="Search by name or email..." 
                 class="w-full pl-10 pr-4 py-2 bg-white dark:bg-[#151e29] border border-[#e5e7eb] dark:border-[#1e2936] rounded-lg text-[#111418] dark:text-white placeholder-[#8a98a8] focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-sm"
             />
+        </div>
+    </div>
+
+    <!-- System Settings & Maintenance Mode Card -->
+    <div class="mb-8 bg-white dark:bg-[#151e29] border border-[#e5e7eb] dark:border-[#1e2936] rounded-xl p-6 shadow-sm">
+        <div class="flex items-center gap-3 mb-6">
+            <span class="material-symbols-outlined text-primary text-[28px]">settings_system_daydream</span>
+            <div>
+                <h2 class="text-xl font-bold text-[#111418] dark:text-white">System Maintenance Settings</h2>
+                <p class="text-xs text-[#5c6b7f] dark:text-gray-400">Toggle emergency maintenance mode or schedule future downtime</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+            <!-- Toggle column -->
+            <div class="bg-[#fbfcfd] dark:bg-[#0d141c] p-4 rounded-lg border border-[#e5e7eb] dark:border-[#1e2936] flex flex-col justify-center min-h-[92px]">
+                <label class="flex items-center gap-3 cursor-pointer group">
+                    <input 
+                        type="checkbox" 
+                        bind:checked={maintenanceMode}
+                        class="size-5 text-primary border-[#e5e7eb] dark:border-[#1e2936] rounded focus:ring-primary focus:ring-opacity-25 cursor-pointer"
+                    />
+                    <div>
+                        <p class="font-bold text-[#111418] dark:text-white text-sm">Emergency Mode</p>
+                        <p class="text-[11px] text-[#5c6b7f] dark:text-gray-400">Instantly lock out all non-admin users.</p>
+                    </div>
+                </label>
+                
+                {#if maintenanceMode}
+                    <div class="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-medium pt-2">
+                        <span class="material-symbols-outlined text-[16px] animate-[pulse_1.5s_infinite]">warning</span>
+                        Active immediately upon saving
+                    </div>
+                {/if}
+            </div>
+
+            <!-- Start Date -->
+            <div class="bg-[#fbfcfd] dark:bg-[#0d141c] p-4 rounded-lg border border-[#e5e7eb] dark:border-[#1e2936] flex flex-col justify-center min-h-[92px]">
+                <label class="block text-xs font-semibold text-[#5c6b7f] dark:text-gray-400 mb-1.5">Scheduled Start (Local Time)</label>
+                <input 
+                    type="datetime-local" 
+                    bind:value={maintenanceStart}
+                    class="w-full px-3 py-2 bg-white dark:bg-[#151e29] border border-[#e5e7eb] dark:border-[#1e2936] rounded-lg text-[#111418] dark:text-white placeholder-[#8a98a8] focus:outline-none focus:border-primary transition-all text-xs"
+                />
+            </div>
+
+            <!-- End Date -->
+            <div class="bg-[#fbfcfd] dark:bg-[#0d141c] p-4 rounded-lg border border-[#e5e7eb] dark:border-[#1e2936] flex flex-col justify-center min-h-[92px]">
+                <label class="block text-xs font-semibold text-[#5c6b7f] dark:text-gray-400 mb-1.5">Scheduled End (Local Time)</label>
+                <input 
+                    type="datetime-local" 
+                    bind:value={maintenanceEnd}
+                    class="w-full px-3 py-2 bg-white dark:bg-[#151e29] border border-[#e5e7eb] dark:border-[#1e2936] rounded-lg text-[#111418] dark:text-white placeholder-[#8a98a8] focus:outline-none focus:border-primary transition-all text-xs"
+                />
+            </div>
+        </div>
+
+        <div class="mt-6 pt-4 border-t border-[#e5e7eb] dark:border-[#1e2936] flex justify-end gap-3">
+            {#if maintenanceStart || maintenanceEnd}
+                <button 
+                    on:click={() => { maintenanceStart = ""; maintenanceEnd = ""; }}
+                    class="px-4 py-2 border border-[#e5e7eb] dark:border-[#1e2936] text-xs font-semibold text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-all"
+                >
+                    Clear Schedule
+                </button>
+            {/if}
+            <button 
+                on:click={saveSettings}
+                disabled={isSavingSettings}
+                class="px-5 py-2 bg-primary hover:bg-blue-600 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-1.5"
+            >
+                {#if isSavingSettings}
+                    <span class="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                    Saving...
+                {:else}
+                    <span class="material-symbols-outlined text-[16px]">save</span>
+                    Save System Settings
+                {/if}
+            </button>
         </div>
     </div>
 

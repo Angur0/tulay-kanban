@@ -2,7 +2,7 @@
     import Sidebar from "./Sidebar.svelte";
     import Header from "./Header.svelte";
     import SearchModal from "./SearchModal.svelte";
-    import { isMobileSidebarOpen, closeMobileSidebar, isServerOffline } from "$lib/stores/ui";
+    import { isMobileSidebarOpen, closeMobileSidebar, isServerOffline, isMaintenanceMode } from "$lib/stores/ui";
     import CreateBoardModal from "./CreateBoardModal.svelte";
     import CreateListModal from "./CreateListModal.svelte";
     import EditListModal from "./EditListModal.svelte";
@@ -17,6 +17,7 @@
     import ContextMenus from "./ContextMenus.svelte";
     import CreateTaskModal from "./CreateTaskModal.svelte";
     import ChangePasswordPrompt from "./ChangePasswordPrompt.svelte";
+    import MaintenanceOverlay from "./MaintenanceOverlay.svelte";
     import { onMount, onDestroy } from "svelte";
     import { get } from "svelte/store";
     import { createColumn } from "$lib/api/listsApi";
@@ -175,7 +176,9 @@
         <div class="flex-1 flex flex-col relative overflow-hidden">
             {@render children()}
             
-            {#if $isServerOffline}
+            {#if $isMaintenanceMode}
+                <MaintenanceOverlay />
+            {:else if $isServerOffline}
                 <div class="absolute inset-0 z-[60] bg-white/80 dark:bg-[#151e29]/80 backdrop-blur-sm flex flex-col items-center justify-center p-8 text-center animate-in fade-in duration-300">
                     <div class="w-20 h-20 mb-6 rounded-full bg-red-50 dark:bg-red-900/30 flex items-center justify-center text-red-500 relative shadow-sm">
                         <span class="material-symbols-outlined text-4xl">cloud_off</span>

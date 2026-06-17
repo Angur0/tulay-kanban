@@ -104,6 +104,14 @@ The Calendar view (`CalendarView.svelte`) displays tasks on a calendar layout wi
 - **User Action Feedback:** Triggered when the current user completes CRUD actions (creating/updating/deleting tasks, moving columns, and executing bulk list operations).
 - **WebSocket Alerts:** Listens to the `/ws/{board_id}` WebSocket connection. When a `TASK_UPDATED` broadcast event indicates that the current user has been assigned to a task by another member, it generates a real-time toast alert.
 
+# System Maintenance Mode
+
+Tulay Kanban includes administrative maintenance mode configurations to lock out non-admin users during emergency operations or scheduled database windows.
+
+- **Backend Enforcement**: Maintenance status is evaluated during authentication boundaries (`get_current_user` dependency) and user lifecycle gates (`/login`, `/register`). If the system settings indicate active manual maintenance or a current UTC timestamp falling within the scheduled maintenance window, non-admin users receive an `HTTP 503 Service Unavailable` response containing details about the maintenance state and estimated return time.
+- **Frontend Interception**: The `authFetch` client globally intercepts `503` responses. If a maintenance payload is detected, it populates Svelte stores (`isMaintenanceMode` and `maintenanceEndTime`). This triggers the `MaintenanceOverlay.svelte` component to mount globally, locking out user interactions and providing a live, localized countdown timer of the remaining maintenance duration.
+- **Admin Configuration**: Administrators manage the system settings via a dashboard card in the Admin Panel (`AdminView.svelte`), which triggers `GET` and `PUT` operations on `/api/admin/settings`. Pickers set local times, which the client converts to UTC ISO strings before storing them in the `SystemSettings` singleton DB table.
+
 # Core Integrations
 
 - PostgreSQL: primary relational database for users, workspaces, boards, columns, tasks, labels, comments, and activity.

@@ -241,3 +241,16 @@ class ColumnBulkMove(BaseModel):
 
 class ColumnBulkCreate(BaseModel):
     titles: List[str]
+
+
+class SystemSettingsResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    maintenance_mode: bool
+    maintenance_start: Optional[datetime.datetime] = None
+    maintenance_end: Optional[datetime.datetime] = None
+
+
+class SystemSettingsUpdate(BaseModel):
+    maintenance_mode: Optional[bool] = None
+    maintenance_start: Optional[datetime.datetime] = None
+    maintenance_end: Optional[datetime.datetime] = None

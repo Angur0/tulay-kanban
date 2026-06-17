@@ -44,7 +44,14 @@
 
             if (!response.ok) {
                 const error = await response.json().catch(() => ({}));
-                throw new Error(error.detail || `Server error ${response.status}`);
+                const detail = error.detail;
+                let message = `Server error ${response.status}`;
+                if (typeof detail === 'object' && detail !== null) {
+                    message = detail.message || JSON.stringify(detail);
+                } else if (typeof detail === 'string') {
+                    message = detail;
+                }
+                throw new Error(message);
             }
 
             const data = await response.json();
@@ -89,7 +96,14 @@
 
             if (!response.ok) {
                 const error = await response.json().catch(() => ({}));
-                throw new Error(error.detail || "Registration failed");
+                const detail = error.detail;
+                let message = "Registration failed";
+                if (typeof detail === 'object' && detail !== null) {
+                    message = detail.message || JSON.stringify(detail);
+                } else if (typeof detail === 'string') {
+                    message = detail;
+                }
+                throw new Error(message);
             }
 
             successMessage =
