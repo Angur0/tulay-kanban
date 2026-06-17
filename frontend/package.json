@@ -11,9 +11,17 @@
 		"check:watch": "svelte-check --tsconfig ./tsconfig.json --watch"
 	},
 	"devDependencies": {
+		"@fontsource/inter": "^5.2.8",
 		"@sveltejs/vite-plugin-svelte": "^6.2.4",
+		"@tailwindcss/container-queries": "^0.1.1",
+		"@tailwindcss/forms": "^0.5.11",
+		"@tailwindcss/postcss": "^4.3.1",
+		"autoprefixer": "^10.5.0",
+		"material-symbols": "^0.45.1",
+		"postcss": "^8.5.15",
 		"svelte": "^5.51.0",
 		"svelte-check": "^4.4.2",
+		"tailwindcss": "^4.3.1",
 		"typescript": "^5.9.3",
 		"vite": "^7.3.1"
 	},
