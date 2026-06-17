@@ -55,6 +55,8 @@ export interface Column {
     board_id: string;
     order: number;
     position?: number;
+    is_hidden?: boolean;
+    is_archive?: boolean;
 }
 
 export interface WorkspaceMember {
@@ -80,6 +82,7 @@ export interface RealtimeEvent {
     data?: Record<string, unknown>;
     time: string;
     timestamp?: string;
+    user_id?: string;
 }
 
 export interface TaskComment {

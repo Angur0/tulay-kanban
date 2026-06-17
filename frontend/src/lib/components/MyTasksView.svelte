@@ -1,8 +1,9 @@
 <script lang="ts">
-    import { onMount, tick } from "svelte";
+    import { onMount } from "svelte";
     import { getMyTasks } from "$lib/api/tasksApi";
     import type { Task } from "$lib/types";
-    import { activeTask } from "$lib/stores/board";
+    import { activeTask, boards, setActiveBoardId, setActiveTask } from "$lib/stores/board";
+    import { openModal } from "$lib/stores/ui";
 
     let loading = true;
     let error: string | null = null;
@@ -23,8 +24,33 @@
         }
     });
 
+    const priorityColors: Record<string, string> = {
+        low: "#22c55e",
+        medium: "#f97316",
+        high: "#ef4444",
+    };
+
+    function getBoardName(boardId: string) {
+        return $boards.find((b) => b.id === boardId)?.name || "Unknown Board";
+    }
+
+    function isOverdue(task: Task): boolean {
+        if (!task.due_date || task.status === "done") return false;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return new Date(task.due_date) < today;
+    }
+
+    function formatDate(dateString: string) {
+        if (!dateString) return "";
+        const d = new Date(dateString);
+        return d.toLocaleDateString();
+    }
+
     function openTask(task: Task) {
-        $activeTask = task;
+        setActiveBoardId(task.board_id);
+        setActiveTask(task);
+        openModal("taskPanel");
     }
 </script>
 
@@ -48,7 +74,7 @@
     </div>
     <div class="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8">
         {#if loading}
-            <div class="flex items-center justify-center py-20 text-[#8a98a8]">
+            <div class="flex flex-col items-center justify-center py-20 text-[#8a98a8]">
                 <span
                     class="material-symbols-outlined animate-spin text-4xl mb-4"
                     >refresh</span
@@ -84,26 +110,71 @@
                                 >To Do ({todoTasks.length})</span
                             >
                         </div>
-                        <div class="flex flex-col gap-2">
+                        <div class="flex flex-col gap-3">
                             {#each todoTasks as task (task.id)}
                                 <!-- svelte-ignore a11y-click-events-have-key-events -->
                                 <!-- svelte-ignore a11y-no-static-element-interactions -->
                                 <div
-                                    class="task-card-my p-4 bg-white dark:bg-[#151e29] rounded-lg border border-[#e5e7eb] dark:border-[#1e2936] hover:border-primary/50 cursor-pointer transition-all"
+                                    class="task-card-my p-4 bg-white dark:bg-[#151e29] rounded-lg border border-[#e5e7eb] dark:border-[#1e2936] hover:border-primary/50 cursor-pointer transition-all flex flex-col gap-3 shadow-sm hover:shadow"
+                                    style="border-left-width: 4px; border-left-color: {priorityColors[task.priority] || priorityColors.medium};"
                                     on:click={() => openTask(task)}
                                 >
-                                    <p
-                                        class="text-sm font-medium text-[#111418] dark:text-gray-200"
-                                    >
-                                        {task.title}
-                                    </p>
-                                    {#if task.description}
-                                        <p
-                                            class="text-xs text-[#5c6b7f] dark:text-gray-400 mt-1"
-                                        >
-                                            {task.description}
+                                    <!-- Top Row: Board + Due Date -->
+                                    <div class="flex items-center justify-between text-xs text-[#5c6b7f] dark:text-gray-400 gap-2">
+                                        <div class="flex items-center gap-1.5 min-w-0">
+                                            <span class="material-symbols-outlined text-[16px] text-primary">dashboard</span>
+                                            <span class="font-medium truncate">{getBoardName(task.board_id)}</span>
+                                        </div>
+                                        {#if task.due_date}
+                                            {@const overdue = isOverdue(task)}
+                                            <div class="flex items-center gap-1 flex-shrink-0 {overdue ? 'text-red-500 font-semibold' : ''}">
+                                                <span class="material-symbols-outlined text-[16px]">{overdue ? 'warning' : 'event'}</span>
+                                                <span>{overdue ? 'Overdue: ' : ''}{formatDate(task.due_date)}</span>
+                                            </div>
+                                        {/if}
+                                    </div>
+
+                                    <!-- Middle: Title + Description -->
+                                    <div>
+                                        <p class="text-sm font-semibold text-[#111418] dark:text-gray-100 leading-snug">
+                                            {task.title}
                                         </p>
-                                    {/if}
+                                        {#if task.description}
+                                            <p class="text-xs text-[#5c6b7f] dark:text-gray-400 mt-1 line-clamp-2">
+                                                {task.description}
+                                            </p>
+                                        {/if}
+                                    </div>
+
+                                    <!-- Bottom: Labels + Subtask progress -->
+                                    <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-gray-100 dark:border-gray-800/50">
+                                        <div class="flex flex-wrap gap-1">
+                                            {#if task.labels && task.labels.length > 0}
+                                                {#each task.labels as label}
+                                                    <span
+                                                        class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
+                                                        style="background-color: {label.color || '#93c5fd'}"
+                                                    >
+                                                        {label.name}
+                                                    </span>
+                                                {/each}
+                                            {:else}
+                                                <span class="text-[10px] italic text-gray-400">No labels</span>
+                                            {/if}
+                                        </div>
+
+                                        {#if task.subtasks && task.subtasks.length > 0}
+                                            {@const completed = task.subtasks.filter(s => s.is_finished).length}
+                                            {@const total = task.subtasks.length}
+                                            {@const percentage = Math.round((completed / total) * 100)}
+                                            <div class="flex items-center gap-2 text-[11px] text-[#5c6b7f] dark:text-gray-400 min-w-[120px]">
+                                                <div class="flex-1 bg-gray-100 dark:bg-gray-800 h-1.5 rounded-full overflow-hidden">
+                                                    <div class="bg-primary h-full transition-all duration-300" style="width: {percentage}%"></div>
+                                                </div>
+                                                <span class="font-medium flex-shrink-0">{completed}/{total} subtasks</span>
+                                            </div>
+                                        {/if}
+                                    </div>
                                 </div>
                             {/each}
                         </div>
@@ -119,26 +190,71 @@
                                 >In Progress ({inprogressTasks.length})</span
                             >
                         </div>
-                        <div class="flex flex-col gap-2">
+                        <div class="flex flex-col gap-3">
                             {#each inprogressTasks as task (task.id)}
                                 <!-- svelte-ignore a11y-click-events-have-key-events -->
                                 <!-- svelte-ignore a11y-no-static-element-interactions -->
                                 <div
-                                    class="task-card-my p-4 bg-white dark:bg-[#151e29] rounded-lg border border-[#e5e7eb] dark:border-[#1e2936] hover:border-primary/50 cursor-pointer transition-all"
+                                    class="task-card-my p-4 bg-white dark:bg-[#151e29] rounded-lg border border-[#e5e7eb] dark:border-[#1e2936] hover:border-primary/50 cursor-pointer transition-all flex flex-col gap-3 shadow-sm hover:shadow"
+                                    style="border-left-width: 4px; border-left-color: {priorityColors[task.priority] || priorityColors.medium};"
                                     on:click={() => openTask(task)}
                                 >
-                                    <p
-                                        class="text-sm font-medium text-[#111418] dark:text-gray-200"
-                                    >
-                                        {task.title}
-                                    </p>
-                                    {#if task.description}
-                                        <p
-                                            class="text-xs text-[#5c6b7f] dark:text-gray-400 mt-1"
-                                        >
-                                            {task.description}
+                                    <!-- Top Row: Board + Due Date -->
+                                    <div class="flex items-center justify-between text-xs text-[#5c6b7f] dark:text-gray-400 gap-2">
+                                        <div class="flex items-center gap-1.5 min-w-0">
+                                            <span class="material-symbols-outlined text-[16px] text-primary">dashboard</span>
+                                            <span class="font-medium truncate">{getBoardName(task.board_id)}</span>
+                                        </div>
+                                        {#if task.due_date}
+                                            {@const overdue = isOverdue(task)}
+                                            <div class="flex items-center gap-1 flex-shrink-0 {overdue ? 'text-red-500 font-semibold' : ''}">
+                                                <span class="material-symbols-outlined text-[16px]">{overdue ? 'warning' : 'event'}</span>
+                                                <span>{overdue ? 'Overdue: ' : ''}{formatDate(task.due_date)}</span>
+                                            </div>
+                                        {/if}
+                                    </div>
+
+                                    <!-- Middle: Title + Description -->
+                                    <div>
+                                        <p class="text-sm font-semibold text-[#111418] dark:text-gray-100 leading-snug">
+                                            {task.title}
                                         </p>
-                                    {/if}
+                                        {#if task.description}
+                                            <p class="text-xs text-[#5c6b7f] dark:text-gray-400 mt-1 line-clamp-2">
+                                                {task.description}
+                                            </p>
+                                        {/if}
+                                    </div>
+
+                                    <!-- Bottom: Labels + Subtask progress -->
+                                    <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-gray-100 dark:border-gray-800/50">
+                                        <div class="flex flex-wrap gap-1">
+                                            {#if task.labels && task.labels.length > 0}
+                                                {#each task.labels as label}
+                                                    <span
+                                                        class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
+                                                        style="background-color: {label.color || '#93c5fd'}"
+                                                    >
+                                                        {label.name}
+                                                    </span>
+                                                {/each}
+                                            {:else}
+                                                <span class="text-[10px] italic text-gray-400">No labels</span>
+                                            {/if}
+                                        </div>
+
+                                        {#if task.subtasks && task.subtasks.length > 0}
+                                            {@const completed = task.subtasks.filter(s => s.is_finished).length}
+                                            {@const total = task.subtasks.length}
+                                            {@const percentage = Math.round((completed / total) * 100)}
+                                            <div class="flex items-center gap-2 text-[11px] text-[#5c6b7f] dark:text-gray-400 min-w-[120px]">
+                                                <div class="flex-1 bg-gray-100 dark:bg-gray-800 h-1.5 rounded-full overflow-hidden">
+                                                    <div class="bg-primary h-full transition-all duration-300" style="width: {percentage}%"></div>
+                                                </div>
+                                                <span class="font-medium flex-shrink-0">{completed}/{total} subtasks</span>
+                                            </div>
+                                        {/if}
+                                    </div>
                                 </div>
                             {/each}
                         </div>
@@ -155,26 +271,71 @@
                                 >Done ({doneTasks.length})</span
                             >
                         </div>
-                        <div class="flex flex-col gap-2">
+                        <div class="flex flex-col gap-3">
                             {#each doneTasks as task (task.id)}
                                 <!-- svelte-ignore a11y-click-events-have-key-events -->
                                 <!-- svelte-ignore a11y-no-static-element-interactions -->
                                 <div
-                                    class="task-card-my p-4 bg-white dark:bg-[#151e29] rounded-lg border border-[#e5e7eb] dark:border-[#1e2936] hover:border-primary/50 cursor-pointer transition-all"
+                                    class="task-card-my p-4 bg-white dark:bg-[#151e29] rounded-lg border border-[#e5e7eb] dark:border-[#1e2936] hover:border-primary/50 cursor-pointer transition-all flex flex-col gap-3 shadow-sm hover:shadow"
+                                    style="border-left-width: 4px; border-left-color: {priorityColors[task.priority] || priorityColors.medium};"
                                     on:click={() => openTask(task)}
                                 >
-                                    <p
-                                        class="text-sm font-medium text-[#111418] dark:text-gray-200"
-                                    >
-                                        {task.title}
-                                    </p>
-                                    {#if task.description}
-                                        <p
-                                            class="text-xs text-[#5c6b7f] dark:text-gray-400 mt-1"
-                                        >
-                                            {task.description}
+                                    <!-- Top Row: Board + Due Date -->
+                                    <div class="flex items-center justify-between text-xs text-[#5c6b7f] dark:text-gray-400 gap-2">
+                                        <div class="flex items-center gap-1.5 min-w-0">
+                                            <span class="material-symbols-outlined text-[16px] text-primary">dashboard</span>
+                                            <span class="font-medium truncate">{getBoardName(task.board_id)}</span>
+                                        </div>
+                                        {#if task.due_date}
+                                            {@const overdue = isOverdue(task)}
+                                            <div class="flex items-center gap-1 flex-shrink-0 {overdue ? 'text-red-500 font-semibold' : ''}">
+                                                <span class="material-symbols-outlined text-[16px]">{overdue ? 'warning' : 'event'}</span>
+                                                <span>{overdue ? 'Overdue: ' : ''}{formatDate(task.due_date)}</span>
+                                            </div>
+                                        {/if}
+                                    </div>
+
+                                    <!-- Middle: Title + Description -->
+                                    <div>
+                                        <p class="text-sm font-semibold text-[#111418] dark:text-gray-100 leading-snug">
+                                            {task.title}
                                         </p>
-                                    {/if}
+                                        {#if task.description}
+                                            <p class="text-xs text-[#5c6b7f] dark:text-gray-400 mt-1 line-clamp-2">
+                                                {task.description}
+                                            </p>
+                                        {/if}
+                                    </div>
+
+                                    <!-- Bottom: Labels + Subtask progress -->
+                                    <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-gray-100 dark:border-gray-800/50">
+                                        <div class="flex flex-wrap gap-1">
+                                            {#if task.labels && task.labels.length > 0}
+                                                {#each task.labels as label}
+                                                    <span
+                                                        class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
+                                                        style="background-color: {label.color || '#93c5fd'}"
+                                                    >
+                                                        {label.name}
+                                                    </span>
+                                                {/each}
+                                            {:else}
+                                                <span class="text-[10px] italic text-gray-400">No labels</span>
+                                            {/if}
+                                        </div>
+
+                                        {#if task.subtasks && task.subtasks.length > 0}
+                                            {@const completed = task.subtasks.filter(s => s.is_finished).length}
+                                            {@const total = task.subtasks.length}
+                                            {@const percentage = Math.round((completed / total) * 100)}
+                                            <div class="flex items-center gap-2 text-[11px] text-[#5c6b7f] dark:text-gray-400 min-w-[120px]">
+                                                <div class="flex-1 bg-gray-100 dark:bg-gray-800 h-1.5 rounded-full overflow-hidden">
+                                                    <div class="bg-primary h-full transition-all duration-300" style="width: {percentage}%"></div>
+                                                </div>
+                                                <span class="font-medium flex-shrink-0">{completed}/{total} subtasks</span>
+                                            </div>
+                                        {/if}
+                                    </div>
                                 </div>
                             {/each}
                         </div>

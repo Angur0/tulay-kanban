@@ -91,12 +91,16 @@ class BoardColumnCreate(BaseModel):
     title: str
     position: int
     color: Optional[str] = None
+    is_hidden: Optional[bool] = False
+    is_archive: Optional[bool] = False
 
 
 class BoardColumnUpdate(BaseModel):
     title: Optional[str] = None
     position: Optional[int] = None
     color: Optional[str] = None
+    is_hidden: Optional[bool] = None
+    is_archive: Optional[bool] = None
 
 
 class LabelCreate(BaseModel):
@@ -149,6 +153,14 @@ class SubtaskResponse(BaseModel):
     is_manual_percentage: bool
     finish_date: Optional[datetime.datetime] = None
     created_at: datetime.datetime
+
+class TaskReorderItem(BaseModel):
+    id: str
+    column_id: str
+    order: int
+
+class TaskBulkReorder(BaseModel):
+    items: List[TaskReorderItem]
 
 class TaskCreate(BaseModel):
     title: str
@@ -204,3 +216,11 @@ class CommentResponse(BaseModel):
     images: Optional[List[str]] = []
     created_at: datetime.datetime
     updated_at: datetime.datetime
+
+
+class ColumnBulkMove(BaseModel):
+    destination_column_id: str
+
+
+class ColumnBulkCreate(BaseModel):
+    titles: List[str]

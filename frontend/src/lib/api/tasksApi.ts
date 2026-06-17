@@ -24,9 +24,10 @@ export async function createTask(
         labelIds?: string[];
         start_date?: string;
         due_date?: string;
+        assignee_id?: string;
         images?: string[];
     }
-) {
+): Promise<import('$lib/types').Task | undefined> {
     const boardId = get(activeBoardId);
     if (!boardId) return;
 
@@ -43,6 +44,7 @@ export async function createTask(
                 label_ids: options?.labelIds ?? [],
                 start_date: options?.start_date,
                 due_date: options?.due_date,
+                assignee_id: options?.assignee_id,
                 images: options?.images ?? []
             })
         });
@@ -51,6 +53,8 @@ export async function createTask(
             const err = await response?.json().catch(() => ({}));
             throw new Error(err?.detail || 'Failed to create task');
         }
+
+        return (await response.json()) as import('$lib/types').Task;
     } catch (e) {
         console.error('Failed to create task', e);
         throw e;
@@ -216,6 +220,23 @@ export async function deleteSubtask(subtaskId: string): Promise<void> {
         }
     } catch (e) {
         console.error('Failed to delete subtask', e);
+        throw e;
+    }
+}
+
+export async function bulkUpdateTasksOrder(items: { id: string; column_id: string; order: number }[]): Promise<void> {
+    try {
+        const response = await authFetch(`${API_URL}/api/tasks/reorder`, {
+            method: 'PUT',
+            body: JSON.stringify({ items })
+        });
+
+        if (!response?.ok) {
+            const err = await response?.json().catch(() => ({}));
+            throw new Error(err?.detail || 'Failed to bulk update tasks');
+        }
+    } catch (e) {
+        console.error('Failed to bulk update tasks', e);
         throw e;
     }
 }

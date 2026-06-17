@@ -75,6 +75,24 @@ def ensure_task_order_column():
     print("Task order column ensured with default values")
 
 
+def ensure_column_parameters():
+    """Ensure the is_hidden and is_archive columns exist on board_columns"""
+    inspector = inspect(engine)
+    col_columns = {col["name"] for col in inspector.get_columns("board_columns")}
+
+    if "is_hidden" not in col_columns:
+        print("Adding is_hidden column to board_columns table...")
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE board_columns ADD COLUMN is_hidden BOOLEAN DEFAULT FALSE"))
+
+    if "is_archive" not in col_columns:
+        print("Adding is_archive column to board_columns table...")
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE board_columns ADD COLUMN is_archive BOOLEAN DEFAULT FALSE"))
+
+    print("BoardColumn parameters ensured with default values")
+
+
 def seed_db():
     db = SessionLocal()
     try:
@@ -102,6 +120,7 @@ def seed_db():
                 models.BoardColumn(board_id=board.id, title="To Do", position=0, color="amber-100"),
                 models.BoardColumn(board_id=board.id, title="In Progress", position=1, color="blue-100"),
                 models.BoardColumn(board_id=board.id, title="Done", position=2, color="green-100"),
+                models.BoardColumn(board_id=board.id, title="Archive", position=3, color="gray-100", is_archive=True),
             ]
             db.add_all(cols)
             db.commit()

@@ -10,13 +10,14 @@
     import { currentBoardRole } from "$lib/stores/user";
     import { columnColorClasses } from "$lib/constants";
     import TaskCard from "./TaskCard.svelte";
-    import InlineCreateTaskForm from "./InlineCreateTaskForm.svelte";
-    import { openModal } from "$lib/stores/ui";
+    import { openModal, createTaskInitialData } from "$lib/stores/ui";
     import { updateColumn } from "$lib/api/listsApi";
     import { loadColumnsAndTasks } from "$lib/api/boardDataApi";
     import { openContextMenu } from "$lib/stores/context-menu";
     import { createEventDispatcher, onMount, onDestroy } from "svelte";
     import { touchDrag } from "$lib/stores/touch-drag";
+    import { authFetch } from "$lib/api";
+    import { API_URL } from "$lib/constants";
 
     const dispatch = createEventDispatcher<{
         taskDrop: {
@@ -33,13 +34,93 @@
     export let index: number;
 
     let isMenuOpen = false;
-    let showInlineAddForm = false;
+
     let isTaskDragOver = false;
     let taskDropIndex: number | null = null;
     let isRenaming = false;
     let editingTitle = "";
     let menuContainerEl: HTMLElement | null = null;
     let columnEl: HTMLElement | null = null;
+
+    let isBulkCreating = false;
+    let bulkCreateText = "";
+    let isBulkMoving = false;
+    let bulkMoveDestColumnId = "";
+    let isBulkDeleting = false;
+
+    function handleBulkCreate() {
+        isBulkCreating = true;
+        isMenuOpen = false;
+    }
+
+    async function submitBulkCreate() {
+        const titles = bulkCreateText
+            .split("\n")
+            .map(t => t.trim())
+            .filter(t => t.length > 0);
+        if (titles.length === 0) {
+            isBulkCreating = false;
+            return;
+        }
+
+        try {
+            const res = await authFetch(`${API_URL}/api/columns/${column.id}/tasks/bulk-create`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ titles })
+            });
+            if (res && res.ok) {
+                await loadColumnsAndTasks();
+            }
+        } catch (e) {
+            console.error("Failed bulk create", e);
+        }
+
+        isBulkCreating = false;
+        bulkCreateText = "";
+    }
+
+    function handleBulkMove() {
+        isBulkMoving = true;
+        isMenuOpen = false;
+    }
+
+    async function submitBulkMove() {
+        if (!bulkMoveDestColumnId) return;
+        try {
+            const res = await authFetch(`${API_URL}/api/columns/${column.id}/tasks/bulk-move`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ destination_column_id: bulkMoveDestColumnId })
+            });
+            if (res && res.ok) {
+                await loadColumnsAndTasks();
+            }
+        } catch (e) {
+            console.error("Failed bulk move", e);
+        }
+        isBulkMoving = false;
+        bulkMoveDestColumnId = "";
+    }
+
+    function handleBulkDelete() {
+        isBulkDeleting = true;
+        isMenuOpen = false;
+    }
+
+    async function submitBulkDelete() {
+        try {
+            const res = await authFetch(`${API_URL}/api/columns/${column.id}/tasks/bulk-delete`, {
+                method: "POST"
+            });
+            if (res && res.ok) {
+                await loadColumnsAndTasks();
+            }
+        } catch (e) {
+            console.error("Failed bulk delete", e);
+        }
+        isBulkDeleting = false;
+    }
 
     // Touch drag state — computed from the global touch-drag store
     let touchDropIndex: number | null = null;
@@ -241,7 +322,8 @@
 
     function handleAddCard() {
         if (!canAdd) return;
-        showInlineAddForm = true;
+        createTaskInitialData.set({ columnId: column.id });
+        openModal("createTaskModal");
         isMenuOpen = false;
     }
 
@@ -421,13 +503,21 @@
                     on:blur={commitRename}
                 />
             {:else}
-                <h3
-                    class="text-sm font-semibold text-[#111418] dark:text-white {canManage
-                        ? 'editable-title'
-                        : ''}"
-                >
-                    {column.title}
-                </h3>
+                <div class="flex items-center gap-1.5">
+                    <h3
+                        class="text-sm font-semibold text-[#111418] dark:text-white {canManage
+                            ? 'editable-title'
+                            : ''}"
+                    >
+                        {column.title}
+                    </h3>
+                    {#if column.is_hidden}
+                        <span class="material-symbols-outlined text-gray-400 dark:text-gray-500 text-[14px]" title="Hidden list">visibility_off</span>
+                    {/if}
+                    {#if column.is_archive}
+                        <span class="material-symbols-outlined text-gray-400 dark:text-gray-500 text-[14px]" title="Archive list">archive</span>
+                    {/if}
+                </div>
             {/if}
         </div>
 
@@ -454,6 +544,27 @@
                             <span class="material-symbols-outlined text-[18px]"
                                 >add</span
                             >Add card
+                        </button>
+                        <button
+                            on:click={handleBulkCreate}
+                            class="w-full flex items-center gap-3 px-4 py-2 text-sm text-[#111418] dark:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] transition-colors text-left"
+                        >
+                            <span class="material-symbols-outlined text-[18px]">playlist_add</span>
+                            Bulk create tasks
+                        </button>
+                        <button
+                            on:click={handleBulkMove}
+                            class="w-full flex items-center gap-3 px-4 py-2 text-sm text-[#111418] dark:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] transition-colors text-left"
+                        >
+                            <span class="material-symbols-outlined text-[18px]">move_down</span>
+                            Bulk move tasks
+                        </button>
+                        <button
+                            on:click={handleBulkDelete}
+                            class="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left"
+                        >
+                            <span class="material-symbols-outlined text-[18px]">delete_sweep</span>
+                            Bulk delete tasks
                         </button>
                         <div
                             class="border-t border-[#e5e7eb] dark:border-[#1e2936] my-1"
@@ -503,6 +614,54 @@
         {/if}
     </div>
 
+    {#if isBulkCreating}
+        <div class="mb-3 bg-white dark:bg-[#151e29] border border-gray-200 dark:border-gray-700 rounded-lg p-3 flex flex-col gap-2">
+            <textarea
+                bind:value={bulkCreateText}
+                placeholder="Enter tasks (one per line)..."
+                class="w-full text-xs p-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                rows="4"
+                autofocus
+            ></textarea>
+            <div class="flex justify-end gap-2">
+                <button on:click={() => { isBulkCreating = false; bulkCreateText = ''; }} class="px-2 py-1 text-xs text-gray-500 hover:text-gray-700">Cancel</button>
+                <button on:click={submitBulkCreate} class="px-2 py-1 text-xs bg-primary text-white rounded hover:bg-blue-600">Create</button>
+            </div>
+        </div>
+    {/if}
+
+    {#if isBulkMoving}
+        <div class="mb-3 bg-white dark:bg-[#151e29] border border-gray-200 dark:border-gray-700 rounded-lg p-3 flex flex-col gap-2">
+            <p class="text-xs font-semibold">Move all tasks to:</p>
+            <select bind:value={bulkMoveDestColumnId} class="w-full text-xs p-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded focus:outline-none focus:ring-1 focus:ring-primary">
+                <option value="">-- Select list --</option>
+                {#each $columns.filter(c => c.id !== column.id) as destCol}
+                    <option value={destCol.id}>{destCol.title}</option>
+                {/each}
+            </select>
+            <div class="flex justify-end gap-2">
+                <button on:click={() => { isBulkMoving = false; bulkMoveDestColumnId = ''; }} class="px-2 py-1 text-xs text-gray-500 hover:text-gray-700">Cancel</button>
+                <button on:click={submitBulkMove} disabled={!bulkMoveDestColumnId} class="px-2 py-1 text-xs bg-primary text-white rounded hover:bg-blue-600 disabled:opacity-50">Move All</button>
+            </div>
+        </div>
+    {/if}
+
+    {#if isBulkDeleting}
+        <div class="mb-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/40 rounded-lg p-3 flex flex-col gap-2">
+            <p class="text-xs text-red-600 dark:text-red-400 font-semibold">
+                {#if $columns.some(col => col.is_archive) && !column.is_archive}
+                    Move all tasks in this list to Archive?
+                {:else}
+                    Permanently delete all tasks in this list?
+                {/if}
+            </p>
+            <div class="flex justify-end gap-2">
+                <button on:click={() => isBulkDeleting = false} class="px-2 py-1 text-xs text-gray-500 hover:text-gray-700">Cancel</button>
+                <button on:click={submitBulkDelete} class="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700">Yes, proceed</button>
+            </div>
+        </div>
+    {/if}
+
     <!-- Task List Area -->
     <div
         class="flex-1 flex flex-col gap-3 overflow-y-auto custom-scrollbar pb-4 pr-1 overscroll-y-contain"
@@ -518,10 +677,7 @@
             <div class="h-1 bg-primary rounded-full my-1"></div>
         {/if}
 
-        {#if showInlineAddForm && canAdd}
-            <InlineCreateTaskForm columnId={column.id} on:close={() => (showInlineAddForm = false)} />
-        {/if}
-        {#if canAdd && !showInlineAddForm}
+        {#if canAdd}
             <button
                 on:click={handleAddCard}
                 class="add-card-btn flex items-center justify-center px-2 py-2 mt-2 text-[#5c6b7f] dark:text-gray-400 hover:text-primary hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"

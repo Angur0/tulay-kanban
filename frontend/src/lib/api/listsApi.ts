@@ -3,7 +3,7 @@ import { API_URL } from '$lib/constants';
 import { activeBoardId, columns } from '$lib/stores/board';
 import { get } from 'svelte/store';
 
-export async function createColumn(title: string) {
+export async function createColumn(title: string, options?: { is_hidden?: boolean; is_archive?: boolean }) {
     const boardId = get(activeBoardId);
     if (!boardId) return;
 
@@ -16,7 +16,9 @@ export async function createColumn(title: string) {
             body: JSON.stringify({
                 title,
                 position: nextPosition,
-                color: null
+                color: null,
+                is_hidden: options?.is_hidden ?? false,
+                is_archive: options?.is_archive ?? false
             })
         });
 

@@ -4,7 +4,7 @@
     import { activeTask, setActiveTask } from '$lib/stores/board';
     import { currentBoardRole } from '$lib/stores/user';
     import { updateTask } from '$lib/api/tasksApi';
-    import type { Task } from '$lib/types';
+    import type { Task, Column } from '$lib/types';
     import { tick } from 'svelte';
     // Bypass frappe-gantt's incomplete exports map by using the filesystem path directly
     import ganttCssUrl from '/node_modules/frappe-gantt/dist/frappe-gantt.css?url';
@@ -67,7 +67,7 @@
         return r;
     }
 
-    function transformTasks(raw: Task[]): GanttTask[] {
+    function transformTasks(raw: Task[], cols: Column[]): GanttTask[] {
         const today = new Date();
         const seenIds = new Set<string>();
         const uniqueTasks = raw.filter((t) => {
@@ -93,6 +93,9 @@
                 end = formatDate(addDay(new Date(start), 1));
             }
 
+            const colIndex = cols.findIndex((col) => col.id === t.column_id);
+            const colorIdx = colIndex !== -1 ? colIndex % 8 : 0;
+
             result.push({
                 id: t.id,
                 name: t.title || 'Untitled Task',
@@ -101,7 +104,9 @@
                 progress: t.status === 'done' ? 100 : t.status === 'in-progress' ? 50 : 0,
                 dependencies: '',
                 // Visually distinguish tasks with no real dates
-                custom_class: !hasStart && !hasEnd ? 'gantt-task-unscheduled' : '',
+                custom_class: !hasStart && !hasEnd
+                    ? `gantt-task-unscheduled gantt-bar-color-${colorIdx}`
+                    : `gantt-bar-color-${colorIdx}`,
                 _original: t,
             });
         }
@@ -238,8 +243,14 @@
         }
     }
 
-    // Reactive: rebuild chart when tasks change
-    $: baseGanttTasks = transformTasks($tasks);
+    $: orderedColumns = [...$columns].sort((a, b) => {
+        const aPos = typeof a.position === 'number' ? a.position : (a.order ?? 0);
+        const bPos = typeof b.position === 'number' ? b.position : (b.order ?? 0);
+        return aPos - bPos;
+    });
+
+    // Reactive: rebuild chart when tasks or columns change
+    $: baseGanttTasks = transformTasks($tasks, orderedColumns);
     $: ganttTasks = isCompact ? compressTasks(baseGanttTasks) : baseGanttTasks;
 
     let currentViewMode: ViewMode = viewMode;
@@ -456,7 +467,7 @@
         showExportMenu = false;
         exportError = null;
         try {
-            const result = await exportGanttImage($activeBoard.id, format);
+            const result = await exportGanttImage($activeBoard.id, format, viewMode);
             if (result?.url) {
                 // Fetch the exported file as a blob to force a download instead of just displaying it
                 const fullUrl = result.url.startsWith('http') ? result.url : `${API_URL}${result.url}`;
@@ -609,15 +620,13 @@
     <!-- ─── Legend ─────────────────────────────────────────────────────── -->
     <div class="flex items-center gap-4 px-6 py-2 text-[11px] text-[#8a98a8] dark:text-[#5c6b7f] border-b border-[#e5e7eb] dark:border-[#1e2936] flex-shrink-0 flex-wrap">
         <span class="flex items-center gap-1.5">
-            <span class="inline-block w-3 h-3 rounded-sm bg-primary opacity-80"></span>
-            Scheduled
+            <span class="inline-block w-3 h-3 rounded-sm bg-gradient-to-r from-amber-500 via-primary to-green-500"></span>
+            Scheduled (List Color)
         </span>
         <span class="flex items-center gap-1.5">
-            <span class="inline-block w-3 h-3 rounded-sm bg-[#94a3b8]"></span>
-            Unscheduled (default dates)
+            <span class="inline-block w-3 h-3 rounded-sm bg-gradient-to-r from-amber-500 via-primary to-green-500 opacity-50"></span>
+            Unscheduled (50% Opacity)
         </span>
-
-
     </div>
 
     <!-- ─── Chart container ───────────────────────────────────────────── -->
@@ -679,9 +688,73 @@
         rx: 4;
     }
 
-    :global(.gantt-container .gantt .bar-wrapper.gantt-task-unscheduled .bar) {
-        fill: #94a3b8 !important;
-        stroke: #94a3b8 !important;
+    :global(.gantt-container .gantt .bar-wrapper.gantt-task-unscheduled) {
+        opacity: 0.5;
+    }
+
+    /* Column (List) colors for Gantt task bars */
+    :global(.gantt-container .gantt .bar-wrapper.gantt-bar-color-0 .bar) {
+        fill: #f59e0b !important;
+        stroke: #f59e0b !important;
+    }
+    :global(.gantt-container .gantt .bar-wrapper.gantt-bar-color-0 .bar-progress) {
+        fill: #b45309 !important;
+    }
+
+    :global(.gantt-container .gantt .bar-wrapper.gantt-bar-color-1 .bar) {
+        fill: #2b8cee !important;
+        stroke: #2b8cee !important;
+    }
+    :global(.gantt-container .gantt .bar-wrapper.gantt-bar-color-1 .bar-progress) {
+        fill: #1e6bb8 !important;
+    }
+
+    :global(.gantt-container .gantt .bar-wrapper.gantt-bar-color-2 .bar) {
+        fill: #22c55e !important;
+        stroke: #22c55e !important;
+    }
+    :global(.gantt-container .gantt .bar-wrapper.gantt-bar-color-2 .bar-progress) {
+        fill: #15803d !important;
+    }
+
+    :global(.gantt-container .gantt .bar-wrapper.gantt-bar-color-3 .bar) {
+        fill: #a855f7 !important;
+        stroke: #a855f7 !important;
+    }
+    :global(.gantt-container .gantt .bar-wrapper.gantt-bar-color-3 .bar-progress) {
+        fill: #7e22ce !important;
+    }
+
+    :global(.gantt-container .gantt .bar-wrapper.gantt-bar-color-4 .bar) {
+        fill: #ec4899 !important;
+        stroke: #ec4899 !important;
+    }
+    :global(.gantt-container .gantt .bar-wrapper.gantt-bar-color-4 .bar-progress) {
+        fill: #be185d !important;
+    }
+
+    :global(.gantt-container .gantt .bar-wrapper.gantt-bar-color-5 .bar) {
+        fill: #6366f1 !important;
+        stroke: #6366f1 !important;
+    }
+    :global(.gantt-container .gantt .bar-wrapper.gantt-bar-color-5 .bar-progress) {
+        fill: #4338ca !important;
+    }
+
+    :global(.gantt-container .gantt .bar-wrapper.gantt-bar-color-6 .bar) {
+        fill: #ef4444 !important;
+        stroke: #ef4444 !important;
+    }
+    :global(.gantt-container .gantt .bar-wrapper.gantt-bar-color-6 .bar-progress) {
+        fill: #b91c1c !important;
+    }
+
+    :global(.gantt-container .gantt .bar-wrapper.gantt-bar-color-7 .bar) {
+        fill: #eab308 !important;
+        stroke: #eab308 !important;
+    }
+    :global(.gantt-container .gantt .bar-wrapper.gantt-bar-color-7 .bar-progress) {
+        fill: #a16207 !important;
     }
 
     :global(.dark .gantt-container .gantt .grid-background) {

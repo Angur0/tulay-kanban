@@ -3,11 +3,11 @@
         taskFilters,
         setPriorityFilter,
         toggleLabelFilter,
-        setSortBy,
+        toggleAssignedToMe,
+        toggleShowHiddenLists,
         resetFilters,
         hasActiveFilters,
         type PriorityFilter,
-        type SortOption,
     } from "$lib/stores/filter";
     import { labels } from "$lib/stores/board";
 
@@ -18,22 +18,15 @@
         { value: "low",    label: "Low",    color: "#22c55e", icon: "keyboard_double_arrow_down" },
     ];
 
-    const sortOptions: { value: SortOption; label: string; icon: string }[] = [
-        { value: "default",       label: "Board Order",     icon: "view_kanban" },
-        { value: "priority-desc", label: "Priority (High→Low)", icon: "arrow_downward" },
-        { value: "priority-asc",  label: "Priority (Low→High)", icon: "arrow_upward" },
-        { value: "due-date",      label: "Due Date",        icon: "calendar_today" },
-        { value: "title",         label: "Title (A–Z)",     icon: "sort_by_alpha" },
-    ];
+
 
     let showLabelDropdown = false;
-    let showSortDropdown = false;
 
     function handleLabelToggle(labelId: string) {
         toggleLabelFilter(labelId);
     }
 
-    $: currentSort = sortOptions.find(s => s.value === $taskFilters.sortBy) || sortOptions[0];
+
     $: activeLabelCount = $taskFilters.labelIds.length;
 </script>
 
@@ -42,12 +35,10 @@
     on:mousedown={(e) => {
         const target = e.target as Element;
         if (!target.closest(".label-dropdown-root")) showLabelDropdown = false;
-        if (!target.closest(".sort-dropdown-root"))  showSortDropdown  = false;
     }}
     on:keydown={(e) => {
         if (e.key === "Escape") {
             showLabelDropdown = false;
-            showSortDropdown  = false;
         }
     }}
 />
@@ -83,7 +74,7 @@
             class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all {activeLabelCount > 0
                 ? 'bg-primary text-white border-primary shadow-sm'
                 : 'bg-transparent text-[#5c6b7f] dark:text-gray-400 border-[#e5e7eb] dark:border-[#2a3a4a] hover:border-[#93c5fd]'}"
-            on:click={() => { showLabelDropdown = !showLabelDropdown; showSortDropdown = false; }}
+            on:click={() => { showLabelDropdown = !showLabelDropdown; }}
         >
             <span class="material-symbols-outlined text-[12px]">label</span>
             Labels{activeLabelCount > 0 ? ` (${activeLabelCount})` : ""}
@@ -126,40 +117,29 @@
 
     <div class="hidden sm:block h-4 w-px bg-[#e5e7eb] dark:bg-[#1e2936] flex-shrink-0"></div>
 
-    <!-- Sort -->
-    <div class="sort-dropdown-root relative flex-shrink-0">
-        <button
-            class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all {$taskFilters.sortBy !== 'default'
-                ? 'bg-primary text-white border-primary shadow-sm'
-                : 'bg-transparent text-[#5c6b7f] dark:text-gray-400 border-[#e5e7eb] dark:border-[#2a3a4a] hover:border-[#93c5fd]'}"
-            on:click={() => { showSortDropdown = !showSortDropdown; showLabelDropdown = false; }}
-        >
-            <span class="material-symbols-outlined text-[12px]">{currentSort.icon}</span>
-            {currentSort.label}
-            <span class="material-symbols-outlined text-[12px]">{showSortDropdown ? "expand_less" : "expand_more"}</span>
-        </button>
+    <!-- Assigned to me -->
+    <button
+        class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all {$taskFilters.assignedToMe
+            ? 'bg-primary text-white border-primary shadow-sm'
+            : 'bg-transparent text-[#5c6b7f] dark:text-gray-400 border-[#e5e7eb] dark:border-[#2a3a4a] hover:border-[#93c5fd] dark:hover:border-[#3b82f6]'}"
+        on:click={toggleAssignedToMe}
+    >
+        <span class="material-symbols-outlined text-[12px]">person</span>
+        Assigned to me
+    </button>
 
-        {#if showSortDropdown}
-            <div
-                class="absolute top-9 left-0 z-30 bg-white dark:bg-[#151e29] border border-[#e5e7eb] dark:border-[#1e2936] rounded-xl shadow-2xl py-2 min-w-[200px]"
-            >
-                {#each sortOptions as opt}
-                    <button
-                        class="w-full flex items-center gap-3 px-4 py-2 text-sm text-left hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] transition-colors {$taskFilters.sortBy === opt.value
-                            ? 'text-primary font-semibold'
-                            : 'text-[#111418] dark:text-white'}"
-                        on:click={() => { setSortBy(opt.value); showSortDropdown = false; }}
-                    >
-                        <span class="material-symbols-outlined text-[16px]">{opt.icon}</span>
-                        {opt.label}
-                        {#if $taskFilters.sortBy === opt.value}
-                            <span class="material-symbols-outlined text-[14px] ml-auto">check</span>
-                        {/if}
-                    </button>
-                {/each}
-            </div>
-        {/if}
-    </div>
+    <div class="hidden sm:block h-4 w-px bg-[#e5e7eb] dark:bg-[#1e2936] flex-shrink-0"></div>
+
+    <!-- Show hidden lists -->
+    <button
+        class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all {$taskFilters.showHiddenLists
+            ? 'bg-primary text-white border-primary shadow-sm'
+            : 'bg-transparent text-[#5c6b7f] dark:text-gray-400 border-[#e5e7eb] dark:border-[#2a3a4a] hover:border-[#93c5fd] dark:hover:border-[#3b82f6]'}"
+        on:click={toggleShowHiddenLists}
+    >
+        <span class="material-symbols-outlined text-[12px]">{$taskFilters.showHiddenLists ? 'visibility' : 'visibility_off'}</span>
+        Show hidden lists
+    </button>
 
     <!-- Spacer -->
     <div class="flex-1 min-w-0"></div>

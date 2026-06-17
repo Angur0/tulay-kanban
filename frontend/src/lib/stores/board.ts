@@ -1,6 +1,7 @@
 import { writable, derived } from 'svelte/store';
 import type { Board, Column, Task, Label } from '$lib/types';
 import { taskFilters } from '$lib/stores/filter';
+import { currentUser } from '$lib/stores/user';
 
 // Core State
 export const boards = writable<Board[]>([]);
@@ -11,6 +12,7 @@ export const labels = writable<Label[]>([]);
 export const boardMembers = writable<any[]>([]);
 export const activeTask = writable<Task | null>(null);
 export const deleteListTarget = writable<{ id: string; title: string } | null>(null);
+export const editListTarget = writable<Column | null>(null);
 export const deleteTaskTarget = writable<{ id: string; title: string } | null>(null);
 export const editBoardTarget = writable<Board | null>(null);
 export const deleteBoardTarget = writable<Board | null>(null);
@@ -40,14 +42,18 @@ export const tasksByColumn = derived(
 const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 };
 
 export const filteredTasksByColumn = derived(
-    [tasks, columns, taskFilters],
-    ([$tasks, $columns, $filters]) => {
+    [tasks, columns, taskFilters, currentUser],
+    ([$tasks, $columns, $filters, $currentUser]) => {
         const grouped: Record<string, Task[]> = {};
         for (const col of $columns) {
             grouped[col.id] = [];
         }
 
         let filtered = $tasks;
+
+        if ($filters.assignedToMe && $currentUser) {
+            filtered = filtered.filter(t => t.assignee_id === $currentUser.id);
+        }
 
         // Priority filter is now handled as a sort order preference below
 
@@ -86,23 +92,8 @@ export const filteredTasksByColumn = derived(
                     if (a.priority === $filters.priority && b.priority !== $filters.priority) return -1;
                     if (b.priority === $filters.priority && a.priority !== $filters.priority) return 1;
                 }
-                
-                switch ($filters.sortBy) {
-                    case 'priority-asc':
-                        return (PRIORITY_ORDER[a.priority] ?? 1) - (PRIORITY_ORDER[b.priority] ?? 1);
-                    case 'priority-desc':
-                        return (PRIORITY_ORDER[b.priority] ?? 1) - (PRIORITY_ORDER[a.priority] ?? 1);
-                    case 'due-date': {
-                        const aDate = a.due_date ? new Date(a.due_date).getTime() : Infinity;
-                        const bDate = b.due_date ? new Date(b.due_date).getTime() : Infinity;
-                        return aDate - bDate;
-                    }
-                    case 'title':
-                        return a.title.localeCompare(b.title);
-                    default:
-                        // natural board order
-                        return (a.order ?? 0) - (b.order ?? 0);
-                }
+                // natural board order
+                return (a.order ?? 0) - (b.order ?? 0);
             });
         }
 
@@ -150,6 +141,10 @@ tasks.subscribe($tasks => {
 
 export function setDeleteListTarget(target: { id: string; title: string } | null) {
     deleteListTarget.set(target);
+}
+
+export function setEditListTarget(target: Column | null) {
+    editListTarget.set(target);
 }
 
 export function setDeleteTaskTarget(target: { id: string; title: string } | null) {

@@ -5,6 +5,7 @@
     import { isMobileSidebarOpen, closeMobileSidebar } from "$lib/stores/ui";
     import CreateBoardModal from "./CreateBoardModal.svelte";
     import CreateListModal from "./CreateListModal.svelte";
+    import EditListModal from "./EditListModal.svelte";
     import TaskModal from "./TaskModal.svelte";
     import ManageMembersModal from "./ManageMembersModal.svelte";
     import ManageLabelsModal from "./ManageLabelsModal.svelte";
@@ -14,7 +15,9 @@
     import DeleteBoardModal from "./DeleteBoardModal.svelte";
     import AccountSettingsModal from "./AccountSettingsModal.svelte";
     import ContextMenus from "./ContextMenus.svelte";
+    import CreateTaskModal from "./CreateTaskModal.svelte";
     import { onMount, onDestroy } from "svelte";
+    import { get } from "svelte/store";
     import { createColumn } from "$lib/api/listsApi";
     import { createTask } from "$lib/api/tasksApi";
     import { loadColumnsAndTasks } from "$lib/api/boardDataApi";
@@ -30,6 +33,7 @@
         setCurrentUser,
         setActiveWorkspaceId,
         setCurrentBoardRole,
+        currentUser,
     } from "$lib/stores/user";
     import {
         createBoard,
@@ -57,12 +61,15 @@
         }
     }
 
-    async function handleCreateList(event: CustomEvent<{ title: string }>) {
+    async function handleCreateList(event: CustomEvent<{ title: string; is_hidden?: boolean; is_archive?: boolean }>) {
         const title = event.detail?.title?.trim();
         if (!title) return;
 
         try {
-            await createColumn(title);
+            await createColumn(title, {
+                is_hidden: event.detail.is_hidden,
+                is_archive: event.detail.is_archive
+            });
             await loadColumnsAndTasks();
         } catch (e) {
             console.error("Failed to create list", e);
@@ -103,6 +110,7 @@
                     "TASK_CREATED",
                     "TASK_UPDATED",
                     "TASK_MOVED",
+                    "TASKS_REORDERED",
                     "TASK_DELETED",
                     "COLUMN_CREATED",
                     "SUBTASK_CREATED",
@@ -110,8 +118,12 @@
                     "SUBTASK_DELETED",
                 ].includes(event.type)
             ) {
-                // We're taking a simple approach: if any relevant event happens, just reload tasks/columns
-                // (In a real heavy app you'd parse `event.data` and do optimistic updates strictly here)
+                // Skip reload for TASKS_REORDERED events that the current user initiated;
+                // the optimistic update in BoardView already reflects the correct state.
+                const selfId = get(currentUser)?.id;
+                if (event.type === "TASKS_REORDERED" && selfId && event.user_id === selfId) {
+                    return;
+                }
                 loadColumnsAndTasks();
             }
         };
@@ -166,6 +178,7 @@
     </main>
     <CreateBoardModal on:create={handleCreateBoard} />
     <CreateListModal on:create={handleCreateList} />
+    <EditListModal />
     <DeleteListModal />
     <DeleteTaskModal />
     <EditBoardModal />
@@ -174,6 +187,7 @@
     <ManageLabelsModal />
     <AccountSettingsModal />
     <ContextMenus />
+    <CreateTaskModal />
     {#if $isSearchOpen}
         <SearchModal />
     {/if}

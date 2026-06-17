@@ -12,6 +12,12 @@
 - [ ] Implement self-serve account deletion with clean cascade/cleanup of owned workspaces, boards, and tasks.
 - [ ] Add session inactivity timeouts and secure HttpOnly cookie options for JWT auth tokens.
 
+### Kanban Features
+- [x] Calendar view with Month/Week/Day sub-views and header toggle button (Kanban/Gantt/Calendar).
+- [x] Toast notification system with auto-dismiss, wired to all task and bulk actions.
+- [x] Smart delete modal with archive-first logic and suppressible permanent delete warning.
+- [x] WebSocket assignment notifications when another user assigns a task to you.
+
 ### Testing
 - [ ] Write Python backend integration tests (`pytest`) covering JWT token authentication, workspace membership authorization, and RBAC rules.
 - [ ] Write frontend component unit tests for critical components: `AccountSettingsModal.svelte`, `Login/+page.svelte`, and `TaskModal.svelte`.
