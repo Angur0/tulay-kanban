@@ -93,7 +93,7 @@
 
 <aside
     id="sidebar"
-    class="w-[210px] flex-shrink-0 bg-[#fbfcfd] dark:bg-[#151e29] flex flex-col justify-between h-full z-20 transition-[width] duration-300 ease-in-out"
+    class="w-[210px] flex-shrink-0 bg-[#fbfcfd] dark:bg-[#151e29] flex flex-col justify-between h-full z-20 transition-[width] duration-300 ease-in-out border-r border-[#e5e7eb] dark:border-[#1e2936]"
     class:collapsed={$isSidebarCollapsed}
     class:mobile-open={$isMobileSidebarOpen}
 >
