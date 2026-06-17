@@ -6,6 +6,7 @@
         setActiveTask,
         setDeleteBoardTarget,
         setDeleteListTarget,
+        setEditListTarget,
         setEditBoardTarget,
     } from "$lib/stores/board";
     import { currentBoardRole } from "$lib/stores/user";
@@ -60,10 +61,9 @@
         const col = $columns.find(
             (column) => column.id === $contextMenu?.columnId,
         );
-        const next = prompt("List name", col?.title || "");
-        if (!next?.trim()) return;
-        await updateColumn($contextMenu.columnId, { title: next.trim() });
-        await loadColumnsAndTasks();
+        if (!col) return;
+        setEditListTarget(col);
+        openModal("editListModal");
         closeContextMenu();
     }
 
@@ -291,8 +291,8 @@
             class="w-full flex items-center gap-3 px-4 py-2 text-sm text-[#111418] dark:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] transition-colors text-left"
             disabled={!canManageColumns}
         >
-            <span class="material-symbols-outlined text-[18px]">edit</span>
-            Rename list
+            <span class="material-symbols-outlined text-[18px]">settings</span>
+            List settings
         </button>
         <button
             on:click={() => onColumnMove("left")}

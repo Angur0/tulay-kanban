@@ -89,7 +89,8 @@ def create_board(board_in: BoardCreate, current_user: models.User = Depends(get_
     cols = [
         models.BoardColumn(board_id=new_board.id, title="To Do", position=0, color="amber-100"),
         models.BoardColumn(board_id=new_board.id, title="In Progress", position=1, color="blue-100"),
-        models.BoardColumn(board_id=new_board.id, title="Done", position=2, color="green-100")
+        models.BoardColumn(board_id=new_board.id, title="Done", position=2, color="green-100"),
+        models.BoardColumn(board_id=new_board.id, title="Archive", position=3, color="gray-100", is_archive=True)
     ]
     db.add_all(cols)
     db.commit()
@@ -155,11 +156,21 @@ def get_board_columns(board_id: str, current_user: models.User = Depends(get_cur
 @router.post("/api/boards/{board_id}/columns")
 def create_column(board_id: str, col_in: BoardColumnCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     ensure_board_access(db, board_id, current_user, ["owner", "moderator"])
+    if col_in.is_archive:
+        existing_archive = db.query(models.BoardColumn).filter(
+            models.BoardColumn.board_id == board_id,
+            models.BoardColumn.is_archive == True
+        ).first()
+        if existing_archive:
+            raise HTTPException(status_code=400, detail="An archive list already exists on this board.")
+
     new_col = models.BoardColumn(
         board_id=board_id,
         title=col_in.title,
         position=col_in.position,
-        color=col_in.color
+        color=col_in.color,
+        is_hidden=col_in.is_hidden or False,
+        is_archive=col_in.is_archive or False
     )
     db.add(new_col)
     db.commit()
@@ -174,12 +185,25 @@ def update_column(column_id: str, col_in: BoardColumnUpdate, current_user: model
         raise HTTPException(status_code=404, detail="Column not found")
     ensure_board_access(db, col.board_id, current_user, ["owner", "moderator"])
 
+    if col_in.is_archive:
+        existing_archive = db.query(models.BoardColumn).filter(
+            models.BoardColumn.board_id == col.board_id,
+            models.BoardColumn.is_archive == True,
+            models.BoardColumn.id != column_id
+        ).first()
+        if existing_archive:
+            raise HTTPException(status_code=400, detail="An archive list already exists on this board.")
+
     if col_in.title is not None:
         setattr(col, "title", col_in.title)
     if col_in.position is not None:
         setattr(col, "position", col_in.position)
     if col_in.color is not None:
         setattr(col, "color", col_in.color)
+    if col_in.is_hidden is not None:
+        setattr(col, "is_hidden", col_in.is_hidden)
+    if col_in.is_archive is not None:
+        setattr(col, "is_archive", col_in.is_archive)
 
     db.commit()
     return col

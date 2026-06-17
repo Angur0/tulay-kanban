@@ -15,14 +15,29 @@ function getInitialDarkMode(): boolean {
 
 export const isDarkMode = writable(getInitialDarkMode());
 export const activeView = writable<'board' | 'my-tasks'>('board');
-export const boardViewMode = writable<'kanban' | 'gantt'>('kanban');
+export const boardViewMode = writable<'kanban' | 'gantt' | 'calendar'>('kanban');
 
-export function setBoardViewMode(mode: 'kanban' | 'gantt') {
+export function setBoardViewMode(mode: 'kanban' | 'gantt' | 'calendar') {
     boardViewMode.set(mode);
 }
 
+// Calendar view persistent state (survives view switches, resets on page reload)
+const _now = new Date();
+export const calendarYear = writable<number>(_now.getFullYear());
+export const calendarMonth = writable<number>(_now.getMonth()); // 0-indexed
+export const calendarViewMode = writable<'month' | 'week' | 'day'>('month');
+export const calendarSelectedDay = writable<number>(_now.getDate()); // For Day view context
+
 // Modals
 export const activeModal = writable<string | null>(null);
+
+export interface CreateTaskInitialData {
+    columnId?: string;
+    startDate?: string;
+    dueDate?: string;
+}
+
+export const createTaskInitialData = writable<CreateTaskInitialData>({});
 
 export function toggleSidebar() {
     isSidebarCollapsed.update(v => !v);

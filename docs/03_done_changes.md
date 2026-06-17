@@ -1,5 +1,24 @@
 # Done Changes
 
+### 2026-06-17
+
+**Added:**
+- Implemented Toast notification system with auto-dismiss (2s), colored left-border, and stack layout.
+- Added `stores/toast.ts` with `toastSuccess`, `toastError`, `toastInfo`, `toastWarning` helpers.
+- Mounted `ToastContainer.svelte` in AppLayout and wired toasts to all task actions: create, update, move, delete/archive, and bulk list operations.
+- Added WebSocket assignment notifications: when another user assigns a task to you, a toast is shown with the task title.
+- Backend already sends `taskTitle` and `assignee_id` in TASK_CREATED/TASK_UPDATED broadcast events.
+- Implemented a complete, responsive Calendar View (`CalendarView.svelte`) with Month, Week, and Day views.
+- Added persistent calendar state (selected month, year, day, view mode) that survives view switches until page reload.
+- Integrated fully responsive layouts: portrait orientation rotation prompts for Month/Week grids, and compact horizontal task strips for Day view on mobile.
+- Supported desktop click-to-create inline task forms with pre-filled due dates.
+- Bound task display directly to active Board filter states (priority, label selections, and text searches).
+- Implemented optional List parameters (Hidden and Archive). Created default Archive column per board, limited to one.
+- Added List Settings modal with toggle settings for is_hidden and is_archive, and customized column headers to display status badges.
+- Implemented global Show Hidden Lists filter option in FilterBar.svelte and filtered lists in BoardView.svelte.
+- Created bulk list actions for tasks: bulk move to another list, bulk delete (archiving tasks if Archive list exists), and bulk creation.
+- Removed line-through and opacity styles on completed main tasks.
+
 ### 2026-06-15
 
 **Added:**

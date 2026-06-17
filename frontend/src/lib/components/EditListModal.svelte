@@ -1,41 +1,43 @@
 <script lang="ts">
     import { activeModal, closeModal } from "$lib/stores/ui";
-    import { columns } from "$lib/stores/board";
-    import { createEventDispatcher } from "svelte";
+    import { columns, editListTarget } from "$lib/stores/board";
+    import { updateColumn } from "$lib/api/listsApi";
+    import { loadColumnsAndTasks } from "$lib/api/boardDataApi";
 
-    const dispatch = createEventDispatcher();
     let title = "";
     let isHidden = false;
     let isArchive = false;
 
-    $: hasArchive = $columns.some(col => col.is_archive);
-
-    function handleCreate() {
-        if (!title.trim()) return;
-        dispatch("create", { 
-            title: title.trim(), 
-            is_hidden: isHidden, 
-            is_archive: isArchive 
-        });
-        title = "";
-        isHidden = false;
-        isArchive = false;
-        closeModal();
+    // Reactively populate state when target changes
+    $: if ($editListTarget) {
+        title = $editListTarget.title;
+        isHidden = $editListTarget.is_hidden || false;
+        isArchive = $editListTarget.is_archive || false;
     }
 
-    function handleClose() {
-        title = "";
-        isHidden = false;
-        isArchive = false;
-        closeModal();
+    $: hasArchive = $columns.some(col => col.is_archive && col.id !== $editListTarget?.id);
+
+    async function handleSave() {
+        if (!title.trim() || !$editListTarget) return;
+        try {
+            await updateColumn($editListTarget.id, {
+                title: title.trim(),
+                is_hidden: isHidden,
+                is_archive: isArchive
+            });
+            await loadColumnsAndTasks();
+            closeModal();
+        } catch (e) {
+            console.error("Failed to update list", e);
+        }
     }
 
     function handleBackdropClick(e: MouseEvent) {
-        if (e.target === e.currentTarget) handleClose();
+        if (e.target === e.currentTarget) closeModal();
     }
 </script>
 
-{#if $activeModal === "createListModal"}
+{#if $activeModal === "editListModal" && $editListTarget}
     <div class="fixed inset-0 z-[70]" role="dialog" aria-modal="true">
         <!-- svelte-ignore a11y-click-events-have-key-events bg-click -->
         <div
@@ -54,27 +56,27 @@
                             class="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg"
                         >
                             <span class="material-symbols-outlined text-2xl"
-                                >view_week</span
+                                >edit</span
                             >
                         </div>
                         <h3
                             class="text-lg font-bold text-[#111418] dark:text-white"
                         >
-                            Create New List
+                            Edit List Settings
                         </h3>
                     </div>
                     <div class="mb-4">
                         <label
-                            for="newListTitle"
+                            for="editListTitle"
                             class="block text-sm font-medium text-[#5c6b7f] dark:text-gray-400 mb-2"
                             >List Title</label
                         >
                         <input
                             type="text"
-                            id="newListTitle"
+                            id="editListTitle"
                             bind:value={title}
                             class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-[#111418] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
-                            placeholder="e.g., To Do"
+                            placeholder="List Title"
                             autofocus
                         />
                     </div>
@@ -95,16 +97,16 @@
 
                     <div class="flex justify-end gap-3">
                         <button
-                            on:click={handleClose}
+                            on:click={closeModal}
                             class="px-4 py-2 text-sm font-medium text-[#5c6b7f] dark:text-gray-400 hover:text-[#111418] dark:hover:text-white transition-colors rounded-lg hover:bg-[#eff1f3] dark:hover:bg-[#1e2936]"
                         >
                             Cancel
                         </button>
                         <button
-                            on:click={handleCreate}
+                            on:click={handleSave}
                             class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-blue-600 transition-colors rounded-lg shadow-sm"
                         >
-                            Create List
+                            Save Changes
                         </button>
                     </div>
                 </div>

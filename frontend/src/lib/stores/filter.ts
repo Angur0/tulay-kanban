@@ -2,24 +2,25 @@ import { writable, derived } from 'svelte/store';
 import type { Label } from '$lib/types';
 
 // ================================
-// Filter & Sort State
+// Filter State
 // ================================
 
 export type PriorityFilter = 'all' | 'low' | 'medium' | 'high';
-export type SortOption = 'default' | 'priority-asc' | 'priority-desc' | 'due-date' | 'title';
 
 export interface TaskFilters {
     priority: PriorityFilter;
     labelIds: string[];
-    sortBy: SortOption;
+    assignedToMe: boolean;
     searchQuery: string;
+    showHiddenLists: boolean;
 }
 
 const DEFAULT_FILTERS: TaskFilters = {
     priority: 'all',
     labelIds: [],
-    sortBy: 'default',
+    assignedToMe: false,
     searchQuery: '',
+    showHiddenLists: false,
 };
 
 export const taskFilters = writable<TaskFilters>({ ...DEFAULT_FILTERS });
@@ -47,8 +48,12 @@ export function toggleLabelFilter(labelId: string) {
     });
 }
 
-export function setSortBy(sortBy: SortOption) {
-    taskFilters.update(f => ({ ...f, sortBy }));
+export function toggleAssignedToMe() {
+    taskFilters.update(f => ({ ...f, assignedToMe: !f.assignedToMe }));
+}
+
+export function toggleShowHiddenLists() {
+    taskFilters.update(f => ({ ...f, showHiddenLists: !f.showHiddenLists }));
 }
 
 export function setTaskSearchQuery(query: string) {
@@ -75,7 +80,8 @@ export const hasActiveFilters = derived(taskFilters, ($f) => {
     return (
         $f.priority !== 'all' ||
         $f.labelIds.length > 0 ||
-        $f.sortBy !== 'default' ||
-        $f.searchQuery.trim().length > 0
+        $f.assignedToMe ||
+        $f.searchQuery.trim().length > 0 ||
+        $f.showHiddenLists
     );
 });

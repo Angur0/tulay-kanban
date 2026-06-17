@@ -4,8 +4,9 @@
     import { openModal } from "$lib/stores/ui";
     import ColumnComponent from "./Column.svelte";
     import { updateColumn } from "$lib/api/listsApi";
-    import { updateTask } from "$lib/api/tasksApi";
+    import { updateTask, bulkUpdateTasksOrder } from "$lib/api/tasksApi";
     import type { Task } from "$lib/types";
+    import { taskFilters } from "$lib/stores/filter";
 
     function showCreateListModal() {
         openModal("createListModal");
@@ -16,13 +17,15 @@
     let columnDropBefore = false;
 
     $: canManageColumns = ["owner", "moderator"].includes($currentBoardRole);
-    $: orderedColumns = [...$columns].sort((a, b) => {
-        const aPos =
-            typeof a.position === "number" ? a.position : (a.order ?? 0);
-        const bPos =
-            typeof b.position === "number" ? b.position : (b.order ?? 0);
-        return aPos - bPos;
-    });
+    $: orderedColumns = $columns
+        .filter((col) => !col.is_hidden || $taskFilters.showHiddenLists)
+        .sort((a, b) => {
+            const aPos =
+                typeof a.position === "number" ? a.position : (a.order ?? 0);
+            const bPos =
+                typeof b.position === "number" ? b.position : (b.order ?? 0);
+            return aPos - bPos;
+        });
 
     async function handleTaskDrop(
         event: CustomEvent<{
@@ -54,8 +57,13 @@
                 return aCreated - bCreated;
             });
 
+        const targetColumn = $columns.find((c) => c.id === toColumnId);
+        const newStatus = targetColumn
+            ? targetColumn.title.toLowerCase().replace(/\s+/g, "")
+            : movingTask.status;
+
         const pool = $tasks.filter((task) => task.id !== taskId);
-        const movedTask = { ...movingTask, column_id: toColumnId };
+        const movedTask = { ...movingTask, column_id: toColumnId, status: newStatus };
 
         const targetList = sortByOrder(
             pool.filter((task) => task.column_id === toColumnId),
@@ -95,6 +103,7 @@
                 updatedById.set(task.id, {
                     ...task,
                     column_id: toColumnId,
+                    status: newStatus,
                     order: orderByTaskId.get(task.id) ?? task.order,
                 });
                 continue;
@@ -140,22 +149,20 @@
         setTasks(orderedTasks);
 
         try {
-            const updates = orderedTasks
+            const bulkItems = orderedTasks
                 .filter(
                     (task) =>
                         task.column_id && affectedColumnIds.has(task.column_id),
                 )
-                .map((task) =>
-                    updateTask(
-                        task.id,
-                        {
-                            column_id: task.column_id,
-                            order: task.order,
-                        },
-                        { reload: false },
-                    ),
-                );
-            await Promise.all(updates);
+                .map((task) => ({
+                    id: task.id,
+                    column_id: task.column_id!,
+                    order: task.order ?? 0,
+                }));
+            
+            if (bulkItems.length > 0) {
+                await bulkUpdateTasksOrder(bulkItems);
+            }
         } catch (e) {
             console.error("Failed to persist task reorder", e);
         }
@@ -259,7 +266,7 @@
 </script>
 
 <div
-    class="kanban-scroll flex-1 overflow-x-auto overflow-y-hidden bg-[#f0f2f5] dark:bg-[#0d141c] p-4 md:p-8 custom-scrollbar rounded-tl-none md:rounded-tl-2xl"
+    class="kanban-scroll flex-1 overflow-x-auto overflow-y-hidden bg-[#f0f2f5] dark:bg-[#0d141c] p-4 md:p-8 md:ml-4 custom-scrollbar rounded-tl-none md:rounded-tl-2xl"
 >
     <div class="responsive-board flex h-full gap-4 md:gap-6 min-w-max md:min-w-[900px]" id="board">
         {#if $columns.length === 0}

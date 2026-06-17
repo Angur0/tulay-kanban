@@ -114,12 +114,13 @@
         closeModal();
     }
 
-    function validateDueDate() {
-        if (!dueDateValue) return true;
+    $: isPastDate = (() => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        return new Date(dueDateValue) >= today;
-    }
+        const start = startDateValue ? new Date(startDateValue) : null;
+        const due = dueDateValue ? new Date(dueDateValue) : null;
+        return (start && start < today) || (due && due < today);
+    })();
 
     function buildStatus(columnId: string, fallback: string) {
         const statusTitle = $columns.find(
@@ -137,10 +138,6 @@
         if (!task || !canManage) return;
         if (!title.trim()) {
             saveError = "Task title is required";
-            return;
-        }
-        if (!validateDueDate()) {
-            saveError = "Due date cannot be in the past";
             return;
         }
 
@@ -483,7 +480,7 @@
         ></div>
 
         <div
-            class="relative w-full max-w-2xl h-[92dvh] sm:h-full bg-white dark:bg-[#151e29] shadow-2xl border-l border-[#e5e7eb] dark:border-[#1e2936] rounded-t-2xl sm:rounded-t-none flex flex-col pointer-events-auto"
+            class="relative w-full max-w-2xl h-[92dvh] sm:h-full bg-white dark:bg-[#151e29] shadow-2xl rounded-t-2xl sm:rounded-t-none flex flex-col pointer-events-auto"
         >
             <div
                 class="flex items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b border-[#e5e7eb] dark:border-[#1e2936]"
@@ -536,6 +533,13 @@
             <div
                 class="flex-1 overflow-y-auto px-4 sm:px-6 py-5 sm:py-6 custom-scrollbar space-y-6"
             >
+                {#if isPastDate}
+                    <div class="p-3 bg-yellow-50 text-yellow-700 rounded border border-yellow-200 text-sm flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[18px]">warning</span>
+                        Warning: One or more dates are in the past.
+                    </div>
+                {/if}
+
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label
@@ -591,7 +595,6 @@
                         <input
                             type="date"
                             bind:value={dueDateValue}
-                            min={new Date().toISOString().split("T")[0]}
                             disabled={!canManage}
                             class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"
                         />

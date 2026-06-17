@@ -5,6 +5,7 @@
 
     import BoardView from "$lib/components/BoardView.svelte";
     import GanttView from "$lib/components/GanttView.svelte";
+    import CalendarView from "$lib/components/CalendarView.svelte";
     import MyTasksView from "$lib/components/MyTasksView.svelte";
 </script>
 
@@ -13,8 +14,10 @@
         {#if $activeBoard}
             {#if $boardViewMode === 'kanban'}
                 <BoardView />
-            {:else}
+            {:else if $boardViewMode === 'gantt'}
                 <GanttView />
+            {:else if $boardViewMode === 'calendar'}
+                <CalendarView />
             {/if}
         {:else}
             <div

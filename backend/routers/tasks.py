@@ -8,7 +8,7 @@ from backend.core import realtime
 from backend.core.deps import get_current_user
 from backend.core.rbac import ensure_board_access
 from backend.database import get_db
-from backend.schemas import CommentCreate, CommentResponse, TaskCreate, TaskResponse, SubtaskCreate, SubtaskUpdate, SubtaskResponse
+from backend.schemas import CommentCreate, CommentResponse, TaskCreate, TaskResponse, SubtaskCreate, SubtaskUpdate, SubtaskResponse, TaskBulkReorder, ColumnBulkMove, ColumnBulkCreate
 
 router = APIRouter(tags=["tasks"])
 
@@ -88,12 +88,53 @@ async def create_task(task_in: TaskCreate, current_user: models.User = Depends(g
     event = {
         "type": "TASK_CREATED",
         "taskId": new_task.id,
-        "data": {"title": new_task.title, "status": new_task.status, "board_id": new_task.board_id},
-        "timestamp": datetime.datetime.utcnow().isoformat()
+        "taskTitle": new_task.title,
+        "data": {"title": new_task.title, "status": new_task.status, "board_id": new_task.board_id, "assignee_id": new_task.assignee_id},
+        "timestamp": datetime.datetime.utcnow().isoformat(),
+        "user_id": current_user.id
     }
     await realtime.publish_or_broadcast(event)
 
     return new_task
+
+
+@router.put("/api/tasks/reorder")
+async def reorder_tasks(reorder_in: TaskBulkReorder, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if not reorder_in.items:
+        return {"status": "ok"}
+    
+    first_task = db.query(models.Task).filter(models.Task.id == reorder_in.items[0].id).first()
+    if not first_task:
+        raise HTTPException(status_code=404, detail="Task not found")
+        
+    ensure_board_access(db, first_task.board_id, current_user, ["owner", "moderator", "member"])
+    board_id = first_task.board_id
+
+    task_ids = [item.id for item in reorder_in.items]
+    tasks = db.query(models.Task).filter(models.Task.id.in_(task_ids)).all()
+    task_map = {t.id: t for t in tasks}
+
+    for item in reorder_in.items:
+        if item.id in task_map:
+            task = task_map[item.id]
+            if task.column_id != item.column_id:
+                dest_col = db.query(models.BoardColumn).filter(models.BoardColumn.id == item.column_id).first()
+                if dest_col:
+                    task.status = dest_col.title.lower().replace(" ", "")
+            task.column_id = item.column_id
+            task.order = item.order
+
+    db.commit()
+
+    event = {
+        "type": "TASKS_REORDERED",
+        "timestamp": datetime.datetime.utcnow().isoformat(),
+        "user_id": current_user.id,
+        "board_id": board_id
+    }
+    await realtime.publish_or_broadcast(event)
+
+    return {"status": "ok"}
 
 
 @router.put("/api/tasks/{task_id}", response_model=TaskResponse)
@@ -103,6 +144,12 @@ async def update_task(task_id: str, updates: dict, current_user: models.User = D
         raise HTTPException(status_code=404, detail="Task not found")
 
     ensure_board_access(db, task.board_id, current_user, ["owner", "moderator", "member"])
+
+    new_column_id = updates.get("column_id")
+    if new_column_id and new_column_id != task.column_id:
+        dest_col = db.query(models.BoardColumn).filter(models.BoardColumn.id == new_column_id).first()
+        if dest_col:
+            updates["status"] = dest_col.title.lower().replace(" ", "")
 
     old_status = task.status
     label_ids = updates.pop("label_ids", None)
@@ -154,6 +201,52 @@ async def delete_task(task_id: str, current_user: models.User = Depends(get_curr
 
         task_title = task.title
         board_id = task.board_id
+
+        # Check for archive list on the board
+        archive_col = db.query(models.BoardColumn).filter(
+            models.BoardColumn.board_id == board_id,
+            models.BoardColumn.is_archive == True
+        ).first()
+
+        # If archive exists and task is not in it, move to archive
+        if archive_col and task.column_id != archive_col.id:
+            task.column_id = archive_col.id
+            task.status = archive_col.title.lower().replace(" ", "")
+            # Recalculate order to be at the end of the archive column
+            max_order = (
+                db.query(models.Task.order)
+                .filter(
+                    models.Task.board_id == board_id,
+                    models.Task.column_id == archive_col.id,
+                )
+                .order_by(models.Task.order.desc())
+                .first()
+            )
+            task.order = (max_order[0] + 1) if max_order else 0
+            db.commit()
+
+            # Record activity as TASK_MOVED
+            activity = models.Activity(
+                board_id=board_id,
+                user_id=current_user.id,
+                event_type="TASK_MOVED",
+                task_id=task_id,
+                task_title=task_title,
+                data={"status": task.status, "column_id": archive_col.id}
+            )
+            db.add(activity)
+            db.commit()
+
+            event = {
+                "type": "TASK_MOVED",
+                "taskId": task_id,
+                "data": {"status": task.status, "column_id": archive_col.id},
+                "timestamp": datetime.datetime.utcnow().isoformat(),
+                "user_id": current_user.id,
+                "board_id": board_id
+            }
+            await realtime.publish_or_broadcast(event)
+            return {"status": "archived", "column_id": archive_col.id}
 
         activity = models.Activity(
             board_id=board_id,
@@ -498,3 +591,177 @@ async def delete_subtask(
     await realtime.publish_or_broadcast(event)
     
     return {"status": "deleted"}
+
+
+@router.post("/api/columns/{column_id}/tasks/bulk-move")
+async def bulk_move_tasks(column_id: str, payload: ColumnBulkMove, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    col = db.query(models.BoardColumn).filter(models.BoardColumn.id == column_id).first()
+    if not col:
+        raise HTTPException(status_code=404, detail="Column not found")
+    dest_col = db.query(models.BoardColumn).filter(models.BoardColumn.id == payload.destination_column_id).first()
+    if not dest_col:
+        raise HTTPException(status_code=404, detail="Destination column not found")
+    if col.board_id != dest_col.board_id:
+        raise HTTPException(status_code=400, detail="Columns must belong to the same board")
+
+    ensure_board_access(db, col.board_id, current_user, ["owner", "moderator", "member"])
+
+    max_order_row = db.query(models.Task.order).filter(
+        models.Task.column_id == payload.destination_column_id
+    ).order_by(models.Task.order.desc()).first()
+    start_order = (max_order_row[0] + 1) if max_order_row else 0
+
+    tasks_to_move = db.query(models.Task).filter(
+        models.Task.column_id == column_id
+    ).order_by(models.Task.order).all()
+
+    new_status = dest_col.title.lower().replace(" ", "")
+    for idx, task in enumerate(tasks_to_move):
+        task.column_id = payload.destination_column_id
+        task.status = new_status
+        task.order = start_order + idx
+
+    db.commit()
+
+    event = {
+        "type": "TASKS_REORDERED",
+        "timestamp": datetime.datetime.utcnow().isoformat(),
+        "user_id": current_user.id,
+        "board_id": col.board_id
+    }
+    await realtime.publish_or_broadcast(event)
+
+    return {"status": "ok", "moved_count": len(tasks_to_move)}
+
+
+@router.post("/api/columns/{column_id}/tasks/bulk-delete")
+async def bulk_delete_tasks(column_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    col = db.query(models.BoardColumn).filter(models.BoardColumn.id == column_id).first()
+    if not col:
+        raise HTTPException(status_code=404, detail="Column not found")
+
+    ensure_board_access(db, col.board_id, current_user, ["owner", "moderator", "member"])
+
+    archive_col = db.query(models.BoardColumn).filter(
+        models.BoardColumn.board_id == col.board_id,
+        models.BoardColumn.is_archive == True
+    ).first()
+
+    tasks_in_col = db.query(models.Task).filter(models.Task.column_id == column_id).all()
+
+    if not tasks_in_col:
+        return {"status": "ok", "deleted_count": 0, "archived_count": 0}
+
+    if archive_col and col.id != archive_col.id:
+        max_order_row = db.query(models.Task.order).filter(
+            models.Task.column_id == archive_col.id
+        ).order_by(models.Task.order.desc()).first()
+        start_order = (max_order_row[0] + 1) if max_order_row else 0
+
+        new_status = archive_col.title.lower().replace(" ", "")
+        for idx, task in enumerate(tasks_in_col):
+            task.column_id = archive_col.id
+            task.status = new_status
+            task.order = start_order + idx
+
+            activity = models.Activity(
+                board_id=col.board_id,
+                user_id=current_user.id,
+                event_type="TASK_MOVED",
+                task_id=task.id,
+                task_title=task.title,
+                data={"status": task.status, "column_id": archive_col.id}
+            )
+            db.add(activity)
+        
+        db.commit()
+
+        event = {
+            "type": "TASKS_REORDERED",
+            "timestamp": datetime.datetime.utcnow().isoformat(),
+            "user_id": current_user.id,
+            "board_id": col.board_id
+        }
+        await realtime.publish_or_broadcast(event)
+        return {"status": "archived", "archived_count": len(tasks_in_col), "deleted_count": 0}
+
+    deleted_count = len(tasks_in_col)
+    for task in tasks_in_col:
+        activity = models.Activity(
+            board_id=col.board_id,
+            user_id=current_user.id,
+            event_type="TASK_DELETED",
+            task_id=task.id,
+            task_title=task.title,
+            data={}
+        )
+        db.add(activity)
+        db.delete(task)
+
+    db.commit()
+
+    event = {
+        "type": "TASKS_REORDERED",
+        "timestamp": datetime.datetime.utcnow().isoformat(),
+        "user_id": current_user.id,
+        "board_id": col.board_id
+    }
+    await realtime.publish_or_broadcast(event)
+
+    return {"status": "deleted", "deleted_count": deleted_count, "archived_count": 0}
+
+
+@router.post("/api/columns/{column_id}/tasks/bulk-create")
+async def bulk_create_tasks(column_id: str, payload: ColumnBulkCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    col = db.query(models.BoardColumn).filter(models.BoardColumn.id == column_id).first()
+    if not col:
+        raise HTTPException(status_code=404, detail="Column not found")
+
+    ensure_board_access(db, col.board_id, current_user, ["owner", "moderator", "member"])
+
+    max_order_row = db.query(models.Task.order).filter(
+        models.Task.column_id == column_id
+    ).order_by(models.Task.order.desc()).first()
+    start_order = (max_order_row[0] + 1) if max_order_row else 0
+
+    new_tasks = []
+    status_val = col.title.lower().replace(" ", "")
+    for idx, title in enumerate(payload.titles):
+        title_strip = title.strip()
+        if not title_strip:
+            continue
+        new_task = models.Task(
+            board_id=col.board_id,
+            column_id=column_id,
+            title=title_strip,
+            status=status_val,
+            order=start_order + idx,
+            priority="medium"
+        )
+        db.add(new_task)
+        new_tasks.append(new_task)
+
+    db.commit()
+
+    for task in new_tasks:
+        db.refresh(task)
+        activity = models.Activity(
+            board_id=col.board_id,
+            user_id=current_user.id,
+            event_type="TASK_CREATED",
+            task_id=task.id,
+            task_title=task.title,
+            data={"status": task.status}
+        )
+        db.add(activity)
+    db.commit()
+
+    event = {
+        "type": "TASKS_REORDERED",
+        "timestamp": datetime.datetime.utcnow().isoformat(),
+        "user_id": current_user.id,
+        "board_id": col.board_id
+    }
+    await realtime.publish_or_broadcast(event)
+
+    return {"status": "ok", "created_count": len(new_tasks)}

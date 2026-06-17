@@ -86,6 +86,8 @@ class BoardColumn(Base):
     title = Column(String, nullable=False)
     position = Column(Integer, default=0)
     color = Column(String, nullable=True)
+    is_hidden = Column(Boolean, default=False, nullable=False)
+    is_archive = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     board = relationship("Board", back_populates="columns")

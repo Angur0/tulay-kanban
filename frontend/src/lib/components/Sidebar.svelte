@@ -66,6 +66,28 @@
         setDeleteBoardTarget(board);
         openModal("deleteBoardModal");
     }
+
+    function handleMouseEnter(event: MouseEvent) {
+        const item = event.currentTarget as HTMLElement;
+        const scrollContainer = item.querySelector('.board-name-scroll-container') as HTMLElement;
+        const innerSpan = item.querySelector('.board-name-scroll-inner') as HTMLElement;
+        if (scrollContainer && innerSpan) {
+            const overflow = innerSpan.scrollWidth - scrollContainer.clientWidth;
+            if (overflow > 0) {
+                innerSpan.style.setProperty('--board-name-overflow', `-${overflow}px`);
+                innerSpan.classList.add('is-overflowing');
+            }
+        }
+    }
+
+    function handleMouseLeave(event: MouseEvent) {
+        const item = event.currentTarget as HTMLElement;
+        const innerSpan = item.querySelector('.board-name-scroll-inner') as HTMLElement;
+        if (innerSpan) {
+            innerSpan.classList.remove('is-overflowing');
+            innerSpan.style.removeProperty('--board-name-overflow');
+        }
+    }
 </script>
 
 <aside
@@ -131,6 +153,8 @@
                         on:click={() => selectBoard(board.id)}
                         on:contextmenu={(event) =>
                             handleBoardContextMenu(event, board.id, board.name)}
+                        on:mouseenter={handleMouseEnter}
+                        on:mouseleave={handleMouseLeave}
                     >
                         <a
                             href="#"
@@ -145,10 +169,11 @@
                                 style="color: {board.icon_color || '#3b82f6'}"
                                 >{normalizeBoardIcon(board.icon)}</span
                             >
-                            <span
-                                class="text-sm font-medium truncate sidebar-text"
-                                >{board.name}</span
-                            >
+                            <div class="board-name-scroll-container sidebar-text flex-1 overflow-hidden">
+                                <span class="text-sm font-medium board-name-scroll-inner inline-block whitespace-nowrap">
+                                    {board.name}
+                                </span>
+                            </div>
                         </a>
                         <!-- TODO: Delete board logic -->
                         <button
@@ -174,6 +199,7 @@
                 'board'
                     ? 'bg-[#eff1f3] dark:bg-[#1e2936] text-[#111418] dark:text-white'
                     : 'text-[#5c6b7f] dark:text-gray-400 hover:bg-[#eff1f3] dark:hover:bg-[#1e2936]'}"
+                data-sidebar-tooltip="Board"
                 href="#"
             >
                 <span
@@ -192,6 +218,7 @@
                 'my-tasks'
                     ? 'bg-[#eff1f3] dark:bg-[#1e2936] text-[#111418] dark:text-white'
                     : 'text-[#5c6b7f] dark:text-gray-400 hover:bg-[#eff1f3] dark:hover:bg-[#1e2936]'}"
+                data-sidebar-tooltip="My Tasks"
                 href="#"
             >
                 <span
@@ -205,6 +232,7 @@
             <a
                 on:click|preventDefault={() => openResponsiveModal("labelManagerModal")}
                 class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group justify-start sidebar-item text-[#5c6b7f] dark:text-gray-400 hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] hover:text-[#111418] dark:hover:text-white"
+                data-sidebar-tooltip="Labels"
                 href="#"
             >
                 <span

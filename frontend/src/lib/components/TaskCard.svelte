@@ -16,7 +16,6 @@
 
     export let task: Task;
 
-    $: isDone = task.status === "done";
     $: canManage = ["owner", "moderator", "member"].includes($currentBoardRole);
     $: assignee = task.assignee_id
         ? $boardMembers
@@ -165,9 +164,7 @@
 </script>
 
 <div
-    class="task-card group flex flex-col gap-2 p-3 bg-white dark:bg-[#151e29] rounded-lg border border-[#e5e7eb] dark:border-[#1e2936] hover:border-primary/50 shadow-sm cursor-pointer transition-all {isDone
-        ? 'opacity-60 hover:opacity-100'
-        : ''} {isTouchActive ? 'opacity-50 scale-95' : ''}"
+    class="task-card group flex flex-col gap-2 p-3 bg-white dark:bg-[#151e29] rounded-lg border border-[#e5e7eb] dark:border-[#1e2936] hover:border-primary/50 shadow-sm cursor-pointer transition-all {isTouchActive ? 'opacity-50 scale-95' : ''}"
     style="border-left-width: 4px; border-left-color: {borderColor}; touch-action: {isTouchActive ? 'none' : 'pan-x pan-y'};"
     data-task-id={task.id}
     draggable={canManage}
@@ -185,9 +182,7 @@
     <!-- Task Header -->
     <div class="flex justify-between items-start gap-2">
         <span
-            class="text-sm font-medium text-[#111418] dark:text-gray-200 leading-snug {isDone
-                ? 'line-through decoration-gray-400'
-                : ''}"
+            class="text-sm font-medium text-[#111418] dark:text-gray-200 leading-snug"
         >
             {task.title}
         </span>

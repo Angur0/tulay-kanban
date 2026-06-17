@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 
 from backend import models
 from backend.core import realtime
-from backend.core.setup import ensure_board_icon_column, ensure_task_order_column, seed_db
+from backend.core.setup import ensure_board_icon_column, ensure_task_order_column, ensure_column_parameters, seed_db
 from backend.database import engine
 from backend.routers import auth, boards, labels, misc, tasks, workspaces
 from backend.storage import get_storage_backend
@@ -21,6 +21,7 @@ from backend.storage import get_storage_backend
 models.Base.metadata.create_all(bind=engine)
 ensure_board_icon_column()
 ensure_task_order_column()
+ensure_column_parameters()
 seed_db()
 
 if sys.platform == "win32" and sys.version_info < (3, 11):

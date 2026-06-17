@@ -55,9 +55,9 @@
         <div class="header-actions flex items-center gap-2 md:gap-3 overflow-x-auto no-scrollbar">
             <!-- Task Stats (board view only) -->
             {#if $activeBoard}
-                <div class="hidden xl:flex items-center gap-4 text-xs overflow-x-auto">
+                <div class="hidden xl:flex items-center gap-4 text-xs overflow-x-auto no-scrollbar">
                     {#each stats as stat}
-                        <div class="flex items-center gap-1.5">
+                        <div class="flex items-center gap-1.5 whitespace-nowrap">
                             <span class="size-2 rounded-full {stat.colorClass}"></span>
                             <span class="text-[#5c6b7f] dark:text-gray-400"
                                 >{stat.title}:
@@ -97,7 +97,7 @@
                 </button>
             {/if}
 
-                <!-- View mode toggle (Kanban / Gantt) -->
+                <!-- View mode toggle (Kanban / Gantt / Calendar) -->
                 {#if $activeBoard}
                 <div class="flex items-center bg-[#eff1f3] dark:bg-[#1e2936] rounded-lg p-0.5 ml-1">
                     <button
@@ -115,6 +115,14 @@
                         title="Gantt / Timeline view"
                     >
                         <span class="material-symbols-outlined text-[16px] align-middle">calendar_view_week</span>
+                    </button>
+                    <button
+                        id="view-toggle-calendar"
+                        class="px-2.5 py-1 rounded-md text-xs font-medium transition-colors {$boardViewMode === 'calendar' ? 'bg-white dark:bg-[#2a3a4a] shadow-sm text-primary' : 'text-[#5c6b7f] hover:text-[#111418] dark:hover:text-white'}"
+                        on:click={() => setBoardViewMode('calendar')}
+                        title="Calendar view"
+                    >
+                        <span class="material-symbols-outlined text-[16px] align-middle">calendar_month</span>
                     </button>
                 </div>
                 {/if}
