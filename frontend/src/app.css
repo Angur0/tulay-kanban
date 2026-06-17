@@ -1,13 +1,11 @@
-@import '@fontsource/inter/300.css';
-@import '@fontsource/inter/400.css';
-@import '@fontsource/inter/500.css';
-@import '@fontsource/inter/600.css';
-@import '@fontsource/inter/700.css';
-@import 'material-symbols/outlined.css';
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
+/* Load plugins using v4 syntax */
+@plugin "@tailwindcss/forms";
+@plugin "@tailwindcss/container-queries";
 
 /* ====================================================
    shared.css — common styles for Tulay Kanban

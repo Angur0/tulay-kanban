@@ -122,8 +122,9 @@ class LocalFileStorage(StorageBackend):
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(clean_file, buffer)
 
-        # Return public URL
-        return f"{self.base_url}/uploads/{unique_filename}"
+        # Return a relative path so resolveImageUrl() on the frontend can
+        # prepend the correct host at display time (device-agnostic storage).
+        return f"/uploads/{unique_filename}"
     
     async def delete_file(self, url: str) -> bool:
         """Delete file from local filesystem"""
