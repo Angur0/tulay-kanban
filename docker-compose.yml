@@ -63,7 +63,7 @@ services:
       apk add --no-cache dnsmasq &&
       echo 'no-resolv' > /etc/dnsmasq.conf &&
       echo 'no-hosts' >> /etc/dnsmasq.conf &&
-      echo 'address=/tulay-kanban.internal/$${HOST_TAILSCALE_IP}' >> /etc/dnsmasq.conf &&
+      echo 'address=/tulay-kanban.internal/${HOST_TAILSCALE_IP}' >> /etc/dnsmasq.conf &&
       echo 'server=1.1.1.1' >> /etc/dnsmasq.conf &&
       echo 'server=8.8.8.8' >> /etc/dnsmasq.conf &&
       dnsmasq -k
