@@ -118,7 +118,12 @@ def _compute_layout(tasks_data: List[dict]) -> dict:
     }
 
 
-def generate_gantt_html(tasks: List[dict], board_name: str = "Board", dark_mode: bool = False) -> str:
+def generate_gantt_html(
+    tasks: List[dict],
+    board_name: str = "Board",
+    dark_mode: bool = False,
+    view_mode: str = "Week",
+) -> str:
     """
     Generate a condensed HTML string representing the Gantt chart.
 
@@ -164,23 +169,17 @@ def generate_gantt_html(tasks: List[dict], board_name: str = "Board", dark_mode:
     if (max_date - min_date).days < 1:
         max_date = min_date + datetime.timedelta(days=1)
 
-    # Choose granularity based on span
-    span_days = (max_date - min_date).days + 1
-    
-    # If there are many tasks, the image gets very tall, so we can keep the columns
-    # slightly wider to maintain a reasonable aspect ratio. Otherwise we compress them
-    # so they are "more stuck together".
+    # Choose granularity based on user's selected view mode
     is_many_tasks = len(tasks) > 15
+    _MODE_MAP = {"Day": "day", "Week": "week", "Month": "month"}
+    granularity = _MODE_MAP.get(view_mode, "week")
 
-    if span_days <= 14:
-        granularity = "day"
-        px_per_day = 20 if is_many_tasks else 14
-    elif span_days <= 90:
-        granularity = "week"
-        px_per_day = 10 if is_many_tasks else 6
-    else:
-        granularity = "month"
-        px_per_day = 3 if is_many_tasks else 1.5
+    if granularity == "day":
+        px_per_day = 20 if is_many_tasks else 28
+    elif granularity == "week":
+        px_per_day = 10 if is_many_tasks else 14
+    else:  # month
+        px_per_day = 3 if is_many_tasks else 5
 
     # Build date cells
     date_cells = _build_date_cells(min_date, max_date, px_per_day, granularity)
@@ -256,6 +255,7 @@ def generate_gantt_html(tasks: List[dict], board_name: str = "Board", dark_mode:
 
     html = template.render(
         board_name=board_name,
+        view_mode_label=view_mode,
         num_tasks=len(tasks),
         tasks=task_entries,
         row_height=row_height,

@@ -18,9 +18,11 @@ import { API_URL } from '$lib/constants';
  */
 export async function exportGanttImage(
 	boardId: string,
-	format: 'png' | 'pdf' = 'png'
+	format: 'png' | 'pdf' = 'png',
+	viewMode: string = 'Week'
 ): Promise<{ url: string }> {
-	const response = await authFetch(`${API_URL}/api/boards/${boardId}/export-gantt?format=${format}`, {
+	const params = new URLSearchParams({ format, view_mode: viewMode });
+	const response = await authFetch(`${API_URL}/api/boards/${boardId}/export-gantt?${params}`, {
 		method: 'POST',
 	});
 

@@ -91,6 +91,7 @@ async def websocket_endpoint(websocket: WebSocket, board_id: str):
 async def export_gantt(
     board_id: str,
     format: str = "png",
+    view_mode: str = "Week",
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -163,6 +164,7 @@ async def export_gantt(
         tasks=task_data,
         board_name=board.name,
         dark_mode=False,
+        view_mode=view_mode,
     )
 
     if not html_content:
