@@ -135,10 +135,10 @@ During development, the frontend dev server at port `5173` acts as a reverse pro
 
 ## Demo Login
 
-- Email: `test@example.com`
-- Password: `password123`
+- Email: `admin@tulay.local`
+- Password: `admin1234`
 
-The backend seed setup creates the demo user if it is missing. Registration UI exists, but backend registration is intentionally disabled.
+The backend seed setup creates the default admin user if it is missing. Registration UI exists, but backend registration is intentionally disabled. On first login, you will be prompted to change this default password.
 
 ## Common Commands
 
