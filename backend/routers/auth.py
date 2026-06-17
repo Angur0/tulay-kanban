@@ -45,7 +45,12 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password")
 
     access_token = auth.create_access_token(data={"sub": user.email})
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "must_change_password": bool(user.must_change_password),
+        "is_admin": bool(user.is_admin),
+    }
 
 
 @router.get("/me", response_model=UserResponse)
@@ -67,6 +72,7 @@ def update_me(user_in: UserUpdate, db: Session = Depends(get_db), current_user: 
         
     if user_in.password:
         current_user.hashed_password = auth.get_password_hash(user_in.password)
+        current_user.must_change_password = False
         
     db.commit()
     db.refresh(current_user)

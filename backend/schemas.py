@@ -23,6 +23,10 @@ class UserResponse(BaseModel):
     id: str
     email: str
     full_name: str
+    is_admin: bool = False
+    must_change_password: bool = False
+    is_banned: bool = False
+    ban_until: Optional[datetime.datetime] = None
 
 
 class UserUpdate(BaseModel):
@@ -31,9 +35,19 @@ class UserUpdate(BaseModel):
     password: Optional[str] = None
 
 
+class AdminUserUpdate(BaseModel):
+    full_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
+    is_banned: Optional[bool] = None
+    ban_until: Optional[datetime.datetime] = None
+
+
 class Token(BaseModel):
     access_token: str
     token_type: str
+    must_change_password: bool = False
+    is_admin: bool = False
 
 
 class WorkspaceCreate(BaseModel):
@@ -56,6 +70,8 @@ class BoardResponse(BaseModel):
     icon_color: str
     position: int
     workspace_id: str
+    role: Optional[str] = None
+
 
 
 class BoardUpdate(BaseModel):
@@ -197,6 +213,7 @@ class TaskResponse(BaseModel):
     events: Optional[list] = []
     images: Optional[List[str]] = []
     subtasks: List[SubtaskResponse] = []
+    is_orphaned: bool = False
     created_at: datetime.datetime
     updated_at: datetime.datetime
 

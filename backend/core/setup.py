@@ -93,37 +93,96 @@ def ensure_column_parameters():
     print("BoardColumn parameters ensured with default values")
 
 
-def seed_db():
+def ensure_user_admin_columns():
+    """Ensure is_admin, must_change_password, is_banned, ban_until exist on users"""
+    inspector = inspect(engine)
+    columns = {col["name"] for col in inspector.get_columns("users")}
+
+    if "is_admin" not in columns:
+        print("Adding is_admin column to users table...")
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT FALSE NOT NULL"))
+
+    if "must_change_password" not in columns:
+        print("Adding must_change_password column to users table...")
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN must_change_password BOOLEAN DEFAULT FALSE NOT NULL"))
+
+    if "is_banned" not in columns:
+        print("Adding is_banned column to users table...")
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN is_banned BOOLEAN DEFAULT FALSE NOT NULL"))
+
+    if "ban_until" not in columns:
+        print("Adding ban_until column to users table...")
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN ban_until TIMESTAMP"))
+
+
+def ensure_task_orphaned_column():
+    """Ensure is_orphaned exists on tasks"""
+    inspector = inspect(engine)
+    columns = {col["name"] for col in inspector.get_columns("tasks")}
+
+    if "is_orphaned" not in columns:
+        print("Adding is_orphaned column to tasks table...")
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN is_orphaned BOOLEAN DEFAULT FALSE NOT NULL"))
+
+
+def remove_test_user():
+    """Remove test@example.com user and all cascading relationships if exists"""
     db = SessionLocal()
     try:
-        test_email = "test@example.com"
-        user = db.query(models.User).filter(models.User.email == test_email).first()
-        if not user:
-            print("Seeding default test user...")
-            hashed_pw = auth.get_password_hash("password123")
-            new_user = models.User(email=test_email, hashed_password=hashed_pw, full_name="Test User")
-            db.add(new_user)
+        user = db.query(models.User).filter(models.User.email == "test@example.com").first()
+        if user:
+            print("Removing test@example.com user...")
+            # Delete comments
+            db.query(models.Comment).filter(models.Comment.user_id == user.id).delete()
+            # Delete activities
+            db.query(models.Activity).filter(models.Activity.user_id == user.id).delete()
+            # Delete workspace memberships
+            db.execute(models.workspace_members.delete().where(models.workspace_members.c.user_id == user.id))
+            # Delete board memberships
+            db.execute(models.board_members.delete().where(models.board_members.c.user_id == user.id))
+            # Orphan tasks
+            db.query(models.Task).filter(models.Task.assignee_id == user.id).update({"assignee_id": None, "is_orphaned": True})
+            # Delete owned workspaces
+            workspaces = db.query(models.Workspace).filter(models.Workspace.owner_id == user.id).all()
+            for ws in workspaces:
+                db.delete(ws)
+            # Delete user
+            db.delete(user)
             db.commit()
-            db.refresh(new_user)
+            print("test@example.com removed successfully.")
+    except Exception as e:
+        db.rollback()
+        print(f"Error removing test user: {e}")
+    finally:
+        db.close()
 
-            ws = models.Workspace(name="Test Workspace", owner_id=new_user.id)
-            db.add(ws)
-            db.commit()
-            db.refresh(ws)
 
-            board = models.Board(name="Task Board", workspace_id=ws.id)
-            db.add(board)
+def seed_admin():
+    """Seed the default admin account: admin@tulay.local / admin1234"""
+    db = SessionLocal()
+    try:
+        admin_user = db.query(models.User).filter(models.User.is_admin == True).first()
+        if not admin_user:
+            print("Seeding default admin user...")
+            hashed_pw = auth.get_password_hash("admin1234")
+            admin = models.User(
+                email="admin@tulay.local",
+                hashed_password=hashed_pw,
+                full_name="System Administrator",
+                is_admin=True,
+                must_change_password=True
+            )
+            db.add(admin)
             db.commit()
-            db.refresh(board)
-
-            cols = [
-                models.BoardColumn(board_id=board.id, title="To Do", position=0, color="amber-100"),
-                models.BoardColumn(board_id=board.id, title="In Progress", position=1, color="blue-100"),
-                models.BoardColumn(board_id=board.id, title="Done", position=2, color="green-100"),
-                models.BoardColumn(board_id=board.id, title="Archive", position=3, color="gray-100", is_archive=True),
-            ]
-            db.add_all(cols)
-            db.commit()
-            print(f"Default user created: {test_email} / password123")
+            db.refresh(admin)
+            print("Default admin created: admin@tulay.local / admin1234")
+    except Exception as e:
+        db.rollback()
+        print(f"Error seeding admin user: {e}")
     finally:
         db.close()

@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tulay-Kanban — Pitch Deck</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            antimatter: '#0B101E',
+            surface: '#151B2B',
+            'surface-light': '#1C2540',
+            border: '#1E2740',
+            'blue-accent': '#4285F4',
+            'cyan-accent': '#22D3EE',
+            'green-accent': '#34A853',
+          },
+        },
+      },
+    }
+  </script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: #0B101E;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* ---- Background Grid ---- */
+    #bg-grid {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(66, 133, 244, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(66, 133, 244, 0.04) 1px, transparent 1px);
+      background-size: 50px 50px;
+      animation: gridScroll 40s linear infinite;
+    }
+
+    #bg-grid::after {
+      content: '';
+      position: absolute;
+      inset: -100%;
+      background-image:
+        linear-gradient(60deg, rgba(34, 211, 238, 0.015) 1px, transparent 1px),
+        linear-gradient(-60deg, rgba(34, 211, 238, 0.015) 1px, transparent 1px);
+      background-size: 100px 173px;
+      animation: hexScroll 30s linear infinite;
+    }
+
+    @keyframes gridScroll {
+      0%   { transform: translateY(0); }
+      100% { transform: translateY(50px); }
+    }
+
+    @keyframes hexScroll {
+      0%   { transform: translate(0, 0); }
+      100% { transform: translate(100px, 173px); }
+    }
+
+    /* ---- Vignette ---- */
+    #vignette {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      background: radial-gradient(ellipse at center, transparent 50%, rgba(11, 16, 30, 0.7) 100%);
+    }
+
+    /* ---- Slides Container ---- */
+    #slides-wrapper {
+      position: relative;
+      z-index: 10;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    #slides-container {
+      display: flex;
+      height: 100%;
+      transition: transform 0.6s cubic-bezier(0.65, 0, 0.35, 1);
+      will-change: transform;
+    }
+
+    .slide {
+      min-width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 4rem;
+      flex-shrink: 0;
+    }
+
+    /* ---- Typography ---- */
+    .glow-text {
+      text-shadow: 0 0 40px rgba(66, 133, 244, 0.3), 0 0 80px rgba(66, 133, 244, 0.1);
+    }
+
+    .glow-cyan {
+      text-shadow: 0 0 40px rgba(34, 211, 238, 0.25), 0 0 80px rgba(34, 211, 238, 0.08);
+    }
+
+    .accent-line {
+      width: 80px;
+      height: 3px;
+      border-radius: 2px;
+      background: linear-gradient(90deg, #4285F4, #22D3EE);
+      margin: 1.5rem 0;
+    }
+
+    .accent-line-center {
+      width: 80px;
+      height: 3px;
+      border-radius: 2px;
+      background: linear-gradient(90deg, #4285F4, #22D3EE);
+      margin: 1.5rem auto;
+    }
+
+    /* ---- Cards ---- */
+    .card {
+      background: rgba(21, 27, 43, 0.8);
+      border: 1px solid rgba(30, 39, 64, 0.6);
+      border-radius: 12px;
+      padding: 1.75rem;
+      backdrop-filter: blur(8px);
+      transition: border-color 0.3s, transform 0.3s, box-shadow 0.3s;
+    }
+
+    .card:hover {
+      border-color: rgba(66, 133, 244, 0.4);
+      transform: translateY(-4px);
+      box-shadow: 0 12px 40px rgba(66, 133, 244, 0.08);
+    }
+
+    .card-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1rem;
+    }
+
+    /* ---- Buttons ---- */
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.875rem 2rem;
+      border-radius: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+      font-size: 0.95rem;
+      border: none;
+      cursor: pointer;
+      transition: all 0.25s;
+      background: linear-gradient(135deg, #4285F4, #22D3EE);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(66, 133, 244, 0.35);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-nav {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.6rem 1.25rem;
+      border-radius: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 500;
+      font-size: 0.85rem;
+      border: 1px solid rgba(30, 39, 64, 0.8);
+      background: rgba(21, 27, 43, 0.8);
+      color: #94A3B8;
+      cursor: pointer;
+      transition: all 0.25s;
+      backdrop-filter: blur(8px);
+    }
+
+    .btn-nav:hover:not(:disabled) {
+      border-color: rgba(66, 133, 244, 0.5);
+      color: #E2E8F0;
+      background: rgba(21, 27, 43, 0.95);
+    }
+
+    .btn-nav:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    /* ---- Slide Counter ---- */
+    .slide-counter {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      color: #475569;
+      min-width: 3.5rem;
+      text-align: center;
+      letter-spacing: 0.05em;
+    }
+
+    /* ---- Elevator Pitch Quote ---- */
+    .quote-box {
+      background: rgba(66, 133, 244, 0.06);
+      border-left: 3px solid #4285F4;
+      border-radius: 0 10px 10px 0;
+      padding: 1.5rem 2rem;
+      max-width: 700px;
+      margin: 1.5rem auto;
+    }
+
+    /* ---- Timeline ---- */
+    .timeline {
+      position: relative;
+      display: flex;
+      gap: 0;
+      width: 100%;
+      max-width: 900px;
+      padding: 2rem 0;
+    }
+
+    .timeline::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, #4285F4, #22D3EE, #34A853);
+      transform: translateY(-50%);
+      border-radius: 2px;
+    }
+
+    .timeline-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      position: relative;
+      padding: 0 0.5rem;
+    }
+
+    .timeline-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #4285F4;
+      border: 3px solid #0B101E;
+      position: relative;
+      z-index: 2;
+      margin-bottom: 1rem;
+      box-shadow: 0 0 12px rgba(66, 133, 244, 0.4);
+    }
+
+    .timeline-year {
+      font-weight: 700;
+      color: #4285F4;
+      font-size: 0.9rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .timeline-label {
+      font-size: 0.75rem;
+      color: #64748B;
+      line-height: 1.4;
+      max-width: 120px;
+    }
+
+    /* ---- Responsive ---- */
+    @media (max-width: 768px) {
+      .slide { padding: 2rem; }
+      .card-grid { flex-direction: column; align-items: center; }
+      .card { width: 100% !important; max-width: 360px; }
+      .timeline { flex-direction: column; gap: 1.5rem; }
+      .timeline::before { display: none; }
+      .timeline-dot { margin-bottom: 0.5rem; }
+      h1 { font-size: 2rem !important; }
+      h2 { font-size: 1.35rem !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background Layers -->
+  <div id="bg-grid"></div>
+  <div id="vignette"></div>
+
+  <!-- Slides -->
+  <div id="slides-wrapper">
+    <div id="slides-container">
+
+      <!-- ====== SLIDE 1: TITLE ====== -->
+      <section class="slide">
+        <div class="text-center max-w-3xl">
+
+          <div class="flex items-center justify-center gap-3 mb-6">
+            <div class="w-3 h-3 rounded-full bg-blue-accent shadow-lg shadow-blue-accent/40 animate-pulse-slow"></div>
+            <span class="text-xs tracking-[0.25em] text-gray-500 uppercase">Self-Hosted · VPN-Only</span>
+            <div class="w-3 h-3 rounded-full bg-cyan-accent shadow-lg shadow-cyan-accent/40 animate-pulse-slow"></div>
+          </div>
+
+          <h1 class="text-5xl md:text-7xl font-extrabold text-white glow-text tracking-tight mb-4">
+            TULAY-KANBAN
+          </h1>
+
+          <div class="accent-line-center"></div>
+
+          <p class="text-xl md:text-2xl text-gray-300 font-light mb-3 leading-relaxed">
+            Your workflow. Your network.<br>
+            <span class="text-cyan-accent glow-cyan font-medium">Nobody else's business.</span>
+          </p>
+
+          <p class="text-sm text-gray-500 mb-10 max-w-lg mx-auto">
+            A secure, visual project management board that lives exclusively<br class="hidden md:block">
+            behind your VPN — invisible to the outside world.
+          </p>
+
+          <button onclick="goToSlide(1)" class="btn-primary text-base">
+            Start Presentation
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+          </button>
+
+          <p class="text-xs text-gray-700 mt-12 tracking-wider">←  →  navigate with arrow keys</p>
+        </div>
+      </section>
+
+      <!-- ====== SLIDE 2: THE PROBLEM ====== -->
+      <section class="slide">
+        <div class="text-center max-w-5xl w-full">
+          <h2 class="text-3xl md:text-4xl font-bold text-white mb-2">The Vulnerabilities of Public SaaS</h2>
+          <div class="accent-line-center"></div>
+          <p class="text-gray-500 text-sm mb-10 max-w-xl mx-auto">
+            When your project management tool lives on someone else's server, you're exposed.
+          </p>
+
+          <div class="card-grid flex gap-5 justify-center flex-wrap">
+
+            <!-- Card 1 -->
+            <div class="card w-72 text-left">
+              <div class="card-icon bg-blue-accent/10 border border-blue-accent/20">
+                <svg class="w-5 h-5 text-blue-accent" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+                </svg>
+              </div>
+              <h3 class="text-white font-semibold text-base mb-2">Data Exposure</h3>
+              <p class="text-gray-400 text-xs leading-relaxed">
+                Third-party servers store your confidential project data, trade secrets, and client information — a single breach away from exposure.
+              </p>
+            </div>
+
+            <!-- Card 2 -->
+            <div class="card w-72 text-left">
+              <div class="card-icon bg-red-500/10 border border-red-500/20">
+                <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z"/>
+                </svg>
+              </div>
+              <h3 class="text-white font-semibold text-base mb-2">Price Hostage</h3>
+              <p class="text-gray-400 text-xs leading-relaxed">
+                Unexpected price hikes, tier changes, or feature paywalls — with no alternative because your entire workflow is locked into their ecosystem.
+              </p>
+            </div>
+
+            <!-- Card 3 -->
+            <div class="card w-72 text-left">
+              <div class="card-icon bg-purple-500/10 border border-purple-500/20">
+                <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m0-10.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.75c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75h-.152c-3.196 0-6.1-1.249-8.25-3.286zm0 13.036h.007v.008H12v-.008z"/>
+                </svg>
+              </div>
+              <h3 class="text-white font-semibold text-base mb-2">Attack Surface</h3>
+              <p class="text-gray-400 text-xs leading-relaxed">
+                Public-facing login pages invite brute force attacks, credential stuffing, web scrapers, and zero-day exploits targeting known SaaS platforms.
+              </p>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- ====== SLIDE 3: SOLUTION & PILLARS ====== -->
+      <section class="slide">
+        <div class="text-center max-w-5xl w-full">
+          <h2 class="text-3xl md:text-4xl font-bold text-white mb-2">The Invisible Kanban Board</h2>
+          <div class="accent-line-center"></div>
+
+          <div class="quote-box text-left">
+            <p class="text-gray-300 text-sm md:text-base leading-relaxed">
+              <span class="text-blue-accent font-semibold">Tulay-Kanban</span> is a visual project management board with modern organization — that strictly requires VPN access to even reach the login screen. No public URL. No exposure.
+            </p>
+          </div>
+
+          <div class="card-grid flex gap-5 justify-center flex-wrap mt-8">
+
+            <!-- Pillar 1 -->
+            <div class="card w-64 text-center">
+              <div class="card-icon mx-auto bg-green-accent/10 border border-green-accent/20">
+                <svg class="w-5 h-5 text-green-accent" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.75c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75h-.152c-3.196 0-6.1-1.249-8.25-3.286z"/>
+                </svg>
+              </div>
+              <h3 class="text-white font-semibold text-sm mb-2">Absolute Data Sovereignty</h3>
+              <p class="text-gray-400 text-xs leading-relaxed">
+                Your servers, your rules. Data never leaves your infrastructure.
+              </p>
+            </div>
+
+            <!-- Pillar 2 -->
+            <div class="card w-64 text-center">
+              <div class="card-icon mx-auto bg-cyan-accent/10 border border-cyan-accent/20">
+                <svg class="w-5 h-5 text-cyan-accent" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+              </div>
+              <h3 class="text-white font-semibold text-sm mb-2">VPN-Only Access</h3>
+              <p class="text-gray-400 text-xs leading-relaxed">
+                Invisible to the outside world. No public endpoints, no web scrapers.
+              </p>
+            </div>
+
+            <!-- Pillar 3 -->
+            <div class="card w-64 text-center">
+              <div class="card-icon mx-auto bg-blue-accent/10 border border-blue-accent/20">
+                <svg class="w-5 h-5 text-blue-accent" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/>
+                </svg>
+              </div>
+              <h3 class="text-white font-semibold text-sm mb-2">Distraction-Free Clarity</h3>
+              <p class="text-gray-400 text-xs leading-relaxed">
+                Clean, focused UI designed for productivity — not engagement metrics.
+              </p>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- ====== SLIDE 4: TARGET AUDIENCE ====== -->
+      <section class="slide">
+        <div class="text-center max-w-5xl w-full">
+          <h2 class="text-3xl md:text-4xl font-bold text-white mb-2">Who Needs This</h2>
+          <div class="accent-line-center"></div>
+          <p class="text-gray-500 text-sm mb-10 max-w-xl mx-auto">
+            Three core markets that can't afford to compromise on data security.
+          </p>
+
+          <div class="card-grid flex gap-5 justify-center flex-wrap">
+
+            <!-- Market 1 -->
+            <div class="card w-72 text-center">
+              <div class="card-icon mx-auto bg-blue-accent/10 border border-blue-accent/20">
+                <svg class="w-5 h-5 text-blue-accent" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.75c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75h-.152c-3.196 0-6.1-1.249-8.25-3.286z"/>
+                </svg>
+              </div>
+              <h3 class="text-white font-semibold text-base mb-2">Compliance-First Companies</h3>
+              <p class="text-gray-400 text-xs leading-relaxed">
+                Legal firms bound by attorney-client privilege, healthcare organizations under HIPAA, and financial institutions governed by SOX &amp; GDPR.
+              </p>
+            </div>
+
+            <!-- Market 2 -->
+            <div class="card w-72 text-center">
+              <div class="card-icon mx-auto bg-cyan-accent/10 border border-cyan-accent/20">
+                <svg class="w-5 h-5 text-cyan-accent" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M14.25 9.75L16.5 12l-2.25 2.25m-4.5 0L7.5 12l2.25-2.25M6 20.25h12A2.25 2.25 0 0020.25 18V6A2.25 2.25 0 0018 3.75H6A2.25 2.25 0 003.75 6v12A2.25 2.25 0 006 20.25z"/>
+                </svg>
+              </div>
+              <h3 class="text-white font-semibold text-base mb-2">Internal R&amp;D Teams</h3>
+              <p class="text-gray-400 text-xs leading-relaxed">
+                Tech teams building proprietary, unreleased products who need to keep roadmaps, architecture decisions, and code references off public servers.
+              </p>
+            </div>
+
+            <!-- Market 3 -->
+            <div class="card w-72 text-center">
+              <div class="card-icon mx-auto bg-green-accent/10 border border-green-accent/20">
+                <svg class="w-5 h-5 text-green-accent" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/>
+                </svg>
+              </div>
+              <h3 class="text-white font-semibold text-base mb-2">Agencies Under NDA</h3>
+              <p class="text-gray-400 text-xs leading-relaxed">
+                Creative and marketing agencies handling sensitive client campaigns under strict non-disclosure agreements that forbid third-party data processing.
+              </p>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- ====== SLIDE 5: VISION ====== -->
+      <section class="slide">
+        <div class="text-center max-w-4xl w-full">
+          <h2 class="text-3xl md:text-4xl font-bold text-white mb-2">The Road Ahead</h2>
+          <div class="accent-line-center"></div>
+          <p class="text-gray-500 text-sm mb-10 max-w-lg mx-auto">
+            From a focused Kanban tool to the ultimate digital safe room for enterprise projects.
+          </p>
+
+          <div class="timeline">
+            <div class="timeline-item">
+              <div class="timeline-dot"></div>
+              <div class="timeline-year">Year 1</div>
+              <div class="timeline-label">Core Kanban engine with VPN-only auth, self-hosted deployment</div>
+            </div>
+            <div class="timeline-item">
+              <div class="timeline-dot" style="background:#22D3EE; box-shadow:0 0 12px rgba(34,211,238,0.4);"></div>
+              <div class="timeline-year" style="color:#22D3EE;">Year 2</div>
+              <div class="timeline-label">Team collaboration, real-time sync, audit logging</div>
+            </div>
+            <div class="timeline-item">
+              <div class="timeline-dot" style="background:#34A853; box-shadow:0 0 12px rgba(52,168,83,0.4);"></div>
+              <div class="timeline-year" style="color:#34A853;">Year 3</div>
+              <div class="timeline-label">Plugin ecosystem, SSO/SAML, compliance certifications</div>
+            </div>
+            <div class="timeline-item">
+              <div class="timeline-dot" style="background:#4285F4; box-shadow:0 0 12px rgba(66,133,244,0.4);"></div>
+              <div class="timeline-year" style="color:#4285F4;">Year 4</div>
+              <div class="timeline-label">AI-assisted workflow, predictive analytics, advanced automation</div>
+            </div>
+            <div class="timeline-item">
+              <div class="timeline-dot" style="background:#FBBC05; box-shadow:0 0 12px rgba(251,188,5,0.4);"></div>
+              <div class="timeline-year" style="color:#FBBC05;">Year 5</div>
+              <div class="timeline-label">The ultimate digital safe room for enterprise project management</div>
+            </div>
+          </div>
+
+          <div class="mt-12 pt-8 border-t border-border max-w-md mx-auto">
+            <p class="text-gray-400 text-sm mb-4">This is a practice pitch — no investment ask.</p>
+            <p class="text-gray-300 text-base">
+              <span class="text-blue-accent font-semibold">Tulay-Kanban</span> — 
+              <span class="text-gray-400">Your workflow. Your network. Nobody else's business.</span>
+            </p>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- Navigation Bar -->
+  <div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 bg-antimatter/80 backdrop-blur-md border border-border/60 rounded-xl px-4 py-2.5">
+    <button id="prevBtn" class="btn-nav" disabled onclick="prevSlide()">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16l-4-4m0 0l4-4m-4 4h18"/></svg>
+      Prev
+    </button>
+    <span id="slideCounter" class="slide-counter">1 / 5</span>
+    <button id="nextBtn" class="btn-nav" onclick="nextSlide()">
+      Next
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+    </button>
+  </div>
+
+  <script>
+    let currentSlide = 0;
+    const totalSlides = 5;
+    const container = document.getElementById('slides-container');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const counter = document.getElementById('slideCounter');
+
+    function updateUI() {
+      container.style.transform = 'translateX(-' + (currentSlide * 100) + 'vw)';
+      counter.textContent = (currentSlide + 1) + ' / ' + totalSlides;
+      prevBtn.disabled = currentSlide === 0;
+      nextBtn.disabled = currentSlide === totalSlides - 1;
+    }
+
+    function goToSlide(index) {
+      if (index < 0 || index >= totalSlides) return;
+      currentSlide = index;
+      updateUI();
+    }
+
+    function nextSlide() {
+      if (currentSlide < totalSlides - 1) {
+        goToSlide(currentSlide + 1);
+      }
+    }
+
+    function prevSlide() {
+      if (currentSlide > 0) {
+        goToSlide(currentSlide - 1);
+      }
+    }
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowRight') nextSlide();
+      if (e.key === 'ArrowLeft') prevSlide();
+    });
+
+    // Handle resize
+    window.addEventListener('resize', function () {
+      updateUI();
+    });
+
+    // Init
+    updateUI();
+  </script>
+
+</body>
+</html>

@@ -1,5 +1,21 @@
 # Done Changes
 
+### 2026-06-18
+
+**Added:**
+- Implemented a project-wide single admin account system (ghost mode: invisible in board member lists but has full "owner" rights on all boards across all workspaces).
+- Created a separate Admin Panel (`/admin` view) for user management (listing, name/email edits, password resets, timeouts/bans, and account deletions).
+- Added instant suspension and ban capability using backend JWT token blacklisting.
+- Implemented a forced password-change prompt on login for users logging in with default or newly generated temporary passwords.
+- Added a new `editor` board role restricted specifically to task-focused actions (create, edit, move, delete).
+- Added visual "Orphaned Task" flags and warning banners for tasks previously assigned to deleted or suspended users.
+
+**Changed:**
+- Restricted task deletion permissions exclusively to board owners and editors.
+- Restricted board member management permissions to board owners and admins only (removed from moderators).
+- Updated context menus, task modals, calendar views, and column views to enforce role-based access for the new `editor` role.
+- Removed default test account credentials from the login page and backend database seeding.
+
 ### 2026-06-17
 
 **Added:**

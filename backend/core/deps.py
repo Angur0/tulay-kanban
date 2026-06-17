@@ -1,3 +1,4 @@
+import datetime
 from typing import Optional
 
 from fastapi import Depends, HTTPException, status
@@ -23,13 +24,44 @@ async def get_current_user(db: Session = Depends(get_db), token: str = Depends(o
         email: Optional[str] = payload.get("sub")
         if email is None:
             raise credentials_exception
+        iat = payload.get("iat")
     except JWTError:
         raise credentials_exception
 
     user = db.query(models.User).filter(models.User.email == email).first()
     if user is None:
         raise credentials_exception
+
+    if not user.is_admin:
+        now = datetime.datetime.utcnow()
+        if user.is_banned or (user.ban_until and user.ban_until > now):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your account has been suspended"
+            )
+
+        blacklist_entry = db.query(models.TokenBlacklist).filter(
+            models.TokenBlacklist.user_id == user.id
+        ).first()
+        if blacklist_entry:
+            if iat is not None:
+                token_issued_at = datetime.datetime.utcfromtimestamp(iat)
+                if token_issued_at < blacklist_entry.created_at:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Your account has been suspended"
+                    )
+
     return user
+
+
+async def get_admin_user(current_user: models.User = Depends(get_current_user)):
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+    return current_user
 
 
 def ensure_workspace_access(ws: models.Workspace, current_user: models.User):

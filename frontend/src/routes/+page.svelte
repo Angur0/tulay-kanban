@@ -7,6 +7,7 @@
     import GanttView from "$lib/components/GanttView.svelte";
     import CalendarView from "$lib/components/CalendarView.svelte";
     import MyTasksView from "$lib/components/MyTasksView.svelte";
+    import AdminView from "$lib/components/AdminView.svelte";
 </script>
 
 <AppLayout>
@@ -31,5 +32,7 @@
         {/if}
     {:else if $activeView === "my-tasks"}
         <MyTasksView />
+    {:else if $activeView === "admin"}
+        <AdminView />
     {/if}
 </AppLayout>

@@ -16,6 +16,8 @@
     import { loadColumnsAndTasks } from "$lib/api/boardDataApi";
 
     $: canManageColumns = ["owner", "moderator"].includes($currentBoardRole);
+    $: canEditTask = ["owner", "editor", "moderator", "member"].includes($currentBoardRole);
+    $: canDeleteTask = ["owner", "editor"].includes($currentBoardRole);
 
     function clampLeft(x: number, width: number) {
         return Math.max(8, Math.min(x, window.innerWidth - width - 8));
@@ -48,7 +50,7 @@
     }
 
     async function onColumnAddTask() {
-        if (!$contextMenu?.columnId) return;
+        if (!$contextMenu?.columnId || !canEditTask) return;
         const title = prompt("Task title");
         if (!title?.trim()) return;
         await createTask($contextMenu.columnId, title.trim());
@@ -116,7 +118,7 @@
     }
 
     async function onMoveTask(columnId: string) {
-        if (!$contextMenu?.task || $contextMenu.task.column_id === columnId)
+        if (!$contextMenu?.task || !canEditTask || $contextMenu.task.column_id === columnId)
             return;
         await updateTask($contextMenu.task.id, { column_id: columnId });
         await loadColumnsAndTasks();
@@ -124,14 +126,14 @@
     }
 
     async function onPriority(priority: "low" | "medium" | "high") {
-        if (!$contextMenu?.task) return;
+        if (!$contextMenu?.task || !canEditTask) return;
         await updateTask($contextMenu.task.id, { priority });
         await loadColumnsAndTasks();
         closeContextMenu();
     }
 
     async function onDeleteTask() {
-        if (!$contextMenu?.task) return;
+        if (!$contextMenu?.task || !canDeleteTask) return;
         if (!confirm("Delete this task?")) return;
         await deleteTask($contextMenu.task.id);
         await loadColumnsAndTasks();
@@ -181,10 +183,11 @@
         {#each $columns as column}
             <button
                 on:click={() => onMoveTask(column.id)}
+                disabled={!canEditTask}
                 class="w-full flex items-center gap-3 px-4 py-2 text-sm text-[#111418] dark:text-white hover:bg-[#eff1f3] dark:hover:bg-[#1e2936] transition-colors text-left {$contextMenu
                     .task.column_id === column.id
                     ? 'bg-blue-50 dark:bg-blue-900/20'
-                    : ''}"
+                    : ''} disabled:opacity-40 disabled:cursor-not-allowed"
             >
                 <span class="material-symbols-outlined text-[18px]"
                     >{$contextMenu.task.column_id === column.id
@@ -205,7 +208,8 @@
         </div>
         <button
             on:click={() => onPriority("low")}
-            class="w-full flex items-center gap-3 px-4 py-2 text-sm text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors text-left"
+            disabled={!canEditTask}
+            class="w-full flex items-center gap-3 px-4 py-2 text-sm text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors text-left disabled:opacity-40 disabled:cursor-not-allowed"
         >
             <span class="material-symbols-outlined text-[18px] icon-filled"
                 >flag</span
@@ -214,7 +218,8 @@
         </button>
         <button
             on:click={() => onPriority("medium")}
-            class="w-full flex items-center gap-3 px-4 py-2 text-sm text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors text-left"
+            disabled={!canEditTask}
+            class="w-full flex items-center gap-3 px-4 py-2 text-sm text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors text-left disabled:opacity-40 disabled:cursor-not-allowed"
         >
             <span class="material-symbols-outlined text-[18px] icon-filled"
                 >flag</span
@@ -223,7 +228,8 @@
         </button>
         <button
             on:click={() => onPriority("high")}
-            class="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left"
+            disabled={!canEditTask}
+            class="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left disabled:opacity-40 disabled:cursor-not-allowed"
         >
             <span class="material-symbols-outlined text-[18px] icon-filled"
                 >flag</span
@@ -232,6 +238,7 @@
         </button>
 
         <div class="border-t border-[#e5e7eb] dark:border-[#1e2936] my-1"></div>
+        {#if canDeleteTask}
         <button
             on:click={onDeleteTask}
             class="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left"
@@ -239,6 +246,7 @@
             <span class="material-symbols-outlined text-[18px]">delete</span>
             Delete Task
         </button>
+        {/if}
     </div>
 {/if}
 
@@ -259,6 +267,7 @@
             Edit Board
         </button>
         <div class="border-t border-[#e5e7eb] dark:border-[#1e2936] my-1"></div>
+        {#if $boards.find(b => b.id === $contextMenu.boardId)?.role !== 'viewer'}
         <button
             on:click={onDeleteBoard}
             class="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left"
@@ -266,6 +275,7 @@
             <span class="material-symbols-outlined text-[18px]">delete</span>
             Delete Board
         </button>
+        {/if}
     </div>
 {/if}
 

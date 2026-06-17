@@ -16,6 +16,7 @@
     import AccountSettingsModal from "./AccountSettingsModal.svelte";
     import ContextMenus from "./ContextMenus.svelte";
     import CreateTaskModal from "./CreateTaskModal.svelte";
+    import ChangePasswordPrompt from "./ChangePasswordPrompt.svelte";
     import { onMount, onDestroy } from "svelte";
     import { get } from "svelte/store";
     import { createColumn } from "$lib/api/listsApi";
@@ -188,6 +189,7 @@
     <AccountSettingsModal />
     <ContextMenus />
     <CreateTaskModal />
+    <ChangePasswordPrompt />
     {#if $isSearchOpen}
         <SearchModal />
     {/if}

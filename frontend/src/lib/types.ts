@@ -35,6 +35,7 @@ export interface Task {
     labels?: Label[];
     subtasks?: Subtask[];
     order: number;
+    is_orphaned?: boolean;
     created_at?: string;
     updated_at?: string;
     [key: string]: unknown;
@@ -47,6 +48,7 @@ export interface Board {
     icon_color?: string;
     workspace_id?: string;
     position?: number;
+    role?: string;
 }
 
 export interface Column {
@@ -69,9 +71,29 @@ export interface WorkspaceMember {
 export interface BoardMemberResponse {
     user_id: string;
     board_id: string;
-    role: 'owner' | 'moderator' | 'member' | 'viewer';
+    role: 'owner' | 'editor' | 'moderator' | 'member' | 'viewer';
     user_email: string;
     user_full_name: string;
+}
+
+export interface User {
+    id: string;
+    email: string;
+    full_name: string;
+    is_admin: boolean;
+    must_change_password: boolean;
+    is_banned?: boolean;
+    ban_until?: string | null;
+}
+
+export interface AdminUser {
+    id: string;
+    email: string;
+    full_name: string;
+    is_admin: boolean;
+    must_change_password: boolean;
+    is_banned: boolean;
+    ban_until?: string | null;
 }
 
 export interface RealtimeEvent {

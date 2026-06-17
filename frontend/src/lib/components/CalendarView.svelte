@@ -50,7 +50,7 @@
     });
 
     // Permission check
-    $: canCreate = ["owner", "moderator", "member"].includes($currentBoardRole);
+    $: canCreate = ["owner", "editor", "moderator", "member"].includes($currentBoardRole);
 
     // ─── Filtered Tasks ───
     $: filteredTasks = $tasks.filter(t => {

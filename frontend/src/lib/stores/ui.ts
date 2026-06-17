@@ -14,7 +14,7 @@ function getInitialDarkMode(): boolean {
 }
 
 export const isDarkMode = writable(getInitialDarkMode());
-export const activeView = writable<'board' | 'my-tasks'>('board');
+export const activeView = writable<'board' | 'my-tasks' | 'admin'>('board');
 export const boardViewMode = writable<'kanban' | 'gantt' | 'calendar'>('kanban');
 
 export function setBoardViewMode(mode: 'kanban' | 'gantt' | 'calendar') {
@@ -83,7 +83,7 @@ if (typeof window !== 'undefined') {
     });
 }
 
-export function switchView(view: 'board' | 'my-tasks') {
+export function switchView(view: 'board' | 'my-tasks' | 'admin') {
     activeView.set(view);
 }
 

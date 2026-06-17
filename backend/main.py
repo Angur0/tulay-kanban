@@ -13,16 +13,19 @@ from fastapi.staticfiles import StaticFiles
 
 from backend import models
 from backend.core import realtime
-from backend.core.setup import ensure_board_icon_column, ensure_task_order_column, ensure_column_parameters, seed_db
+from backend.core.setup import ensure_board_icon_column, ensure_task_order_column, ensure_column_parameters, ensure_user_admin_columns, ensure_task_orphaned_column, remove_test_user, seed_admin
 from backend.database import engine
-from backend.routers import auth, boards, labels, misc, tasks, workspaces
+from backend.routers import auth, boards, labels, misc, tasks, workspaces, admin
 from backend.storage import get_storage_backend
 
 models.Base.metadata.create_all(bind=engine)
 ensure_board_icon_column()
 ensure_task_order_column()
 ensure_column_parameters()
-seed_db()
+ensure_user_admin_columns()
+ensure_task_orphaned_column()
+remove_test_user()
+seed_admin()
 
 if sys.platform == "win32" and sys.version_info < (3, 11):
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -79,6 +82,7 @@ app.include_router(boards.router)
 app.include_router(labels.router)
 app.include_router(tasks.router)
 app.include_router(misc.router)
+app.include_router(admin.router)
 
 
 if __name__ == "__main__":
