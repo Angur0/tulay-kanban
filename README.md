@@ -124,6 +124,40 @@ If you prefer starting them manually in separate terminals:
    ```
    *(Starts frontend dev server on port 5173).*
 
+### Option C: Running inside Docker (Local Network Deployment with Tailscale)
+
+This is the recommended approach for deploying the application on a local server or host machine accessible via Tailscale under `http://tulay-kanban.internal`.
+
+#### Prerequisites
+1. Docker and Docker Compose installed.
+2. Tailscale running on the host and client devices.
+3. If running on **Windows**, run the following in an administrator PowerShell to free port 53 (so the DNS container can bind to it):
+   ```powershell
+   Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Dnscache\Parameters" -Name EnableGlobalQueryBlockList -Value 0
+   Stop-Service Dnscache -Force; Start-Service Dnscache
+   ```
+
+#### 1. Setup Environment
+Copy `.env.example` to `.env` and configure:
+- `HOST_TAILSCALE_IP`: Set this to your host's Tailscale IP (e.g., `100.x.x.x`).
+- `HOST_HTTP_PORT`: Set this to `80` (or another port like `8080` if 80 is occupied).
+
+#### 2. Start Containers
+Build and run the containers:
+```bash
+docker compose up -d --build
+```
+This starts four containers: Postgres, Backend (FastAPI), Frontend (Nginx), and DNS (dnsmasq).
+
+#### 3. Configure Tailscale Split-DNS (One-Time Setup)
+1. Open the **Tailscale Admin Console** -> **DNS** (https://login.tailscale.com/admin/dns).
+2. Under **Nameservers** click **Add nameserver** -> **Custom**.
+3. Set the IP address to your host machine's Tailscale IP.
+4. Select **Restrict to domain** and enter `internal`.
+5. Save the configuration.
+
+Now, all Tailscale-connected devices can access the app directly at **`http://tulay-kanban.internal`** (or `http://tulay-kanban.internal:8080` if using a custom port)!
+
 ### Accessing the App
 
 During development, the frontend dev server at port `5173` acts as a reverse proxy for the backend. **You only need to expose and connect to port `5173` on client devices (including over VPNs like Tailscale).**

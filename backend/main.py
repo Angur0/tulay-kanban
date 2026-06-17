@@ -4,6 +4,7 @@ FastAPI server with WebSocket broadcasting
 """
 
 import asyncio
+import os
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -55,8 +56,9 @@ app.add_middleware(
         "http://localhost:5174", "http://127.0.0.1:5174",
         "http://localhost:5175", "http://127.0.0.1:5175",
         "http://localhost:5176", "http://127.0.0.1:5176",
+        "http://tulay-kanban.internal",
     ],
-    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d+\.\d+)(:\d+)?",
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d+\.\d+|tulay-kanban\.internal)(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -64,7 +66,7 @@ app.add_middleware(
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = PROJECT_ROOT / "frontend"
-UPLOAD_DIR = PROJECT_ROOT / "uploads"
+UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", str(PROJECT_ROOT / "uploads")))
 UPLOAD_DIR.mkdir(exist_ok=True)
 
 FRONTEND_DIST = FRONTEND_DIR / "dist"
