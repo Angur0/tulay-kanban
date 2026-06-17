@@ -1,3 +1,25 @@
+import { isServerOffline } from '$lib/stores/ui';
+
+let pingInterval: ReturnType<typeof setInterval> | null = null;
+
+function startRecoveryPing() {
+    if (pingInterval) return;
+    pingInterval = setInterval(async () => {
+        try {
+            // Simple ping to check if server is reachable
+            // We use fetch without auth to just check connection
+            const response = await fetch('/api/boards?limit=1', { method: 'HEAD' }).catch(() => fetch('/api/boards?limit=1'));
+            if (response.status !== 502 && response.status !== 503 && response.status !== 504) {
+                isServerOffline.set(false);
+                if (pingInterval) clearInterval(pingInterval);
+                pingInterval = null;
+            }
+        } catch (e) {
+            // Still offline
+        }
+    }, 3000);
+}
+
 export async function authFetch(
     url: string,
     options: RequestInit = {}
@@ -21,13 +43,32 @@ export async function authFetch(
         ...incomingHeaders,
     };
 
-    const response = await fetch(url, { ...options, headers });
-    if (response.status === 401) {
-        localStorage.removeItem('access_token');
-        window.location.href = '/login';
-        return null;
-    }
+    try {
+        const response = await fetch(url, { ...options, headers });
+        
+        if (response.status === 502 || response.status === 503 || response.status === 504) {
+            isServerOffline.set(true);
+            startRecoveryPing();
+            return response;
+        }
 
-    return response;
+        isServerOffline.set(false);
+        if (pingInterval) {
+            clearInterval(pingInterval);
+            pingInterval = null;
+        }
+
+        if (response.status === 401) {
+            localStorage.removeItem('access_token');
+            window.location.href = '/login';
+            return null;
+        }
+
+        return response;
+    } catch (error) {
+        isServerOffline.set(true);
+        startRecoveryPing();
+        throw error;
+    }
 }
 

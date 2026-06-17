@@ -3,6 +3,8 @@ import { writable } from 'svelte/store';
 // UI State
 export const isSidebarCollapsed = writable(false);
 export const isMobileSidebarOpen = writable(false);
+export const isServerOffline = writable(false);
+
 function getInitialDarkMode(): boolean {
     if (typeof window === 'undefined') return false;
 

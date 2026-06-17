@@ -10,6 +10,7 @@
         openModal,
         isMobileSidebarOpen,
         closeMobileSidebar,
+        isServerOffline,
     } from "$lib/stores/ui";
     import {
         boards,
@@ -101,8 +102,8 @@
         <div class="flex items-center gap-3 px-2 sidebar-header">
             <button
                 on:click={toggleSidebar}
-                class="flex items-center justify-center size-8 rounded-lg bg-primary text-white shadow-sm flex-shrink-0 hover:bg-blue-600 transition-colors"
-                data-sidebar-tooltip="Toggle Sidebar"
+                class="flex items-center justify-center size-8 rounded-lg text-white shadow-sm flex-shrink-0 transition-colors {$isServerOffline ? 'bg-red-500 hover:bg-red-600' : 'bg-primary hover:bg-blue-600'}"
+                data-sidebar-tooltip={$isServerOffline ? "Server Offline" : "Toggle Sidebar"}
             >
                 <span class="material-symbols-outlined text-xl"
                     >developer_board</span
