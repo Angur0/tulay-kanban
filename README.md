@@ -21,13 +21,14 @@ Tulay Kanban is a real-time Kanban task management app for workspaces, boards, l
 - Gantt timeline color-coding by column with export styling support
 - Gantt image/PDF export and board CSV export
 - Light/dark theme
+- **100% Offline Capable**: All fonts, icons, and styling are bundled locally. No external internet or CDNs are required to run the application locally.
 
 
 ## Tech Stack
 
 - Backend: Python, FastAPI, Uvicorn, SQLAlchemy, Pydantic
 - Frontend: Svelte 5, TypeScript, Vite
-- Styling: Tailwind CDN utilities plus `frontend/src/app.css`
+- Styling: Tailwind CSS (via PostCSS) plus `frontend/src/app.css`
 - Database: PostgreSQL 15 via Docker Compose
 - Realtime: WebSockets
 - Auth: JWT bearer tokens stored client-side
@@ -36,10 +37,10 @@ Tulay Kanban is a real-time Kanban task management app for workspaces, boards, l
 
 ## Prerequisites
 
-- Python 3.9+
 - Docker and Docker Compose
-- Node.js 18+
-- npm
+- Python 3.9+ (Development only)
+- Node.js 18+ (Development only)
+- npm (Development only)
 
 ## Running the Application (Local Deployment with Docker)
 
