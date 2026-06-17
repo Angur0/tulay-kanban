@@ -8,13 +8,17 @@ Tulay Kanban is a real-time Kanban task management app for workspaces, boards, l
 - Role-based board access for owners, moderators, members, and viewers
 - Drag-and-drop ordering for columns and tasks
 - Mobile-responsive app shell with an off-canvas navigation drawer
-- Board, My Tasks, and Gantt/timeline views
+- Board, My Tasks, Gantt/timeline, and Calendar views
 - Task detail panel with priority, dates, assignee, labels, comments, subtasks, and images
-- Search, filters, board/list/task management modals, and account settings
-- Live updates via WebSockets
+- Search (with multi-label filter chips), board filters, board/list/task modals, and account settings
+- Live updates via WebSockets with real-time assignment notifications
+- Toast notification system for user actions (task CRUD, drag-and-drop, and bulk changes)
+- Smart column/list archive-first deletion with warning suppression (per-browser settings)
 - Image uploads with local storage by default and optional Cloudflare R2 support
+- Gantt timeline color-coding by column with export styling support
 - Gantt image/PDF export and board CSV export
 - Light/dark theme
+
 
 ## Tech Stack
 
@@ -246,6 +250,8 @@ Canonical project docs:
 - [Planned Changes](docs/02_planned_changes.md)
 - [Done Changes](docs/03_done_changes.md)
 - [Issues](docs/04_issues.md)
+- [Task UX Improvements Plan](docs/05_task_ux_improvements_plan.md)
+
 
 Additional reference docs:
 

@@ -17,7 +17,11 @@
 - Added List Settings modal with toggle settings for is_hidden and is_archive, and customized column headers to display status badges.
 - Implemented global Show Hidden Lists filter option in FilterBar.svelte and filtered lists in BoardView.svelte.
 - Created bulk list actions for tasks: bulk move to another list, bulk delete (archiving tasks if Archive list exists), and bulk creation.
+- Implemented task column color-coding in Gantt View (`GanttView.svelte`), styling task bars dynamically based on their board column, and propagated the styling to backend PNG/PDF exports (`gantt_image_service.py`).
+- Added a visual legend for Gantt chart items, distinguishing "Scheduled (List Color)" and "Unscheduled (50% Opacity)" tasks.
+- Added interactive label filter chips to the global Search Modal (`SearchModal.svelte`) to allow filtering search results by one or more labels.
 - Removed line-through and opacity styles on completed main tasks.
+
 
 ### 2026-06-15
 

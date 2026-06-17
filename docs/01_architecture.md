@@ -89,7 +89,20 @@ Image paths are stored as relative paths (e.g. `/uploads/foo.jpg`) in the databa
 
 # Gantt Chart
 
-The Gantt view (`GanttView.svelte`) uses Frappe Gantt in **read-only mode** (`readonly: true`). Dragging task bars to change dates is disabled for all roles. Dates are edited via the task modal. Clicking a bar opens the task modal. The view supports Day / Week / Month modes and an optional Compress View that collapses large empty date gaps.
+The Gantt view (`GanttView.svelte`) uses Frappe Gantt in **read-only mode** (`readonly: true`). Dragging task bars to change dates is disabled. The view supports Day / Week / Month modes and an optional Compress View that collapses large empty date gaps. Task bars are dynamically color-coded based on their current column/list index (modulo 8, using classes `gantt-bar-color-0` through `7`) to match the list grouping. Unscheduled tasks (displaying default dates) are rendered at 50% opacity. The color-coding and view modes propagate to PNG/PDF exports generated via Playwright.
+
+# Calendar View
+
+The Calendar view (`CalendarView.svelte`) displays tasks on a calendar layout with three sub-views: Month, Week, and Day.
+- **State Persistence:** The selected year, month, day, and active view mode are stored locally, surviving view switches during the session.
+- **Responsiveness:** Grids adjust layout dynamically. On small screens, Month and Week views display portrait-orientation alerts prompting device rotation, while the Day view falls back to a compact, vertically stacked list of hourly task strips.
+- **Integrations:** Supports desktop click-to-create inline task forms with pre-filled due dates, and dynamically filters displayed tasks using the board's active FilterBar selections (search text, labels, and priorities).
+
+# Toast Notifications & Realtime Alerts
+
+- **Toast System:** A central toast notification store (`stores/toast.ts`) handles success, warning, error, and info popups with a 2-second auto-dismiss. The `<ToastContainer />` is mounted globally in `AppLayout.svelte`.
+- **User Action Feedback:** Triggered when the current user completes CRUD actions (creating/updating/deleting tasks, moving columns, and executing bulk list operations).
+- **WebSocket Alerts:** Listens to the `/ws/{board_id}` WebSocket connection. When a `TASK_UPDATED` broadcast event indicates that the current user has been assigned to a task by another member, it generates a real-time toast alert.
 
 # Core Integrations
 
@@ -99,3 +112,5 @@ The Gantt view (`GanttView.svelte`) uses Frappe Gantt in **read-only mode** (`re
 - JWT auth: login-protected API access and current-user lookup.
 - Upload storage: local `uploads/` directory by default, optional Cloudflare R2 via storage environment variables.
 - Frappe Gantt: read-only timeline/Gantt visualization in the frontend.
+- svelte-simple-calendar (or custom calendar rendering): custom month/week/day calendar grid logic.
+
