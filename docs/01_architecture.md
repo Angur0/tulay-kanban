@@ -7,7 +7,7 @@ Tulay Kanban is a real-time Kanban task management app with workspace, board, li
 - Python with FastAPI, Uvicorn, SQLAlchemy, Pydantic, and python-jose
 - PostgreSQL 15 via Docker Compose
 - Svelte 5, TypeScript, and Vite
-- Tailwind CDN utility classes with custom shared CSS in `frontend/src/app.css`
+- Tailwind CSS via PostCSS with custom shared CSS in `frontend/src/app.css` (Fully bundled for offline access)
 - WebSockets for realtime board updates
 - JWT bearer authentication with localStorage token storage
 - Local filesystem uploads by default, with optional Cloudflare R2 support
@@ -74,13 +74,13 @@ The authenticated UI uses a desktop sidebar layout at tablet/desktop widths and 
 
 # Network / LAN Access
 
-The app is designed to be accessible to devices on the same local network (including Tailscale VPN).
+The application is deployed using Docker Compose with an embedded DNS container (dnsmasq) to provide native Tailscale split-DNS support.
 
-- **Backend** (`uvicorn`): Bound to `0.0.0.0:8000` locally. It is proxied by the frontend dev server, so clients never access port 8000 directly.
-- **Frontend** (`vite dev`): Bound to `0.0.0.0` via `server.host` in `vite.config.ts`, acting as the single-port network gateway (port 5173). It proxies `/api`, `/uploads`, and WebSocket `/ws` traffic to the backend.
-- **API URL**: `constants.ts` derives `API_URL` dynamically from the browser's own origin (`window.location.host`) so client API calls go back through the Vite dev server proxy.
-- **CORS**: `backend/main.py` is configured with wildcard CORS / private range allowed regexes, though same-origin proxying on 5173 bypasses standard CORS blockages entirely.
-- **Firewall**: Launch scripts (`scripts/launch_arch_linux.sh` / `scripts/launch_windows.bat`) automatically open port 5173 in the system firewall (UFW or Windows Defender Firewall) on startup, and clean up the rule upon script termination.
+- **Backend** (`tulay-backend`): Runs FastAPI on internal port 8000.
+- **Frontend** (`tulay-frontend`): Runs an Nginx reverse proxy serving the built static assets and proxying `/api`, `/uploads`, and `/ws` to the backend. It listens on port 80 (or custom configured port).
+- **DNS** (`tulay-dns`): Resolves `tulay-kanban.internal` to the host's Tailscale IP.
+- **API URL**: `constants.ts` derives `API_URL` dynamically from the browser's own origin (`window.location.host`) so client API calls go back through the Nginx proxy.
+- **Offline Capable**: The frontend builds all necessary fonts (`@fontsource/inter`), icons (`material-symbols`), and Tailwind CSS directly into the dist bundle, ensuring full functionality even in environments with no internet access.
 
 
 # Image Uploads

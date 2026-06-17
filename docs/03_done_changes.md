@@ -20,6 +20,11 @@
 - Restricted board member management permissions to board owners and admins only (removed from moderators).
 - Updated context menus, task modals, calendar views, and column views to enforce role-based access for the new `editor` role.
 - Removed default test account credentials from the login page and backend database seeding.
+- Containerized the entire application (PostgreSQL, FastAPI Backend, Svelte Frontend via Nginx, and an Alpine dnsmasq container) using Docker Compose.
+- Implemented automatic Tailscale split-DNS, allowing devices to natively resolve `http://tulay-kanban.internal` via the local DNS container.
+- Migrated the frontend away from external CDNs (Tailwind, Google Fonts, Material Symbols) and bundled them locally using PostCSS and npm packages for 100% offline support.
+- Updated `README.md` to feature the Docker Compose deployment instructions as the primary guide, and removed legacy shell/firewall scripts.
+
 
 ### 2026-06-17
 
