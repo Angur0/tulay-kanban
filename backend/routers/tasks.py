@@ -47,7 +47,12 @@ def get_board_tasks(board_id: str, current_user: models.User = Depends(get_curre
 @router.post("/api/tasks", response_model=TaskResponse)
 async def create_task(task_in: TaskCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     ensure_board_access(db, task_in.board_id, current_user, ["owner", "editor", "moderator", "member"])
-    
+
+    if task_in.assignee_id:
+        assignee = db.query(models.User).filter(models.User.id == task_in.assignee_id).first()
+        if assignee and assignee.is_admin:
+            raise HTTPException(status_code=400, detail="Cannot assign tasks to the system administrator")
+
     task_data = task_in.model_dump(exclude={"label_ids", "order"})
 
     if task_in.order is None:
@@ -144,6 +149,11 @@ async def update_task(task_id: str, updates: dict, current_user: models.User = D
         raise HTTPException(status_code=404, detail="Task not found")
 
     ensure_board_access(db, task.board_id, current_user, ["owner", "editor", "moderator", "member"])
+
+    if updates.get("assignee_id"):
+        assignee = db.query(models.User).filter(models.User.id == updates["assignee_id"]).first()
+        if assignee and assignee.is_admin:
+            raise HTTPException(status_code=400, detail="Cannot assign tasks to the system administrator")
 
     new_column_id = updates.get("column_id")
     if new_column_id and new_column_id != task.column_id:

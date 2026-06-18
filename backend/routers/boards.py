@@ -258,7 +258,7 @@ def get_board_members(board_id: str, current_user: models.User = Depends(get_cur
     results = []
     for member in memberships:
         user = db.query(models.User).filter(models.User.id == member.user_id).first()
-        if user:
+        if user and not user.is_admin:
             role = member._mapping["role"] if hasattr(member, "_mapping") else member[2]
             results.append({
                 "user_id": user.id,
