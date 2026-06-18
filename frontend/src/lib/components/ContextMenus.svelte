@@ -8,6 +8,7 @@
         setDeleteListTarget,
         setEditListTarget,
         setEditBoardTarget,
+        setDeleteTaskTarget,
     } from "$lib/stores/board";
     import { currentBoardRole } from "$lib/stores/user";
     import { openModal } from "$lib/stores/ui";
@@ -132,11 +133,10 @@
         closeContextMenu();
     }
 
-    async function onDeleteTask() {
+    function onDeleteTask() {
         if (!$contextMenu?.task || !canDeleteTask) return;
-        if (!confirm("Delete this task?")) return;
-        await deleteTask($contextMenu.task.id);
-        await loadColumnsAndTasks();
+        setDeleteTaskTarget($contextMenu.task);
+        openModal("deleteTaskModal");
         closeContextMenu();
     }
 </script>
