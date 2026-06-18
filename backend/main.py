@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 
 from backend import models
 from backend.core import realtime
-from backend.core.setup import ensure_board_icon_column, ensure_task_order_column, ensure_column_parameters, ensure_user_admin_columns, ensure_task_orphaned_column, remove_test_user, seed_admin, ensure_system_settings
+from backend.core.setup import ensure_board_icon_column, ensure_task_order_column, ensure_column_parameters, ensure_user_admin_columns, ensure_task_orphaned_column, ensure_task_date_columns, remove_test_user, seed_admin, ensure_system_settings
 from backend.database import engine
 from backend.routers import auth, boards, labels, misc, tasks, workspaces, admin
 from backend.storage import get_storage_backend
@@ -25,6 +25,7 @@ ensure_task_order_column()
 ensure_column_parameters()
 ensure_user_admin_columns()
 ensure_task_orphaned_column()
+ensure_task_date_columns()
 remove_test_user()
 seed_admin()
 ensure_system_settings()

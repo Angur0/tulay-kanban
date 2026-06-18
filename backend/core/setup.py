@@ -130,6 +130,22 @@ def ensure_task_orphaned_column():
             conn.execute(text("ALTER TABLE tasks ADD COLUMN is_orphaned BOOLEAN DEFAULT FALSE NOT NULL"))
 
 
+def ensure_task_date_columns():
+    """Ensure start_date and due_date exist on tasks"""
+    inspector = inspect(engine)
+    columns = {col["name"] for col in inspector.get_columns("tasks")}
+
+    if "start_date" not in columns:
+        print("Adding start_date column to tasks table...")
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN start_date TIMESTAMP"))
+
+    if "due_date" not in columns:
+        print("Adding due_date column to tasks table...")
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN due_date TIMESTAMP"))
+
+
 def remove_test_user():
     """Remove test@example.com user and all cascading relationships if exists"""
     db = SessionLocal()
