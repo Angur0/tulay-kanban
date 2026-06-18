@@ -60,7 +60,7 @@ async def create_task(task_in: TaskCreate, current_user: models.User = Depends(g
             .order_by(models.Task.order.desc())
             .first()
         )
-        task_data["order"] = (max_order[0] + 1) if max_order else 0
+        task_data["order"] = (max_order[0] + 1) if (max_order and max_order[0] is not None) else 0
     else:
         task_data["order"] = task_in.order
 
@@ -225,7 +225,7 @@ async def delete_task(task_id: str, current_user: models.User = Depends(get_curr
                 .order_by(models.Task.order.desc())
                 .first()
             )
-            task.order = (max_order[0] + 1) if max_order else 0
+            task.order = (max_order[0] + 1) if (max_order and max_order[0] is not None) else 0
             db.commit()
 
             # Record activity as TASK_MOVED
@@ -612,7 +612,7 @@ async def bulk_move_tasks(column_id: str, payload: ColumnBulkMove, current_user:
     max_order_row = db.query(models.Task.order).filter(
         models.Task.column_id == payload.destination_column_id
     ).order_by(models.Task.order.desc()).first()
-    start_order = (max_order_row[0] + 1) if max_order_row else 0
+    start_order = (max_order_row[0] + 1) if (max_order_row and max_order_row[0] is not None) else 0
 
     tasks_to_move = db.query(models.Task).filter(
         models.Task.column_id == column_id
@@ -659,7 +659,7 @@ async def bulk_delete_tasks(column_id: str, current_user: models.User = Depends(
         max_order_row = db.query(models.Task.order).filter(
             models.Task.column_id == archive_col.id
         ).order_by(models.Task.order.desc()).first()
-        start_order = (max_order_row[0] + 1) if max_order_row else 0
+        start_order = (max_order_row[0] + 1) if (max_order_row and max_order_row[0] is not None) else 0
 
         new_status = archive_col.title.lower().replace(" ", "")
         for idx, task in enumerate(tasks_in_col):
@@ -725,7 +725,7 @@ async def bulk_create_tasks(column_id: str, payload: ColumnBulkCreate, current_u
     max_order_row = db.query(models.Task.order).filter(
         models.Task.column_id == column_id
     ).order_by(models.Task.order.desc()).first()
-    start_order = (max_order_row[0] + 1) if max_order_row else 0
+    start_order = (max_order_row[0] + 1) if (max_order_row and max_order_row[0] is not None) else 0
 
     new_tasks = []
     status_val = col.title.lower().replace(" ", "")

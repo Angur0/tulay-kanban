@@ -50,8 +50,18 @@ export async function createTask(
         });
 
         if (!response?.ok) {
-            const err = await response?.json().catch(() => ({}));
-            throw new Error(err?.detail || 'Failed to create task');
+            let errorMsg = 'Failed to create task';
+            try {
+                const err = await response?.json();
+                if (err && err.detail) {
+                    errorMsg = Array.isArray(err.detail) ? JSON.stringify(err.detail) : err.detail;
+                } else if (response?.status) {
+                    errorMsg = `Server error ${response.status}`;
+                }
+            } catch (jsonErr) {
+                errorMsg = `Server returned ${response?.status}`;
+            }
+            throw new Error(errorMsg);
         }
 
         return (await response.json()) as import('$lib/types').Task;
