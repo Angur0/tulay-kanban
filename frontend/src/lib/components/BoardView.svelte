@@ -266,7 +266,7 @@
 </script>
 
 <div
-    class="kanban-scroll flex-1 overflow-x-auto overflow-y-hidden bg-[#f0f2f5] dark:bg-[#0d141c] p-4 md:p-8 md:ml-4 custom-scrollbar rounded-tl-none md:rounded-tl-2xl"
+    class="kanban-scroll flex-1 overflow-x-auto overflow-y-hidden bg-[#f0f2f5] dark:bg-[#0d141c] p-4 md:p-8 md:ml-8 custom-scrollbar rounded-tl-none md:rounded-tl-2xl"
 >
     <div class="responsive-board flex h-full gap-4 md:gap-6 min-w-max md:min-w-[900px]" id="board">
         {#if $columns.length === 0}

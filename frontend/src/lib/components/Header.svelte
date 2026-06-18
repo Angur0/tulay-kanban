@@ -20,7 +20,7 @@
     }
 </script>
 
-<div class="flex-shrink-0 flex flex-col bg-[#fbfcfd] dark:bg-[#151e29] border-b border-[#e5e7eb] dark:border-[#1e2936]">
+<div class="flex-shrink-0 flex flex-col bg-[#fbfcfd] dark:bg-[#151e29]">
     <header
         class="responsive-header min-h-12 px-4 md:px-8 py-2 flex items-center justify-between gap-3"
     >
